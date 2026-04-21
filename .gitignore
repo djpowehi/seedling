@@ -316,3 +316,5 @@ bower_components
 .next
 .nuxt
 .docusaurus
+# Claude private notes
+CLAUDE.local.md

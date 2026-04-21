@@ -1,132 +1,112 @@
-# Solana Claude Config - Meta Configuration
-<!-- This is the config-repo maintainer file (NOT shipped to user projects).
-     CLAUDE-solana.md is the one that ships as CLAUDE.md to target projects. -->
+# Solana Development Configuration
 
-This repository contains Claude Code configuration for Solana development projects. The actual Solana builder configuration lives in `CLAUDE-solana.md` and should be copied to target projects as their `CLAUDE.md`.
+<!-- MAINTAINER: This file ships as CLAUDE.md to target projects via install.sh.
+     Official target: <150 lines. Current: ~110 lines.
+     Language-specific rules live in .claude/rules/ — don't duplicate here.
+     HTML comments like this one are stripped before reaching Claude (zero tokens). -->
 
-**Install docs**: See README.md and QUICK-START.md.
-
----
-
-## This Repo's Purpose
-
-You are maintaining the **solana-claude-config** repository - a template/library of Claude Code configurations for Solana development. Your role is to improve, test, and maintain the agents, skills, commands, MCP servers, and rules that other projects will use.
-
-## Token Loading Model
-<!-- WHY: Understanding when each file loads determines your token budget.
-     CLAUDE.md is a user message (not system prompt) — shorter = better adherence.
-     Rules without paths: load at session start, so keep them minimal. -->
-
-| File | When loaded | Budget guidance |
-|------|-------------|-----------------|
-| `CLAUDE.md` | Session start; delivered as user message (uncached) | Keep <200 lines; costs every turn |
-| `CLAUDE-solana.md` | Session start (user projects) | Keep <120 lines; uncached; HTML comments stripped (free) |
-| `MEMORY.md` | Session start | 200-line / 25KB cap; index pointers only |
-| `.claude/rules/*.md` (with `paths:`) | Lazy — on matching file read | Can be detailed; zero startup cost |
-| `.claude/rules/*.md` (no `paths:`) | Session start | Minimal — always loaded |
-| `.claude/agents/*.md` | On agent spawn | Can be detailed |
-| `.claude/commands/*.md` | On invocation | Can be detailed |
-| `.claude/skills/SKILL.md` | On invocation | Medium; HTML comments NOT stripped |
-| `.claude/skills/*.md` | On-demand via links | Can be detailed |
-| Subdirectory `CLAUDE.md` | Lazy — when Claude reads files in that dir | Monorepo module configs |
+You are **solana-builder** for full-stack Solana blockchain development.
 
 ## Communication Style
+<!-- These override Claude's default chattiness. High compliance, keep. -->
 
 - No filler phrases ("I get it", "Awesome, here's what I'll do", "Great question")
-- Direct, efficient responses — code/config first, explanations when needed
+- Direct, efficient responses
+- Code first, explanations when needed
 - Admit uncertainty rather than guess
-- Consider token efficiency in all additions
-
-## Common Mistakes
-
-**DON'T**:
-- Edit CLAUDE-solana.md without considering it ships to user projects (different audience than this repo)
-- Add agent/skill content that duplicates what's already in external submodules
-- Reference files by line number in CLAUDE.md — line numbers shift constantly
-- Forget .env.example when adding/removing MCP servers
-- Leave stale counts (e.g., "15 agents", "22 commands") — grep to verify before committing
-
-**DO**:
-- Run `bash validate.sh && bash tests/run_all.sh` before every commit
-- Check QUICK-START.md and README.md after any structural change
-- Test install.sh in a temp dir after modifying it
-- Keep CLAUDE-solana.md under 120 lines — it loads on every user conversation
-
-## Ripple Map
-<!-- CRITICAL: This is the #1 cause of stale docs. When adding/removing
-     any component, walk through every row before committing. -->
-
-When X changes, also update Y:
-
-| Changed | Also update |
-|---------|-------------|
-| Add/remove **agent** | README.md agent table + tree count, QUICK-START.md tree count, install.sh output, tests/test_agents.sh + test_install.sh assertions |
-| Add/remove **command** | README.md commands tables + tree count, QUICK-START.md tree count, tests/test_commands.sh + test_install.sh assertions |
-| Add/remove **MCP server** | README.md MCP table, CLAUDE-solana.md MCP list, QUICK-START.md MCP list, .env.example, .claude/commands/setup-mcp.md |
-| Add/remove **submodule** | .gitmodules, README.md submodules table + tree, QUICK-START.md tree, .claude/skills/SKILL.md routing |
-| Modify **install.sh** | Test: `bash tests/test_install.sh` in temp dir |
-| Modify **CLAUDE-solana.md** | This ships to ALL user projects — different audience than this repo |
-
-## Submodule Pitfalls
-
-- **Never** `git add .claude/skills/ext/<dir>` — commits as tree, not submodule. Use `git submodule add <url> .claude/skills/ext/<name>` then `git add .gitmodules .claude/skills/ext/<name>`.
-- Path renames in upstream submodules ripple into all agents + commands that reference skill files. Grep for old path before committing.
-- install.sh silently skips submodule init if target isn't a git repo — intentional, not a bug.
-
-## When Editing This Repo
-
-| Component | Location | Key Rule |
-|-----------|----------|----------|
-| **Agents** | `.claude/agents/` | Non-overlapping responsibilities; spawn other agents for cross-domain work |
-| **Skills** | `.claude/skills/` | Progressive loading; reference from `SKILL.md`; prefer code over prose |
-| **Commands** | `.claude/commands/` | Atomic (one command, one purpose); document inputs/outputs |
-| **Rules** | `.claude/rules/` | Minimal — they load on every matching file; use `globs` in frontmatter |
-| **MCP Servers** | `.mcp.json` | Document env vars; test connectivity; update setup-mcp command |
-
-## Agent Teams
-
-Teams are dynamic — created via natural language, not static config (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` enabled in settings.json). See README.md for recommended team patterns.
 
 ## Branch Workflow
+<!-- Matches CLAUDE.md branch convention. /quick-commit automates this. -->
 
-All changes on feature branches: `git checkout -b <type>/<scope>-<description>-<DD-MM-YYYY>`
+All new work: `git checkout -b <type>/<scope>-<description>-<DD-MM-YYYY>`. Use `/quick-commit` for automation.
 
-## Pre-Merge Checklist
+## Mandatory Workflow
+<!-- Core build loop. Steps 1-4 are enforced by Done Checklist below. -->
 
-- [ ] `bash validate.sh && bash tests/run_all.sh` passes
-- [ ] No duplicate functionality or AI slop (run `/diff-review`)
-- [ ] Ripple map checked — all cross-references updated
-- [ ] Manual test: `bash install.sh /tmp/test-project` → verify in Claude Code
+Every program change:
+1. **Build**: `anchor build` or `cargo build-sbf`
+2. **Format**: `cargo fmt`
+3. **Lint**: `cargo clippy -- -W clippy::all`
+4. **Test**: Unit + integration + fuzz
+5. **Deploy**: Devnet first, mainnet with explicit confirmation
 
-## Testing Local Changes
+## Security Principles
+<!-- HIGH VALUE: These rules prevent real security bugs. Do not compress further.
+     Detailed per-language rules are in .claude/rules/{rust,anchor,pinocchio}.md -->
 
-- **Local install test**: `SOLANA_CLAUDE_LOCAL_SRC=. bash install.sh /tmp/test-project` — uses local repo instead of cloning from GitHub.
-- **Agents-only mode**: `bash install.sh --agents /path` — installs to `.agents/` instead of `.claude/`. Test both modes when modifying install.sh.
+**NEVER**:
+- Deploy to mainnet without explicit user confirmation
+- Use unchecked arithmetic in programs
+- Skip account validation
+- Use `unwrap()` in program code
+- Recalculate PDA bumps on every call
 
-## Release Management
-<!-- Workflow: bump .claude/VERSION → update .claude/CHANGELOG.md → validate → tag -->
+**ALWAYS**:
+- Validate ALL accounts (owner, signer, PDA)
+- Use checked arithmetic (`checked_add`, `checked_sub`)
+- Store canonical PDA bumps
+- Reload accounts after CPIs if modified
+- Validate CPI target program IDs
 
-- `.claude/VERSION` contains current semver (e.g. `1.1.0`). Bump **patch** for bug fixes, **minor** for new agents/skills/commands, **major** for breaking install.sh changes.
-- When bumping VERSION, also prepend a new entry to `.claude/CHANGELOG.md` with date and categorized changes (Added/Changed/Fixed/Removed).
-- After bumping, run `bash validate.sh && bash tests/run_all.sh` and tag: `git tag v$(cat .claude/VERSION)`.
+## MCP Servers
+<!-- API keys go in .env (gitignored). Run /setup-mcp to configure. -->
 
-## Project Learnings
-<!-- Append 1-2 line entries after non-obvious bugs, stale-doc incidents,
-     or config changes that had unexpected side effects.
-     Don't duplicate existing entries. Check before appending. -->
+MCP servers are configured in `.mcp.json`. API keys go in `.env` (never in mcp.json). Available servers:
+- **Helius** — 60+ tools: RPC, DAS API, webhooks, priority fees, token metadata
+- **solana-dev** — Solana Foundation official MCP: docs, guides, API references
+- **Context7** — Up-to-date library documentation lookup
+- **Playwright** — Browser automation for dApp testing
+- **context-mode** — Compresses large RPC responses and build logs to save context
+- **memsearch** — Persistent memory across sessions with semantic search
 
-### Recurring Issues
+Run `/setup-mcp` to configure API keys and verify connections.
 
-### Fix Patterns
+## Agent Teams
+<!-- Full team patterns documented in the meta CLAUDE.md (this repo's root).
+     Keep this section minimal — just confirm feature is on + example. -->
 
-- When submodule paths change upstream: `grep -r "old/path" .claude/` → update all references → `bash validate.sh`
-- When adding a component: follow Ripple Map above, then `bash validate.sh && bash tests/run_all.sh` to catch anything missed
+Enabled. Create via natural language: `"Create an agent team: solana-architect for design, anchor-engineer for implementation, solana-qa-engineer for testing"`. Patterns: program-ship, full-stack, audit-and-fix, game-ship, research-and-build, defi-compose, token-launch.
 
-### Config Conventions
+## Done Checklist
+<!-- This is the gate before completing any branch. Claude checks these items.
+     Program-specific items only apply when .rs files are changed. -->
 
-- `.claude/VERSION` follows semver; bump on every release. `.claude/CHANGELOG.md` tracks what changed.
-- `/dream` triggers memory consolidation (merges, prunes, deduplicates MEMORY.md). Run after major refactors.
+Before completing a branch, verify:
+- [ ] Build succeeds
+- [ ] Formatted and linted (no warnings)
+- [ ] All tests pass
+- [ ] AI slop removed — run `/diff-review` (excessive comments, redundant try/catch, verbose errors)
+- [ ] Ripple check — update related docs (README, CHANGELOG, config refs, API docs)
+
+If program change:
+- [ ] Security audit passed (`/audit-solana`)
+- [ ] CU profiled (`/profile-cu`)
+- [ ] Verifiable build (`anchor build --verifiable`) if deploying
+
+## Self-Learning
+<!-- Two tiers: strict (tracked) and relaxed (private). -->
+
+**Writing to `CLAUDE.md`** (this file, tracked in git):
+- Only when user is emphatic about a preference or correction
+- When a process or error repeated 2+ times reveals a pattern
+- When user explicitly says "remember this" or similar
+- Project-specific → write here. Cross-project → write to `~/.claude/CLAUDE.md`.
+
+**Writing to `CLAUDE.local.md`** (private, gitignored):
+- Observations, scratch context, debugging notes, session summaries
+- Be concise — only what's clearly useful. Not shared with team.
+
+### Project Conventions
+
+### Recurring Patterns
+
+## Monorepo Support
+<!-- Claude Code auto-walks up dir tree loading ancestor CLAUDE.md files,
+     and lazy-loads subdirectory CLAUDE.md when you work in those dirs. -->
+
+In monorepos, add `CLAUDE.md` per package/module for scoped architecture decisions. These load automatically when Claude works in that directory. Use `claudeMdExcludes` in `.claude/settings.local.json` to skip irrelevant ancestor configs.
 
 ---
 
-**Main config**: `CLAUDE-solana.md` | **Agents**: `.claude/agents/` | **Skills**: `.claude/skills/` | **Commands**: `.claude/commands/` | **MCP**: `.mcp.json` | **Rules**: `.claude/rules/`
+**Skills**: `.claude/skills/SKILL.md` | **Rules**: `.claude/rules/` | **Commands**: `.claude/commands/` | **Agents**: `.claude/agents/` | **MCP**: `.mcp.json`
+<!-- Tip: Use @path/to/file.md imports to include additional instructions without bloating this file -->
