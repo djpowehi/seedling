@@ -42,7 +42,7 @@
 **One-liner:** A Solana protocol that lets parents deposit USDC once, streams yield-bearing allowance to their kids continuously, and accumulates a summer bonus from DeFi yield.
 **Category:** Consumer fintech / PayFi / DeFi
 **Target hackathon:** Colosseum Frontier Hackathon (April 6 – May 11, 2026)
-**Founder:** Vincenzo Tulio, 16 years old, Brazil
+**Founder:** Vicenzo Tulio, 16 years old, Brazil
 **Domain:** seedlingsol.xyz
 **X/Twitter:** @seedling_sol
 **Age eligibility:** Approved by Colosseum (obtained via hello@colosseum.com)
@@ -64,8 +64,8 @@
 
 - Parent deposits USDC once into Seedling vault
 - Vault CPIs into Kamino for ~8% APY lending yield
-- Monthly allowance streams to kid's on-chain position continuously (via SVS-5 streaming yield vault)
-- Yield accumulates as a "summer bonus" payout
+- Monthly allowance (principal + share of net yield) transfers to kid's position on the 1st of each month
+- Accumulated net yield pays out as a "summer bonus" / 13th allowance at period end
 - Parent withdraws to offramp (p2p.me in BR, MoonPay/Coinbase in US) when kid needs cash
 
 ### Why Solana
@@ -121,13 +121,13 @@
 | Decision | Choice | Rationale |
 |---|---|---|
 | Asset | USDC only | Stable, deep Kamino liquidity, GENIUS Act compliant |
-| Vault variant | SVS-5 (Streaming Yield Vault) | Continuous yield streaming matches allowance UX; eliminates discrete monthly cron |
+| Vault variant | Custom ERC-4626-style shares vault (patterns from SVS); NOT streaming | Monthly allowance is a discrete event ("1st of the month"); streaming fights the product metaphor and judges' mental model |
 | Yield source | Kamino lending protocol | $3.6B TVL, institutional-grade, open source (klend) |
 | Family model | One FamilyPosition per parent-kid pair | Supports multiple kids per parent from day one |
 | Custody | Parent has authority, kid has view-only PDA | No minor-custody problem; parent handles offramp |
-| Distribution | Continuous streaming via SVS-5 | Matches product metaphor (growth over time) |
+| Distribution | Discrete: monthly allowance (30-day rolling gate) + period-end bonus | Matches real-world allowance UX; deterministic on-chain time check; no timezone drift |
 | Keeper | Seedling operates in practice, permissionless at protocol level | Trust-building + decentralization signal |
-| Protocol fee | 10% of yield (NOT of principal, NOT of Kamino base APY) | Implemented in v1 |
+| Protocol fee | 10% of ALL yield at each harvest event (NOT of principal). Applies on every monthly harvest AND period-end bonus harvest, not bonus-only. | Matches S7 revenue projections ($30M TVL × 8% APY × 10% = $240K/yr). Bonus-only would leave ~11mo of yield fees on the table. |
 | Fiat offramp | Not in v1, parent handles manually | Scope discipline |
 | Kid spending | Not in v1, parent offramps on demand | Scope discipline |
 
@@ -166,7 +166,7 @@
 
 - **Development:** localnet first (speed), then devnet for demo
 - **Mainnet:** post-hackathon only
-- **Keeper script:** Node.js, runs on cron, calls `harvest_yield` daily
+- **Keeper script:** Node.js, runs on cron. Daily: calls `distribute_monthly_allowance` for each family whose 30-day gate has elapsed. Period-end: calls `distribute_bonus` for each family.
 - **Keeper hosting (post-hackathon):** Railway or Fly.io free tier
 
 ---
@@ -179,24 +179,30 @@
 - `authority: Pubkey` — Seedling admin (can pause, update fee)
 - `treasury: Pubkey` — where the 10% protocol fee accumulates
 - `fee_bps: u16` — protocol fee in basis points (1000 = 10%)
-- `svs5_vault: Pubkey` — address of the SVS-5 streaming vault Seedling wraps
 - `kamino_reserve: Pubkey` — USDC reserve on Kamino
+- `usdc_mint: Pubkey` — cached for account validation
+- `total_shares: u64` — global share supply across all families
+- `last_known_total_assets: u64` — snapshot of `cTokens × exchange_rate` at last harvest; used to compute yield delta on each instruction
+- `period_end_ts: i64` — next bonus-distribution period boundary (UTC)
+- `current_period_id: u32` — monotonic period counter
 - `is_paused: bool`
 - `bump: u8`
 
-PDA seeds: `["vault_config"]`
+PDA seeds: `["vault_config"]`. Note: no `svs5_vault` field — Seedling is a standalone ERC-4626-style vault, NOT a wrapper around SVS-5 (see §9).
 
 ### Per-family state
 
 **`FamilyPosition`** — one per parent-kid pair
-- `parent: Pubkey` — parent's wallet (authority over this position)
-- `kid: Pubkey` — kid's PDA (view-only; derived)
-- `shares: u64` — shares of the SVS-5 vault owned by this family
-- `principal_deposited: u64` — total USDC deposited (for accounting)
-- `stream_rate: u64` — USDC/month configured by parent
+- `parent: Pubkey` — parent's wallet (authority over this position; `has_one` target)
+- `kid: Pubkey` — kid's pubkey (the `KidView` PDA is derived from it)
+- `shares: u64` — this family's share of the global vault pool
+- `principal_deposited: u64` — lifetime USDC deposited (monotonic, for dashboard)
+- `principal_remaining: u64` — USDC principal still in the vault (decreases on monthly allowance + withdraw; used to compute bonus amount)
+- `stream_rate: u64` — USDC/month configured by parent (6-decimals)
 - `created_at: i64` — unix timestamp
-- `last_harvest: i64` — last time yield was harvested for this position
-- `total_yield_earned: u64` — lifetime yield earned (for dashboard)
+- `last_distribution: i64` — last time the monthly allowance was paid; set to `created_at` on `create_family` so first distribution can only fire 30 days after onboarding
+- `last_bonus_period_id: u32` — prevents double-paying a bonus in the same period
+- `total_yield_earned: u64` — lifetime yield credited to this family (for dashboard)
 - `bump: u8`
 
 PDA seeds: `["family", parent_pubkey, kid_pubkey]`
@@ -215,82 +221,159 @@ Note: kid never signs transactions in v1. This PDA exists so the kid-facing URL 
 
 ## 7. Anchor Program Instructions
 
+### Shared helper: `harvest_and_fee(ctx) -> Result<YieldHarvested>`
+
+**Single source of truth for yield accounting. Lives in `programs/seedling/src/utils/harvest.rs` and is called from deposit, withdraw, distribute_monthly_allowance, and distribute_bonus — four call sites, ONE implementation. Do not inline this logic.**
+
+Called BEFORE any shares math in every financial instruction. Returns `YieldHarvested { gross_yield, fee_to_treasury, net_yield_retained }` for the caller to log.
+
+Flow:
+1. CPI `refresh_reserve(reserve, oracles...)` — Kamino rejects operations against stale prices
+2. Compute `total_assets_now = vault_ctoken_ata.amount × reserve.collateral_exchange_rate()`
+3. `gross_yield = saturating_sub(total_assets_now, vault_config.last_known_total_assets)` — saturating because redemptions can temporarily make this go negative between CPIs; treat as zero yield
+4. If `gross_yield > 0`:
+   - `fee = floor(gross_yield × vault_config.fee_bps / 10_000)`
+   - CPI `redeem_reserve_collateral` for `fee` USDC, transfer to `treasury_usdc_ata`
+5. Update `vault_config.last_known_total_assets = total_assets_now − fee` (net of what we just took out)
+6. Return `YieldHarvested { gross_yield, fee_to_treasury: fee, net_yield_retained: gross_yield - fee }`
+
+**CU budget warning:** `refresh_reserve` alone is 80–150k CU (scales with oracle accounts), `deposit_reserve_liquidity` is 50–80k, and vault logic adds ~50k more — realistic per-tx budget is 250–300k. Client-side preamble: `ComputeBudgetProgram::set_compute_unit_limit(400_000)` as the starting value; bump to 600k or 800k if tests hit CU exhaustion. **Debugging hook: CU exhaustion surfaces as opaque "transaction failed" with no useful detail — if Day-1 scratch test produces a vague failure, check CU limits BEFORE anything else.**
+
+**Invariant enforced by this helper:** After it returns, `vault_config.last_known_total_assets` represents the vault's net USDC-denominated value right before the caller's business logic mutates shares or principal.
+
+---
+
+### Invariant assertions (enforced in code, tested in LiteSVM)
+
+Every instruction that mutates shares MUST assert the following before exiting (helper: `assert_shares_invariant(vault_config, &family_positions)`):
+
+```
+vault_config.total_shares == sum(family_position.shares for all families)
+```
+
+For runtime (not every instruction can afford to iterate all families): maintain the invariant by only ever mutating `vault_config.total_shares` and `family_position.shares` together by the same delta, enforced by the helper function `mint_family_shares(vault_config, family, delta)` / `burn_family_shares(vault_config, family, delta)`. Both callers MUST go through these helpers — never mutate the fields directly.
+
+For testing: LiteSVM integration tests iterate all created family PDAs via `get_program_accounts` after every operation and assert the equality. Catches the class of bug where one path updates `vault_config.total_shares` but not the family side (or vice versa).
+
+---
+
 ### Core (must ship)
 
 #### 1. `initialize_vault`
 - **Signer:** Authority (Seedling admin keypair)
-- **Purpose:** One-time setup. Creates VaultConfig, initializes SVS-5 vault, sets Kamino reserve reference.
-- **Accounts:** vault_config (init), authority (signer), svs5_vault, kamino_reserve, system_program
-- **Called:** Once at protocol deployment
+- **Purpose:** One-time setup. Creates `VaultConfig` PDA, records Kamino reserve reference and USDC mint, opens the vault.
+- **Accounts:** vault_config (init), authority (signer), kamino_reserve, usdc_mint, vault_usdc_ata (init, ATA owned by vault_config PDA), vault_ctoken_ata (init, owned by vault_config PDA), treasury_usdc_ata, system_program, token_program, associated_token_program, rent
+- **State set:** `authority`, `treasury`, `fee_bps = 1000`, `kamino_reserve`, `usdc_mint`, `is_paused = false`, `last_known_total_assets = 0`, `period_end_ts` (configurable), `bump`
+- **Emits:** `VaultInitialized { authority, treasury, kamino_reserve, ts }`
+- **Called:** Once at protocol deployment. No SVS-5 CPI — Seedling owns its own shares accounting.
 
 #### 2. `create_family`
 - **Signer:** Parent
 - **Purpose:** Register a new family position for parent-kid pair.
-- **Accounts:** family_position (init), kid_view (init), parent (signer), kid_pubkey, vault_config, system_program
-- **Params:** stream_rate (USDC/month)
+- **Accounts:** family_position (init at `["family", parent, kid]`), kid_view (init at `["kid", parent, kid]`), parent (signer), kid_pubkey, vault_config, system_program
+- **Params:** `stream_rate: u64` (USDC/month, 6-decimals)
+- **State set:** `parent`, `kid`, `shares = 0`, `principal_deposited = 0`, `principal_remaining = 0`, `stream_rate`, `created_at = now`, **`last_distribution = now`** (prevents immediate month-1 drain), `last_bonus_period_id = 0`, `total_yield_earned = 0`, `bump`
+- **Emits:** `FamilyCreated { family, parent, kid, stream_rate, ts }`
 - **Validations:**
-  - Stream rate > 0
-  - Stream rate <= MAX_STREAM_RATE (sanity cap, e.g., $1000/month)
-  - Family position doesn't already exist for this parent-kid pair
-  - Vault not paused
+  - `stream_rate > 0`
+  - `stream_rate <= MAX_STREAM_RATE` (sanity cap, e.g., $1000/month)
+  - Family position doesn't already exist (Anchor `init` enforces)
+  - `vault_config.is_paused == false`
 
 #### 3. `deposit`
 - **Signer:** Parent
-- **Purpose:** Parent deposits USDC → Seedling → CPIs into Kamino → mints shares to family position.
-- **Accounts:** family_position, parent (signer), parent_usdc_ata, vault_usdc_ata, svs5_vault, svs5_shares_mint, family_shares_ata, kamino_reserve, kamino_liquidity_supply, kamino_collateral_mint, token_program, kamino_program
-- **Params:** amount (USDC)
+- **Purpose:** Parent deposits USDC → CPI into Kamino → family shares minted pro-rata.
+- **Accounts:** family_position (mut), parent (signer, `has_one` on family_position), parent_usdc_ata (mut), vault_usdc_ata (mut), vault_ctoken_ata (mut), treasury_usdc_ata (mut), vault_config, kamino_reserve (mut) + full RefreshReserve + DepositReserveLiquidity account set (see §8), token_program, kamino_program
+- **Params:** `amount: u64`, `min_shares_out: u64`
 - **Flow:**
-  1. Transfer USDC from parent to vault
-  2. CPI to SVS-5 deposit → mints SVS-5 shares to vault
-  3. CPI to Kamino deposit_reserve_liquidity → vault receives cTokens
-  4. Update family_position.shares, principal_deposited
+  1. Transfer `amount` USDC from parent → `vault_usdc_ata`
+  2. Call `harvest_and_fee(ctx)` (shared helper — refresh_reserve + yield delta + 10% fee skim). Capture returned `YieldHarvested`.
+  3. CPI `deposit_reserve_liquidity(amount)` → `vault_ctoken_ata` receives cTokens
+  4. **Shares math (kvault pattern):** if `vault_config.total_shares == 0`: `shares_minted = amount`. Else: `shares_minted = floor(vault_config.total_shares × amount / ceil(total_assets_post_deposit − amount))` — the denominator is the pool size BEFORE this deposit's USDC entered (post-harvest, pre-deposit). Inflation protection via ceiling on denominator — no virtual-offset field.
+  5. `require!(shares_minted >= min_shares_out)`
+  6. `mint_family_shares(vault_config, family, shares_minted)` — single helper updates BOTH `vault_config.total_shares` AND `family_position.shares` atomically (invariant enforcement)
+  7. `family_position.principal_deposited += amount` (monotonic lifetime counter); `family_position.principal_remaining += amount`
+  8. Update `vault_config.last_known_total_assets` to reflect the just-deposited cTokens
+  9. `emit!(Deposited { family, parent, amount, shares_minted, fee_to_treasury: harvest.fee_to_treasury, ts })`
 - **Validations:**
-  - Amount > 0
-  - Parent owns the family_position
+  - `amount > 0`
+  - `has_one = parent` on family_position
   - Vault not paused
-  - Parent has sufficient USDC
-  - Slippage: minSharesOut protection
+  - Parent has sufficient USDC (SPL transfer fails otherwise)
+  - Slippage: `min_shares_out` guard
 
-#### 4. `harvest_yield`
-- **Signer:** Permissionless (anyone can call)
-- **Purpose:** Redeems ctokens from Kamino, pulls yield back, calls SVS-5 distribute_yield to stream it.
-- **Accounts:** vault_config, svs5_vault, kamino_reserve, treasury_usdc_ata, vault_usdc_ata, kamino_program, svs5_program
+#### 4. `distribute_monthly_allowance` (was `harvest_yield`)
+- **Signer:** Permissionless (keeper or anyone)
+- **Purpose:** On the monthly gate, harvest yield, take 10% fee, transfer the family's `stream_rate` USDC to the kid's ATA. Called per family.
+- **Accounts:** vault_config, family_position (mut), parent_authority (for has_one only, not signer), kid_view, kid_usdc_ata (mut), treasury_usdc_ata (mut), vault_usdc_ata (mut), vault_ctoken_ata (mut), kamino_reserve (mut) + full RefreshReserve + RedeemReserveCollateral account set (see §8), token_program, kamino_program
 - **Flow:**
-  1. Check how much yield has accrued in Kamino since last harvest
-  2. Redeem yield portion (not principal) from Kamino
-  3. Take 10% protocol fee to treasury
-  4. Call SVS-5 `distribute_yield(yield_amount * 0.9, stream_duration)` to stream remaining 90%
+  1. `require!(now >= family_position.last_distribution + 30*86_400)` — deterministic 30-day gate. Calendar-month accuracy is a UX-layer concern; on-chain we prefer timestamps that can't drift or be manipulated by timezone.
+  2. Call `harvest_and_fee(ctx)` (shared helper — refresh + 10% fee skim). Capture returned `YieldHarvested`.
+  3. CPI `redeem_reserve_collateral` for `stream_rate` USDC worth of cTokens
+  4. Burn family shares: `shares_to_burn = ceil(stream_rate × vault_config.total_shares / total_assets_after_harvest)`. Use `burn_family_shares(vault_config, family, shares_to_burn)` helper to maintain invariant.
+  5. **Principal-first drawdown (LOCKED):**
+     - `principal_drawdown = min(stream_rate, family_position.principal_remaining)`
+     - `yield_drawdown = stream_rate − principal_drawdown`
+     - `family_position.principal_remaining -= principal_drawdown`
+     - `family_position.total_yield_earned += yield_drawdown` (lifetime yield received by this kid)
+  6. Transfer `stream_rate` USDC from `vault_usdc_ata` → `kid_usdc_ata`
+  7. Update `family_position.last_distribution = now`
+  8. `assert_shares_invariant(vault_config, &family_positions)` (LiteSVM test hook; on-chain the atomic helpers in step 4 are sufficient)
+  9. `emit!(MonthlyAllowanceDistributed { family, kid, stream_rate, principal_drawdown, yield_drawdown, fee_to_treasury: harvest.fee_to_treasury, ts })`
 - **Validations:**
-  - Yield amount > minimum threshold (avoid dust harvests)
+  - 30-day gate elapsed
   - Vault not paused
-- **Note:** This is the permissionless crank. Seedling runs it daily via keeper script.
+  - `family_position.shares > 0`
+  - Post-burn shares non-negative
+- **Note:** This is the permissionless crank. Seedling runs it daily via keeper, fires only for families whose gate has elapsed.
 
-#### 5. `withdraw`
+#### 5. `distribute_bonus` (period-end 13th allowance)
+- **Signer:** Permissionless (keeper)
+- **Purpose:** At configured period end (default: once per calendar year, e.g. Dec 1 UTC), sweep each family's accumulated net yield to the kid.
+- **Accounts:** Same set as instruction #4, plus vault_config (mut for period rollover)
+- **Params:** `period_id: u32` — used to prevent double-payout per period
+- **Flow:**
+  1. `require!(family_position.last_bonus_period_id < vault_config.current_period_id)` and `now >= vault_config.period_end_ts`
+  2. Call `harvest_and_fee(ctx)` (shared helper). Capture returned `YieldHarvested`.
+  3. Compute family's claim at post-harvest share price:
+     - `family_assets = floor(family_position.shares × total_assets_after_harvest / vault_config.total_shares)`
+     - `bonus = saturating_sub(family_assets, family_position.principal_remaining)` — saturating because monthly drawdowns have already taken principal out, so `family_assets` ≥ `principal_remaining` is the normal case, but we defend against off-by-one
+  4. `require!(bonus > DUST_THRESHOLD)` (avoid zero-value tx; default 0.01 USDC = 10_000 base units)
+  5. CPI `redeem_reserve_collateral` for `bonus` USDC
+  6. Burn `shares_to_burn = ceil(bonus × vault_config.total_shares / total_assets_after_harvest)` via `burn_family_shares` helper
+  7. **Principal does NOT change** — bonus is pure yield by definition (`family_assets − principal_remaining`). `family_position.total_yield_earned += bonus`
+  8. Transfer `bonus` USDC → `kid_usdc_ata`
+  9. `family_position.last_bonus_period_id = vault_config.current_period_id`
+  10. `emit!(BonusDistributed { family, kid, amount: bonus, fee_to_treasury: harvest.fee_to_treasury, period_id: vault_config.current_period_id, ts })`
+- **Validations:** same as #4 plus period-id guard.
+
+#### 6. `withdraw`
 - **Signer:** Parent
-- **Purpose:** Parent burns shares, receives USDC back.
-- **Accounts:** family_position, parent (signer), parent_usdc_ata, vault_usdc_ata, svs5_vault, family_shares_ata, kamino_reserve, kamino_program, svs5_program, token_program
-- **Params:** shares_to_burn
+- **Purpose:** Parent burns family shares, receives USDC back.
+- **Accounts:** family_position (mut), parent (signer), parent_usdc_ata (mut), vault_usdc_ata (mut), vault_ctoken_ata (mut), treasury_usdc_ata (mut), kamino_reserve (mut) + full Refresh/Redeem account set, token_program, kamino_program
+- **Params:** `shares_to_burn: u64`, `min_assets_out: u64`
 - **Flow:**
-  1. Calculate USDC owed using SVS-5 preview_redeem
-  2. Redeem required USDC from Kamino
-  3. Burn SVS-5 shares
-  4. Transfer USDC to parent
-  5. Update family_position
+  1. Call `harvest_and_fee(ctx)` (shared helper — refresh + 10% fee skim on accrued yield). Capture `YieldHarvested`.
+  2. `assets_out = floor(shares_to_burn × total_assets_after_harvest / vault_config.total_shares)`
+  3. `require!(assets_out >= min_assets_out)` — slippage guard
+  4. CPI `redeem_reserve_collateral` for `assets_out` USDC
+  5. `burn_family_shares(vault_config, family, shares_to_burn)` — atomic helper
+  6. **Principal-first drawdown** (same rule as monthly): `principal_drawdown = min(assets_out, family_position.principal_remaining)`; `yield_drawdown = assets_out − principal_drawdown`; update `principal_remaining` and `total_yield_earned` accordingly
+  7. Transfer USDC to parent
+  8. `emit!(Withdrawn { family, parent, shares_burned: shares_to_burn, assets_out, principal_drawdown, yield_drawdown, fee_to_treasury: harvest.fee_to_treasury, ts })`
 - **Validations:**
-  - Shares > 0
-  - Parent owns the family_position
-  - Shares <= family_position.shares
+  - `shares_to_burn > 0 && shares_to_burn <= family_position.shares`
+  - `has_one = parent` on family_position
   - Vault not paused
-  - Slippage: minAssetsOut protection
+  - Slippage guard above
 
 ### Nice-to-have (if time permits)
 
-#### 6. `pause` / `unpause`
+#### 7. `pause` / `unpause`
 - **Signer:** Authority
-- **Purpose:** Emergency controls
-- **Note:** SVS-5 has this natively; Seedling wraps it.
+- **Purpose:** Emergency controls. Seedling-native flag on `VaultConfig` — not wrapped from SVS.
 
-#### 7. `update_stream_rate`
+#### 8. `update_stream_rate`
 - **Signer:** Parent
 - **Purpose:** Parent changes kid's monthly allowance
 - **Accounts:** family_position, parent (signer)
@@ -313,37 +396,70 @@ Note: kid never signs transactions in v1. This PDA exists so the kid-facing URL 
 
 1. Add `klend-interface` as dependency in Seedling's `programs/seedling/Cargo.toml`
 2. Import CPI helpers from the interface
-3. Call `deposit_reserve_liquidity(ctx, amount)` and `redeem_reserve_liquidity(ctx, amount)` via CPI
-4. Seedling holds the cTokens (Kamino's yield-bearing receipt)
+3. Call `deposit_reserve_liquidity(ctx, liquidity_amount)` and `redeem_reserve_collateral(ctx, collateral_amount)` via CPI (note: redemption is `redeem_reserve_collateral`, not `..._liquidity`)
+4. **Always prepend `refresh_reserve`** in the same transaction — Kamino rejects deposits/redeems against stale oracle prices
+5. Seedling holds the cTokens (Kamino's yield-bearing receipt)
 
-### Required accounts for Kamino CPI (typical)
+### Required accounts for `deposit_reserve_liquidity` (verified Apr 23 against klend source)
 
-For `deposit_reserve_liquidity`:
-- user_source_liquidity (vault's USDC ATA)
-- user_destination_collateral (vault's cToken ATA)
-- reserve
-- reserve_liquidity_supply
-- reserve_collateral_mint
-- lending_market
-- lending_market_authority
-- user_transfer_authority
-- pyth_price_oracle (or Kamino's oracle infrastructure)
+| # | Account | Type | Notes |
+|---|---|---|---|
+| 1 | owner | Signer | vault PDA signs via CPI |
+| 2 | reserve | AccountLoader<Reserve>, mut | has_one = lending_market |
+| 3 | lending_market | AccountLoader<LendingMarket> | |
+| 4 | lending_market_authority | AccountInfo | PDA `[LENDING_MARKET_AUTH, lending_market]` |
+| 5 | reserve_liquidity_mint | InterfaceAccount<Mint> | == reserve.liquidity.mint_pubkey |
+| 6 | reserve_liquidity_supply | InterfaceAccount<TokenAccount>, mut | == reserve.liquidity.supply_vault |
+| 7 | reserve_collateral_mint | InterfaceAccount<Mint>, mut | == reserve.collateral.mint_pubkey |
+| 8 | user_source_liquidity | InterfaceAccount<TokenAccount>, mut | vault's USDC ATA |
+| 9 | user_destination_collateral | InterfaceAccount<TokenAccount>, mut | vault's cToken ATA |
+| 10 | collateral_token_program | Program<Token> | plain SPL |
+| 11 | liquidity_token_program | Interface<TokenInterface> | Token-2022 compat |
+| 12 | instruction_sysvar_account | AccountInfo | introspection guard |
 
-### Day-1 scratch test
+`redeem_reserve_collateral` is the same 12 accounts with user-side legs swapped (`user_source_collateral`, `user_destination_liquidity`).
 
-Before integrating with SVS-5, build a standalone Anchor program that:
-1. Deposits $1 USDC into Kamino's devnet USDC reserve
-2. Waits 60 seconds
-3. Redeems the cTokens and checks if balance > $1
+### Oracle wiring is reserve-specific (not hardcodeable)
 
-If this works: proceed with Seedling integration.
-If this fails or is painful: pivot to **mock yield source** for v1 (hardcoded 8% APY, no Kamino CPI). This is the day-5 checkpoint decision.
+`refresh_reserve` takes OPTIONAL pyth / switchboard_price / switchboard_twap / scope_prices accounts. Which set a specific reserve needs is stored in its on-chain config. **We cannot hardcode "use pyth" — the program must adapt.**
 
-### Risk mitigations
+**Approach for Seedling's Rust CPI:**
+1. During `initialize_vault`, read the target reserve's `config.liquidity.pyth_oracle / switchboard_oracle / scope_oracle_configuration` fields
+2. Cache those pubkeys on `VaultConfig` (new fields: `oracle_pyth: Pubkey`, `oracle_switchboard_price: Pubkey`, `oracle_switchboard_twap: Pubkey`, `oracle_scope: Pubkey` — zero-pubkey means "not used")
+3. Require exactly those accounts in every CPI instruction; validate each against the cached pubkey
+4. Pass them into the CPI as optional accounts (None/Some pattern) based on whether they're zero-pubkey
 
-- Kamino CPI may be fiddly (oracle integration, account configurations)
-- Devnet USDC reserve may not exist or may behave differently from mainnet
-- If Kamino integration eats >5 days: **cut scope, use mock yield, ship roadmap claim that "real Kamino integration ships post-hackathon week 1"**
+This avoids the "works on one reserve, breaks on the next" class of bug and makes the program reserve-agnostic.
+
+### Devnet target (verified Apr 23 2026 — Kamino devnet is ALIVE)
+
+| Field | Value |
+|---|---|
+| Devnet USDC mint | `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` (Circle) |
+| Primary market | `6aaNTBEmwdN19AAdTwbNrWyUo6iEyiLguxCTePEzSqoH` |
+| Primary USDC reserve | `HRwMj8uuoGVWCanKzKvpTWN5ZvXjtjKGxcFbn2qTPKMW` (status Active, ~1.1M USDC supply, non-Vicenzo activity Apr 20–21) |
+| cUSDC mint on this reserve | `6FY2rwh5wWrtSveAG9t9ANc2YsrChNasVSEpMQubJcXd` |
+| Backup USDC reserve #1 | `8xnJfxrbiYrKBBbGJ2aBMHWKhkAQ7veKVVNPL9DfYNhu` (market `DFwjqtUtNRFFddFVkoScE4DUdhHBTPW5Vw5KXupGcyWs`) |
+| Backup USDC reserve #2 | `6jrwyGApj9dGXJArBCfFbUeRMMMv5M5oApyxChvt7986` (market `66ARS8zdM9NJocZB1ixKVedoPsbfbzWXXjozGZhUASU`) |
+
+If the primary reserve is deprecated by Kamino before submission, drop in backup #1. If #1 dies too, #2. All 8 discovered USDC reserves are listed in `scratch/src/scratch.ts:CANDIDATE_MARKETS`.
+
+### Compute budget budget (measured, not guessed)
+
+Day-1 scratch test: Kamino deposit bundle (setup 2 ix + lending 1 ix + cleanup 0 ix) fits inside **600k CU** on devnet.
+
+Seedling's deposit will add `harvest_and_fee` (refresh + yield math + conditional fee redeem) on top. **Start the client-side limit at 700k; instrument the first real deposit with `sol_log_compute_units!()`; set the limit to `measured × 1.3` thereafter.** Don't over-budget (wastes block space) and don't under-budget (opaque failures).
+
+### Day-1 scratch test (status: PASSED Apr 23 2026)
+
+All 4 criteria passed in T+20min of coding. Gory details and working code at `scratch/src/scratch.ts`. Go/no-go = **GO on devnet.**
+
+### CPI surprises found during scratch test (apply when writing the Rust program)
+
+1. **klend-sdk is kit (web3.js 2.0) native.** Returns `IInstruction` with `programAddress: Address` + numeric `role` flags, not legacy `TransactionInstruction`. Only matters for TS clients. Our Rust CPI is unaffected.
+2. **`KaminoMarket.load()` does NOT preload reserves** — must call `await market.loadReserves()` after. Frontend needs to know this.
+3. **SDK uses `===` for Address equality.** Fresh-constructed `address("xxx")` ≠ SDK's internally-stored form. Always fetch the mint via `reserve.getLiquidityMint()`. Saves 30 min of "reserve not found in market" debugging.
+4. **The reserve we hit had zero oracle friction.** Lucky, not general. See "Oracle wiring is reserve-specific" above.
 
 ---
 
@@ -353,7 +469,7 @@ If this fails or is painful: pivot to **mock yield source** for v1 (hardcoded 8%
 
 - **Program ID (devnet/localnet):** `HCp23XHzV4HJHXwLWwQj8aSTU1yjyzj8FCNLe6NybwXt`
 - **Variant:** Streaming Yield Vault (public, not encrypted)
-- **Background:** Vincenzo won the SVS hackathon with SVS-5 and SVS-6 — deeply familiar codebase
+- **Background:** Vicenzo won the SVS hackathon with SVS-5 and SVS-6 — deeply familiar codebase
 - **SDK:** `@stbr/solana-vault` via npm
 - **Docs file:** `docs/SVS-5.md` in the solana-vault-standard repo
 
@@ -394,10 +510,22 @@ If this fails or is painful: pivot to **mock yield source** for v1 (hardcoded 8%
 - Next.js 14, app router
 - Tailwind CSS
 - shadcn/ui components
-- `@solana/wallet-adapter-react` for wallet connection (Phantom, Solflare)
-- `@stbr/solana-vault` for SVS-5 interactions
+- **web3.js 1.x + @coral-xyz/anchor** (legacy) — NOT @solana/kit
+- `@solana/wallet-adapter-react` for wallet connection (Phantom, Solflare) — legacy-compatible
 - Vercel hosting, GitHub auto-deploy
 - Domain: seedlingsol.xyz
+
+### Kit/legacy fence decision (LOCKED Apr 23 2026)
+
+**Frontend is legacy-native (web3.js 1.x + @coral-xyz/anchor). Kamino SDK calls go through a single `app/lib/kamino-bridge.ts` module that handles the kit→legacy conversion. Everywhere else stays legacy.**
+
+**Why legacy:**
+- Anchor 0.31.1's TS client generates legacy-compatible code; going kit means shimming every generated call.
+- wallet-adapter ecosystem (Phantom, Solflare, Backpack) is still primarily legacy.
+- Kit's tree-shakability + type gains don't matter for a 3-screen MVP.
+- The `kitToLegacy` shim from day-1 scratch (`scratch/src/scratch.ts`) is reusable in `kamino-bridge.ts`.
+
+**One-time port from scratch:** the `kitToLegacy` helper, the `await market.loadReserves()` call, and the `reserve.getLiquidityMint()` trick. Everything else is already legacy.
 
 ### Pages (v1 — three total)
 
@@ -504,7 +632,8 @@ seedling/
 │       │   │   ├── initialize.rs
 │       │   │   ├── create_family.rs
 │       │   │   ├── deposit.rs
-│       │   │   ├── harvest_yield.rs
+│       │   │   ├── distribute_monthly_allowance.rs
+│       │   │   ├── distribute_bonus.rs
 │       │   │   ├── withdraw.rs
 │       │   │   ├── pause.rs           # Nice-to-have
 │       │   │   └── update_stream.rs   # Nice-to-have
@@ -531,7 +660,7 @@ seedling/
 │   │   └── constants.ts
 │   └── package.json
 ├── scripts/
-│   ├── keeper.ts                      # Daily harvest_yield cron
+│   ├── keeper.ts                      # Daily distribute_monthly_allowance cron; period-end distribute_bonus
 │   ├── deploy.ts                      # Devnet deployment helper
 │   └── setup-test-vault.ts            # Initialize vault on localnet/devnet
 ├── tests/
@@ -572,13 +701,13 @@ Gives 3 days buffer before the May 11 hard deadline.
 
 ### Week 1 (April 20–26): Protocol foundation
 
-- **Apr 20 (Mon):** Terminal setup. Anchor version check. Clone klend + SVS. Kamino CPI scratch test (standalone program).
-- **Apr 21 (Tue):** SVS-5 vault initialization on localnet. Verify tests pass.
-- **Apr 22 (Wed):** Write `initialize_vault` + `create_family` instructions. Tests for both.
-- **Apr 23 (Thu):** Write `deposit` instruction. Happy path test.
-- **Apr 24 (Fri):** Continue `deposit`. Integrate Kamino CPI. Debug.
-- **Apr 25 (Sat):** Write `harvest_yield` instruction. Test fee logic.
-- **Apr 26 (Sun):** Write `withdraw` instruction. Full round-trip test on localnet.
+- ~~Apr 20 (Mon): Terminal setup. Clone repos. Kamino scratch test.~~ Done
+- ~~Apr 21 (Tue): SVS-5 research.~~ Repurposed to template cleanup + research sweep
+- ~~Apr 22 (Wed): Research + master doc overhaul + Kamino scratch test.~~ **✅ Scratch test PASSED T+20min on Kamino devnet.**
+- **Apr 23 (Thu) — TODAY:** Write `initialize_vault` + `create_family` instructions. LiteSVM tests for both. Anchor scaffold at `programs/seedling/`.
+- **Apr 24 (Fri):** Write `deposit` instruction with `harvest_and_fee` helper. Happy path test (LiteSVM with mock reserve; real Kamino CPI integration on Apr 25).
+- **Apr 25 (Sat):** Integrate real Kamino CPI into `deposit`. Run against devnet reserve `HRwMj8uuoGVWCanKzKvpTWN5ZvXjtjKGxcFbn2qTPKMW`. Debug oracle wiring.
+- **Apr 26 (Sun):** Write `distribute_monthly_allowance` + `distribute_bonus` + `withdraw`. Full round-trip test against devnet.
 
 ### Week 2 (April 27–May 3): Polish + frontend
 
@@ -644,6 +773,18 @@ If the demo video shows a feature, that feature has been tested at least twice b
 
 ## 14. Testing Strategy
 
+### Invariants (asserted in every LiteSVM integration test)
+
+After every instruction that mutates shares or principal, the test harness calls `assert_all_invariants()`:
+
+1. **Shares conservation:** `vault_config.total_shares == sum(family_position.shares)` across all family PDAs fetched via `getProgramAccounts`. Catches drift between the global counter and per-family totals.
+2. **Principal conservation:** `sum(family_position.principal_remaining) <= total_assets` (net of harvested fees). Principal can never exceed what's in the pool; over-spending principal is how depositors lose money.
+3. **Non-negative accounting:** `principal_remaining >= 0`, `shares >= 0`, `last_distribution >= created_at`. Underflow = bug.
+4. **Yield direction:** `total_yield_earned` monotonically non-decreasing per family across the test.
+5. **Treasury monotonicity:** `treasury_usdc_ata.balance` never decreases (we only ever add, never refund).
+
+These are baked into the test helper so every test gets them for free. One failing assertion → loud panic → you notice at 9am, not when a user's money is already wrong on mainnet.
+
 ### Minimum bar per instruction
 
 **Each of the 5 core instructions gets:**
@@ -695,7 +836,7 @@ If any of these fail: fix before proceeding.
 
 - Program ID: generated fresh with `anchor keys list`
 - Deploy: `anchor deploy --provider.cluster devnet`
-- USDC mint on devnet: (check current — usually `Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr` or similar, verify at time of deploy)
+- USDC mint on devnet: `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` (real Circle devnet USDC; faucet at https://faucet.circle.com — 20 USDC / 2h / address). NOTE: `Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr` is the SPL Token Faucet "DUMMY" token — useful for isolated tests only, not compatible with Kamino's USDC reserve.
 - Kamino USDC reserve: verify exists on devnet before committing to integration
 
 ### Mainnet (post-hackathon only)
@@ -741,7 +882,7 @@ If any of these fail: fix before proceeding.
 - [ ] GitHub link included
 - [ ] Video links included
 - [ ] seedlingsol.xyz link included
-- [ ] Team info: Vincenzo Tulio, 16, Brazil (with age approval email noted)
+- [ ] Team info: Vicenzo Tulio, 16, Brazil (with age approval email noted)
 - [ ] Submit by May 8 (not May 11)
 
 ### Post-submission
@@ -767,7 +908,7 @@ If any of these fail: fix before proceeding.
    - Seed (now → Q3 2026): Anchor program mainnet, pooled vault, Kamino yield, monthly distributions, crypto-native parents
    - Plant (Q4 2026): Blinks + TipLink (Venmo-like deposits), MoonPay + p2p.me onramps, thousands → millions of families
    - Tree (2027): Debit card, USDC spends as fiat, family members send yield directly, family finance infrastructure on Solana
-8. **Team:** Vincenzo Tulio, 16. 1st place Extend the Solana Vault Standard hackathon (Superteam BR). Receives allowances monthly. balloteer.xyz from Cypherpunk.
+8. **Team:** Vicenzo Tulio, 16. 1st place Extend the Solana Vault Standard hackathon (Superteam BR) — **authored SVS-5 and SVS-6** (vault standards Seedling's shares math builds on). Receives allowances monthly. balloteer.xyz from Cypherpunk.
 9. **CTA:** seedling, deposit once, let it grow. seedlingsol.xyz @seedling_sol
 
 ### Visual metaphor
@@ -801,7 +942,7 @@ If any of these fail: fix before proceeding.
 
 ### Slide 4 — Product (14 seconds)
 
-> "Seedling flips it. Parents deposit once from Phantom. Yield streams continuously on-chain. Kids watch their balance grow. Every summer, a bonus payout when school ends."
+> "Seedling flips it. Parents deposit once from Phantom. The allowance lands on the first of every month. Yield compounds in between. And every summer, a bonus payout when school ends."
 
 ### Slide 5 — Why now + Why Solana (22 seconds)
 
@@ -817,7 +958,7 @@ If any of these fail: fix before proceeding.
 
 ### Slide 8 — Team (10 seconds)
 
-> "I'm Vincenzo. I'm sixteen. I won the Solana Vault Standard hackathon with Superteam Brazil. I receive an allowance every month. I'm building the product I need."
+> "I'm Vicenzo. I'm sixteen. I won the Solana Vault Standard hackathon with Superteam Brazil — I authored SVS-5 and SVS-6, the standards Seedling's shares math builds on. I receive an allowance every month. I'm building the product I need."
 
 ### Slide 9 — CTA (8 seconds)
 
@@ -892,7 +1033,19 @@ If any of these fail: fix before proceeding.
 | Asset | Network | Address |
 |---|---|---|
 | USDC | Mainnet | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
-| USDC | Devnet | Check latest — usually `Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr` or similar |
+| USDC | Devnet | `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` (Circle, real; faucet.circle.com) |
+
+### Kamino devnet targets (verified Apr 23 2026)
+
+| Role | Address |
+|---|---|
+| Primary market | `6aaNTBEmwdN19AAdTwbNrWyUo6iEyiLguxCTePEzSqoH` |
+| Primary USDC reserve | `HRwMj8uuoGVWCanKzKvpTWN5ZvXjtjKGxcFbn2qTPKMW` |
+| Primary cUSDC mint | `6FY2rwh5wWrtSveAG9t9ANc2YsrChNasVSEpMQubJcXd` |
+| Backup reserve #1 | `8xnJfxrbiYrKBBbGJ2aBMHWKhkAQ7veKVVNPL9DfYNhu` (market `DFwjqtUtNRFFddFVkoScE4DUdhHBTPW5Vw5KXupGcyWs`) |
+| Backup reserve #2 | `6jrwyGApj9dGXJArBCfFbUeRMMMv5M5oApyxChvt7986` (market `66ARS8zdM9NJocZB1ixKVedoPsbfbzWXXjozGZhUASU`) |
+
+Full list of 8 USDC reserves in `scratch/src/scratch.ts:CANDIDATE_MARKETS`. Fallback ladder if primary deprecates: backup#1 → backup#2 → Surfpool mainnet-fork → mock yield.
 
 ### SVS-5 SDK snippet (starting point)
 
@@ -1024,7 +1177,7 @@ Seedling becomes the family finance primitive on Solana. Every wallet that holds
 - Mitigation: Day-1 scratch test. Day-5 checkpoint. Fall back to mock yield if needed.
 
 **R2: SVS-5 integration surprises**
-- Likelihood: Low (Vincenzo knows this codebase)
+- Likelihood: Low (Vicenzo knows this codebase)
 - Impact: Medium
 - Mitigation: Read docs/SVS-5.md thoroughly day 1. Run tests first.
 
@@ -1074,7 +1227,7 @@ Seedling becomes the family finance primitive on Solana. Every wallet that holds
 
 ## 24. Founder Notes
 
-### Things Vincenzo should remember
+### Things Vicenzo should remember
 
 **You have advantages:**
 - You're the user. Greenlight founders are adults imagining what kids want. You know.

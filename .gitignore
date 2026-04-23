@@ -318,3 +318,7 @@ bower_components
 .docusaurus
 # Claude private notes
 CLAUDE.local.md
+
+# Day-1 scratch test
+scratch/node_modules/
+scratch/package-lock.json
