@@ -87,6 +87,11 @@ pub struct InitializeVaultArgs {
     pub fee_bps: u16,
 }
 
+// Oracle pubkeys passed as args (not read from reserve on-chain).
+// Trust model: init-time authority reads reserve.config via klend-sdk
+// off-chain, passes correct pubkeys. Validated against on every subsequent
+// CPI via account constraints. Equivalent security, avoids deserializing
+// Kamino's Reserve struct (zero-copy, 8624 bytes, Anchor version-sensitive).
 pub fn initialize_vault_handler(
     ctx: Context<InitializeVault>,
     args: InitializeVaultArgs,
