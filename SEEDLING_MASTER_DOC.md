@@ -179,9 +179,14 @@
 - `authority: Pubkey` — Seedling admin (can pause, update fee)
 - `treasury: Pubkey` — where the 10% protocol fee accumulates
 - `fee_bps: u16` — protocol fee in basis points (1000 = 10%)
-- `kamino_reserve: Pubkey` — USDC reserve on Kamino
-- `usdc_mint: Pubkey` — cached for account validation
-- `total_shares: u64` — global share supply across all families
+- `kamino_reserve: Pubkey` — USDC reserve on Kamino (trusted config, set at init)
+- `usdc_mint: Pubkey` — read from `reserve.liquidity.mint_pubkey` at init, cached for account validation on every later instruction
+- `ctoken_mint: Pubkey` — read from `reserve.collateral.mint_pubkey` at init, cached. Different reserves have different cToken mints; caching makes the vault reserve-agnostic (primary + 2 backups all work via the same program)
+- `oracle_pyth: Pubkey` — read from reserve.config at init. Zero-pubkey = not configured on this reserve. Passed as optional account to every `refresh_reserve` CPI
+- `oracle_switchboard_price: Pubkey` — same pattern
+- `oracle_switchboard_twap: Pubkey` — same pattern
+- `oracle_scope_config: Pubkey` — same pattern
+- `total_shares: u64` — global share supply across all families. Invariant: equals `sum(family_position.shares)`; mutated ONLY via `mint_family_shares` / `burn_family_shares` helpers
 - `last_known_total_assets: u64` — snapshot of `cTokens × exchange_rate` at last harvest; used to compute yield delta on each instruction
 - `period_end_ts: i64` — next bonus-distribution period boundary (UTC)
 - `current_period_id: u32` — monotonic period counter
@@ -261,11 +266,13 @@ For testing: LiteSVM integration tests iterate all created family PDAs via `get_
 
 #### 1. `initialize_vault`
 - **Signer:** Authority (Seedling admin keypair)
-- **Purpose:** One-time setup. Creates `VaultConfig` PDA, records Kamino reserve reference and USDC mint, opens the vault.
-- **Accounts:** vault_config (init), authority (signer), kamino_reserve, usdc_mint, vault_usdc_ata (init, ATA owned by vault_config PDA), vault_ctoken_ata (init, owned by vault_config PDA), treasury_usdc_ata, system_program, token_program, associated_token_program, rent
-- **State set:** `authority`, `treasury`, `fee_bps = 1000`, `kamino_reserve`, `usdc_mint`, `is_paused = false`, `last_known_total_assets = 0`, `period_end_ts` (configurable), `bump`
-- **Emits:** `VaultInitialized { authority, treasury, kamino_reserve, ts }`
+- **Purpose:** One-time setup. Creates `VaultConfig` PDA, caches mint + oracle pubkeys, opens ATAs, opens the vault.
+- **Accounts:** vault_config (init), authority (signer), usdc_mint (InterfaceAccount<Mint>), ctoken_mint (InterfaceAccount<Mint>), treasury_usdc_ata (Unchecked — stored by pubkey only), kamino_reserve (Unchecked — trusted config, stored by pubkey only, no on-chain deserialization), vault_usdc_ata (init ATA owned by vault_config PDA), vault_ctoken_ata (init ATA owned by vault_config PDA), token_program (Interface<TokenInterface>), associated_token_program, system_program
+- **Args:** `InitializeVaultArgs { oracle_pyth, oracle_switchboard_price, oracle_switchboard_twap, oracle_scope_config, period_end_ts, fee_bps }`
+- **State set:** `authority`, `treasury`, `fee_bps` (default 1000), `kamino_reserve`, `usdc_mint`, `ctoken_mint`, 4 oracle pubkeys, `total_shares = 0`, `last_known_total_assets = 0`, `period_end_ts`, `current_period_id = 0`, `is_paused = false`, `bump`
+- **Emits:** `VaultInitialized { authority, treasury, kamino_reserve, usdc_mint, ctoken_mint, ts }`
 - **Called:** Once at protocol deployment. No SVS-5 CPI — Seedling owns its own shares accounting.
+- **Operational note (Day-2 pivot, 2026-04-24):** Oracle pubkeys are passed as instruction args rather than extracted on-chain from the Kamino reserve. The trusted authority reads them off-chain via klend-sdk (`market.getReserveByMint(usdc).config.liquidity.pythOracle / switchboardOracle / scopePriceConfigAddress`), then passes them. Saves a day of "deserialize Kamino Reserve struct on Anchor 0.32.1" rabbit hole while keeping the security posture identical: every later CPI validates its passed oracle accounts against these cached pubkeys. Pass `Pubkey::default()` for oracles this reserve doesn't use.
 
 #### 2. `create_family`
 - **Signer:** Parent
