@@ -308,6 +308,15 @@ For testing: LiteSVM integration tests iterate all created family PDAs via `get_
   - Vault not paused
   - Parent has sufficient USDC (SPL transfer fails otherwise)
   - Slippage: `min_shares_out` guard
+  - Account validation: every Kamino-adjacent + oracle account validates against `vault_config.X` via `address =` constraints (reserve, mints, oracles)
+
+- **First-depositor donation-attack defense (Path A, locked Day 3):** `compute_shares_to_mint` requires `total_assets_pre_deposit == 0` when `total_shares == 0`. Refuses the deposit loudly if a prior full-withdraw left orphan assets. Path B (resetting `last_known_total_assets` on full withdraw) was rejected because it couples deposit's correctness to withdraw's careful bookkeeping; Path A is local and self-contained.
+
+- **Day-3 status (2026-04-24):** The Kamino CPI calls (`refresh_reserve`, `deposit_reserve_liquidity`) are stubbed pending Day-4 Surfpool integration. The full deposit flow — USDC transfer, harvest+fee, share math, slippage, principal accounting, event emission — is implemented and tested. Real CPI swap is a localized change to the two `kamino_cpi_stub_*` calls in `instructions/deposit.rs`.
+
+- **Day-3 deferred decision: exchange-rate read.** Real Kamino CPIs let us read `reserve.collateral.exchange_rate()` to compute USDC-equivalent vault assets. Today's stubs treat `vault_usdc_ata.amount` as the post-deposit pool size (works because cTokens never leave for Kamino). Day 4 picks one of: (a) thin manual deserialization of `Reserve.collateral` (~80 bytes), or (b) compute exchange rate as `total_liquidity / total_collateral_supply` from observable accounts. Both are ~60 min; (b) is simpler.
+
+- **Stack-frame note:** all heavy account types are `Box<>`'d (`Box<Account<...>>`, `Box<InterfaceAccount<...>>`). Without this, `try_accounts` exceeded the SBF 4kb stack ceiling by 400 bytes. Anchor's "lots of accounts in one struct" failure mode.
 
 #### 4. `distribute_monthly_allowance` (was `harvest_yield`)
 - **Signer:** Permissionless (keeper or anyone)

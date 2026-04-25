@@ -1,11 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Seedling } from "../target/types/seedling";
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-} from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -44,7 +40,7 @@ describe("seedling", () => {
     const airdropTo = async (pk: PublicKey, sol: number) => {
       const sig = await provider.connection.requestAirdrop(
         pk,
-        sol * LAMPORTS_PER_SOL,
+        sol * LAMPORTS_PER_SOL
       );
       await provider.connection.confirmTransaction(sig, "confirmed");
     };
@@ -56,14 +52,14 @@ describe("seedling", () => {
       authority,
       authority.publicKey,
       null,
-      6,
+      6
     );
     ctokenMint = await createMint(
       provider.connection,
       authority,
       authority.publicKey,
       null,
-      6,
+      6
     );
 
     treasuryUsdcAta = (
@@ -71,13 +67,13 @@ describe("seedling", () => {
         provider.connection,
         authority,
         usdcMint,
-        treasuryOwner.publicKey,
+        treasuryOwner.publicKey
       )
     ).address;
 
     [vaultConfigPda, vaultConfigBump] = PublicKey.findProgramAddressSync(
       [Buffer.from("vault_config")],
-      program.programId,
+      program.programId
     );
   });
 
@@ -86,16 +82,16 @@ describe("seedling", () => {
       const vaultUsdcAta = getAssociatedTokenAddressSync(
         usdcMint,
         vaultConfigPda,
-        true,
+        true
       );
       const vaultCtokenAta = getAssociatedTokenAddressSync(
         ctokenMint,
         vaultConfigPda,
-        true,
+        true
       );
 
       const periodEndTs = new BN(
-        Math.floor(Date.now() / 1000) + 365 * 24 * 3600,
+        Math.floor(Date.now() / 1000) + 365 * 24 * 3600
       );
 
       const args = {
@@ -136,15 +132,15 @@ describe("seedling", () => {
       assert.equal(cfg.oraclePyth.toBase58(), oracles.pyth.toBase58());
       assert.equal(
         cfg.oracleSwitchboardPrice.toBase58(),
-        oracles.switchboardPrice.toBase58(),
+        oracles.switchboardPrice.toBase58()
       );
       assert.equal(
         cfg.oracleSwitchboardTwap.toBase58(),
-        PublicKey.default.toBase58(),
+        PublicKey.default.toBase58()
       );
       assert.equal(
         cfg.oracleScopeConfig.toBase58(),
-        PublicKey.default.toBase58(),
+        PublicKey.default.toBase58()
       );
       assert.isTrue(cfg.totalShares.eq(new BN(0)));
       assert.isTrue(cfg.lastKnownTotalAssets.eq(new BN(0)));
@@ -154,8 +150,9 @@ describe("seedling", () => {
       assert.equal(cfg.bump, vaultConfigBump);
 
       const vaultUsdc = await provider.connection.getAccountInfo(vaultUsdcAta);
-      const vaultCtoken =
-        await provider.connection.getAccountInfo(vaultCtokenAta);
+      const vaultCtoken = await provider.connection.getAccountInfo(
+        vaultCtokenAta
+      );
       assert.isNotNull(vaultUsdc);
       assert.isNotNull(vaultCtoken);
     });
@@ -169,7 +166,7 @@ describe("seedling", () => {
     before(async () => {
       const sig = await provider.connection.requestAirdrop(
         parent.publicKey,
-        2 * LAMPORTS_PER_SOL,
+        2 * LAMPORTS_PER_SOL
       );
       await provider.connection.confirmTransaction(sig, "confirmed");
     });
@@ -177,11 +174,11 @@ describe("seedling", () => {
     it("creates family; last_distribution = created_at (blocks day-1 drain)", async () => {
       const [familyPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("family"), parent.publicKey.toBuffer(), kid.toBuffer()],
-        program.programId,
+        program.programId
       );
       const [kidViewPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("kid"), parent.publicKey.toBuffer(), kid.toBuffer()],
-        program.programId,
+        program.programId
       );
 
       await program.methods
@@ -214,7 +211,7 @@ describe("seedling", () => {
       const kid2 = Keypair.generate().publicKey;
       const sig = await provider.connection.requestAirdrop(
         parent2.publicKey,
-        1 * LAMPORTS_PER_SOL,
+        1 * LAMPORTS_PER_SOL
       );
       await provider.connection.confirmTransaction(sig, "confirmed");
 
@@ -250,8 +247,185 @@ describe("seedling", () => {
           msg.includes("already in use") ||
             msg.includes("custom program error") ||
             msg.includes("0x0"),
-          `expected already-in-use error, got: ${msg}`,
+          `expected already-in-use error, got: ${msg}`
         );
+      }
+    });
+  });
+
+  // ===== deposit =====
+  // Day-3 scope: constraint failures only. Real Kamino CPI lands Day 4
+  // on Surfpool, when happy-path tests verify share math + invariants.
+  // What we CAN test today: amount=0 rejected, paused rejected, wrong
+  // parent rejected, slippage guard, etc.
+  describe("deposit (constraint tests only — happy path is Day 4 on Surfpool)", () => {
+    const parent = Keypair.generate();
+    const kid = Keypair.generate().publicKey;
+    const streamRate = new BN(50_000_000);
+    let familyPda: PublicKey;
+    let parentUsdcAta: PublicKey;
+    let vaultUsdcAta: PublicKey;
+    let vaultCtokenAta: PublicKey;
+
+    before(async () => {
+      const sig = await provider.connection.requestAirdrop(
+        parent.publicKey,
+        2 * LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(sig, "confirmed");
+
+      [familyPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("family"), parent.publicKey.toBuffer(), kid.toBuffer()],
+        program.programId
+      );
+
+      // Create the family for these tests.
+      await program.methods
+        .createFamily(kid, streamRate)
+        .accounts({
+          parent: parent.publicKey,
+          vaultConfig: vaultConfigPda,
+        })
+        .signers([parent])
+        .rpc();
+
+      // Mint some USDC to the parent for deposit attempts.
+      parentUsdcAta = (
+        await getOrCreateAssociatedTokenAccount(
+          provider.connection,
+          parent,
+          usdcMint,
+          parent.publicKey
+        )
+      ).address;
+      const { mintTo } = await import("@solana/spl-token");
+      await mintTo(
+        provider.connection,
+        authority, // mint authority is `authority` from outer scope
+        usdcMint,
+        parentUsdcAta,
+        authority,
+        100_000_000 // 100 USDC
+      );
+
+      vaultUsdcAta = getAssociatedTokenAddressSync(
+        usdcMint,
+        vaultConfigPda,
+        true
+      );
+      vaultCtokenAta = getAssociatedTokenAddressSync(
+        ctokenMint,
+        vaultConfigPda,
+        true
+      );
+    });
+
+    const buildDeposit = (amount: BN, minSharesOut: BN) =>
+      program.methods.deposit(amount, minSharesOut).accountsPartial({
+        familyPosition: familyPda,
+        parent: parent.publicKey,
+        parentUsdcAta,
+        vaultUsdcAta,
+        vaultCtokenAta,
+        treasuryUsdcAta,
+        vaultConfig: vaultConfigPda,
+        usdcMint,
+        ctokenMint,
+        kaminoReserve,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      });
+
+    it("rejects amount = 0", async () => {
+      try {
+        await buildDeposit(new BN(0), new BN(0)).signers([parent]).rpc();
+        assert.fail("expected amount=0 to be rejected");
+      } catch (e: any) {
+        assert.include(e.toString(), "InvalidAmount");
+      }
+    });
+
+    it("rejects when caller is not the family parent", async () => {
+      const imposter = Keypair.generate();
+      const sig = await provider.connection.requestAirdrop(
+        imposter.publicKey,
+        1 * LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(sig, "confirmed");
+
+      const imposterUsdcAta = (
+        await getOrCreateAssociatedTokenAccount(
+          provider.connection,
+          imposter,
+          usdcMint,
+          imposter.publicKey
+        )
+      ).address;
+
+      try {
+        await program.methods
+          .deposit(new BN(1_000_000), new BN(0))
+          .accountsPartial({
+            familyPosition: familyPda,
+            parent: imposter.publicKey,
+            parentUsdcAta: imposterUsdcAta,
+            vaultUsdcAta,
+            vaultCtokenAta,
+            treasuryUsdcAta,
+            vaultConfig: vaultConfigPda,
+            usdcMint,
+            ctokenMint,
+            kaminoReserve,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([imposter])
+          .rpc();
+        assert.fail("expected has_one mismatch to reject");
+      } catch (e: any) {
+        const msg = e.toString();
+        // Anchor surfaces has_one violations as ConstraintHasOne or our
+        // custom InvalidAuthority depending on @ binding.
+        assert.isTrue(
+          msg.includes("InvalidAuthority") || msg.includes("ConstraintHasOne"),
+          `expected has_one rejection, got: ${msg}`
+        );
+      }
+    });
+
+    it("happy-path deposit succeeds (no real Kamino CPI yet — stubbed)", async () => {
+      // Today: vault doesn't actually push USDC into Kamino. The deposit
+      // accepts USDC, runs share math against vault_usdc_ata.amount, and
+      // mints family shares. Validates the non-Kamino logic end-to-end.
+      const amount = new BN(10_000_000); // 10 USDC
+
+      await buildDeposit(amount, new BN(0)).signers([parent]).rpc();
+
+      const family = await program.account.familyPosition.fetch(familyPda);
+      const cfg = await program.account.vaultConfig.fetch(vaultConfigPda);
+
+      // First deposit ever → shares = amount, 1:1.
+      assert.isTrue(family.shares.eq(amount));
+      assert.isTrue(cfg.totalShares.eq(amount));
+      assert.isTrue(family.principalDeposited.eq(amount));
+      assert.isTrue(family.principalRemaining.eq(amount));
+
+      // Invariant: total_shares == sum of all family.shares (only one family here).
+      assert.isTrue(cfg.totalShares.eq(family.shares));
+    });
+
+    it("rejects when shares_minted < min_shares_out (slippage)", async () => {
+      // We're already past the first deposit, so total_shares > 0. A second
+      // deposit demanding more shares than possible should fail SlippageExceeded.
+      try {
+        await buildDeposit(new BN(1_000_000), new BN(2_000_000))
+          .signers([parent])
+          .rpc();
+        assert.fail("expected slippage rejection");
+      } catch (e: any) {
+        assert.include(e.toString(), "SlippageExceeded");
       }
     });
   });
