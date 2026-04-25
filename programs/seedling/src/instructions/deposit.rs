@@ -245,38 +245,62 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64, min_shares_out: u64) 
     ctx.accounts.vault_usdc_ata.reload()?;
     ctx.accounts.vault_ctoken_ata.reload()?;
 
-    // ---- 3. Compute total_assets PRE-deposit via Path B ----
-    // Path B: exchange_rate = liquidity_supply / collateral_supply (both in
-    // base units). Our USDC-equivalent holdings =
-    //   cTokens_held × (liquidity_supply / collateral_supply)
-    // =cTokens_held × liquidity_supply / collateral_supply.
+    // ---- 3. Compute total_assets PRE-deposit via Path B (fixed Day 5) ----
+    // Path B — CORRECTED. Kamino's actual exchange rate uses the full
+    // reserve-side liquidity, which is the supply vault's unlent amount PLUS
+    // the amount currently borrowed. Using only `supply_vault.amount` misses
+    // everything that's been lent out — for an active reserve like mainnet
+    // USDC, that's 90%+ of the underlying. Day-4 shipped the broken version
+    // and the Day-5 Step-1 regression test caught it.
     //
-    // Read liquidity supply and collateral mint supply directly from chain.
-    // Avoids deserializing klend's 8624-byte Reserve struct.
-    let reserve_liquidity_supply_info = &ctx.accounts.reserve_liquidity_supply;
-    let reserve_liquidity_supply_data = reserve_liquidity_supply_info.try_borrow_data()?;
-    // SPL TokenAccount layout: amount at offset 64, 8 bytes LE u64.
+    //   kamino_total_liquidity = liquidity.total_available_amount
+    //                          + liquidity.borrowed_amount_sf >> 60
+    //   exchange_rate          = kamino_total_liquidity / collateral_supply
+    //   total_assets_we_own    = cTokens_held × exchange_rate
+    //
+    // Offsets verified Day 5 against klend/programs/klend/src/state/reserve.rs:
+    //   discriminator(8) + version(8) + last_update(16)
+    //   + lending_market(32) + farm_collateral(32) + farm_debt(32) = 128
+    //   + ReserveLiquidity: mint(32) + supply_vault(32) + fee_vault(32) = 96
+    //   = 224: total_available_amount (u64, 8 bytes) ends at 232
+    //   = 232: borrowed_amount_sf (u128, 16 bytes) ends at 248
+    //
+    // Scale factor 2^60 verified against klend/programs/klend/src/utils/fraction.rs:
+    //   `pub use fixed::types::U68F60 as Fraction;` — 60 fractional bits.
+    let kamino_reserve_info = &ctx.accounts.kamino_reserve;
+    let reserve_data = kamino_reserve_info.try_borrow_data()?;
     require!(
-        reserve_liquidity_supply_data.len() >= 72,
+        reserve_data.len() >= 248,
         SeedlingError::InvalidAccountState
     );
-    let reserve_liquidity_amount = u64::from_le_bytes(
-        reserve_liquidity_supply_data[64..72]
+    let total_available_amount = u64::from_le_bytes(
+        reserve_data[224..232]
             .try_into()
             .map_err(|_| SeedlingError::InvalidAccountState)?,
     );
-    drop(reserve_liquidity_supply_data);
+    let borrowed_amount_sf = u128::from_le_bytes(
+        reserve_data[232..248]
+            .try_into()
+            .map_err(|_| SeedlingError::InvalidAccountState)?,
+    );
+    drop(reserve_data);
+
+    // Unscale U68F60: the top 68 bits are the integer part. Right-shift by 60
+    // gives floor(raw / 2^60) — same as unwrapped_to_num::<u64>() in Kamino.
+    let borrowed_amount =
+        u64::try_from(borrowed_amount_sf >> 60).map_err(|_| SeedlingError::Overflow)?;
+    let kamino_total_liquidity = total_available_amount
+        .checked_add(borrowed_amount)
+        .ok_or(SeedlingError::Overflow)?;
 
     let collateral_supply = ctx.accounts.ctoken_mint.supply;
     let vault_ctokens_held = ctx.accounts.vault_ctoken_ata.amount;
 
-    // Pre-deposit total assets: cTokens_held × liquidity / collateral_supply.
-    // If we hold zero cTokens or the reserve has no liquidity, total is 0.
     let total_assets_pre_deposit: u64 = if vault_ctokens_held == 0 || collateral_supply == 0 {
         0
     } else {
         let prod = (vault_ctokens_held as u128)
-            .checked_mul(reserve_liquidity_amount as u128)
+            .checked_mul(kamino_total_liquidity as u128)
             .ok_or(SeedlingError::Overflow)?;
         let assets = prod
             .checked_div(collateral_supply as u128)
@@ -284,25 +308,27 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64, min_shares_out: u64) 
         u64::try_from(assets).map_err(|_| SeedlingError::Overflow)?
     };
 
-    // ---- 4. Harvest and fee BEFORE share math ----
-    let harvest_result = {
-        let vault_config = &mut ctx.accounts.vault_config;
-        harvest_and_fee(
-            vault_config,
-            vault_config_key,
-            vault_config_bump,
-            total_assets_pre_deposit,
-            &ctx.accounts.vault_usdc_ata,
-            &ctx.accounts.treasury_usdc_ata,
-            &ctx.accounts.usdc_mint,
-            vault_config_account_info.clone(),
-            &ctx.accounts.token_program,
-        )?
-    };
-    ctx.accounts.vault_usdc_ata.reload()?;
-    let total_assets_post_fee = total_assets_pre_deposit
-        .checked_sub(harvest_result.fee_to_treasury)
-        .ok_or(SeedlingError::Underflow)?;
+    // ---- 4. Harvest and fee — INTENTIONALLY NOT DONE HERE (Day 5 fix) ----
+    // Day-3 design tried to skim fee from vault_usdc_ata during deposit. That
+    // breaks post-first-deposit: Kamino sweeps vault_usdc_ata clean on every
+    // deposit_reserve_liquidity, so there's no loose USDC to draw fee from.
+    // Day 5 regression test caught this (second deposit fails with
+    // "insufficient funds" on Kamino's internal transfer).
+    //
+    // CORRECT POSTURE: fees are collected at events that already redeem
+    // cTokens — withdraw, distribute_monthly_allowance, distribute_bonus.
+    // On deposit, we only update last_known_total_assets to reflect the
+    // pre-deposit total + new amount. The pre-deposit yield delta is
+    // captured in `total_assets_pre_deposit` — next harvest event will see
+    // it and charge the fee then.
+    //
+    // Tradeoff: fees are deferred, not skipped. Over time they get
+    // collected correctly. The alternative (redeem cTokens to pay fee mid-
+    // deposit) adds a full extra CPI (+40-60k CU) for every deposit.
+    // Deferring is simpler and matches the master doc's "fee at harvest
+    // events" language.
+    let harvest_fee_to_treasury: u64 = 0;
+    let total_assets_post_fee = total_assets_pre_deposit;
 
     // ---- 5. Kamino deposit_reserve_liquidity CPI ----
     // 12 accounts per master doc §8 + handler_deposit_reserve_liquidity.rs.
@@ -401,7 +427,7 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64, min_shares_out: u64) 
         parent: ctx.accounts.parent.key(),
         amount,
         shares_minted: shares_to_mint,
-        fee_to_treasury: harvest_result.fee_to_treasury,
+        fee_to_treasury: harvest_fee_to_treasury,
         ts: Clock::get()?.unix_timestamp,
     });
 
