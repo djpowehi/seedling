@@ -36,4 +36,15 @@ pub mod seedling {
     ) -> Result<()> {
         instructions::withdraw_handler(ctx, shares_to_burn, min_assets_out)
     }
+
+    pub fn set_family_last_distribution(
+        ctx: Context<SetFamilyLastDistribution>,
+        new_last_distribution: i64,
+    ) -> Result<()> {
+        instructions::set_family_last_distribution_handler(ctx, new_last_distribution)
+    }
+
+    pub fn distribute_monthly_allowance(ctx: Context<DistributeMonthlyAllowance>) -> Result<()> {
+        instructions::distribute_monthly_allowance_handler(ctx)
+    }
 }
