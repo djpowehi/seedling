@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { AddKidForm } from "@/components/AddKidForm";
 import { FamilyCard } from "@/components/FamilyCard";
 import { fetchFamiliesForParent, type FamilyView } from "@/lib/fetchFamilies";
 import { useSeedlingProgram } from "@/lib/useSeedlingProgram";
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const [families, setFamilies] = useState<FamilyView[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const refetch = useCallback(async () => {
     if (!seedling || !publicKey) return;
@@ -100,34 +102,63 @@ export default function Dashboard() {
           </div>
         )}
 
-        {!loading && !error && families != null && families.length === 0 && (
-          <div className="rounded-2xl border-2 border-dashed border-stone-300 p-12 flex flex-col items-center text-center gap-4">
-            <span className="text-4xl">🌱</span>
-            <h2 className="text-xl font-medium text-emerald-900">
-              No kids yet
-            </h2>
-            <p className="text-sm text-stone-600 max-w-sm">
-              Add your first kid to start their allowance. They&apos;ll need a
-              Solana wallet address — you can use Phantom to generate one for
-              them.
-            </p>
-            <button
-              type="button"
-              disabled
-              className="mt-2 rounded-full bg-lime-600 px-5 py-2 text-sm font-medium text-white opacity-50 cursor-not-allowed"
-              title="Coming in slice 2"
-            >
-              Add a kid (slice 2)
-            </button>
-          </div>
+        {showForm && seedling && publicKey && (
+          <AddKidForm
+            program={seedling.program}
+            connection={connection}
+            parent={publicKey}
+            onCancel={() => setShowForm(false)}
+            onCreated={() => {
+              setShowForm(false);
+              refetch();
+            }}
+          />
         )}
 
+        {!loading &&
+          !error &&
+          !showForm &&
+          families != null &&
+          families.length === 0 && (
+            <div className="rounded-2xl border-2 border-dashed border-stone-300 p-12 flex flex-col items-center text-center gap-4">
+              <span className="text-4xl">🌱</span>
+              <h2 className="text-xl font-medium text-emerald-900">
+                No kids yet
+              </h2>
+              <p className="text-sm text-stone-600 max-w-sm">
+                Add your first kid to start their allowance. They&apos;ll need a
+                Solana wallet address — you can use Phantom to generate one for
+                them.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowForm(true)}
+                className="mt-2 rounded-full bg-lime-600 px-5 py-2 text-sm font-medium text-white hover:bg-lime-700"
+              >
+                Add your first kid
+              </button>
+            </div>
+          )}
+
         {!loading && families != null && families.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {families.map((f) => (
-              <FamilyCard key={f.pubkey.toBase58()} family={f} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {families.map((f) => (
+                <FamilyCard key={f.pubkey.toBase58()} family={f} />
+              ))}
+            </div>
+            {!showForm && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(true)}
+                  className="rounded-full border border-emerald-700 text-emerald-900 px-5 py-2 text-sm font-medium hover:bg-emerald-50"
+                >
+                  + add another kid
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </main>
