@@ -28,4 +28,12 @@ pub mod seedling {
     pub fn deposit(ctx: Context<Deposit>, amount: u64, min_shares_out: u64) -> Result<()> {
         instructions::deposit_handler(ctx, amount, min_shares_out)
     }
+
+    pub fn withdraw(
+        ctx: Context<Withdraw>,
+        shares_to_burn: u64,
+        min_assets_out: u64,
+    ) -> Result<()> {
+        instructions::withdraw_handler(ctx, shares_to_burn, min_assets_out)
+    }
 }

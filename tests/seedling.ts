@@ -407,4 +407,152 @@ describe("seedling", () => {
       }
     });
   });
+
+  // ===== withdraw — constraint tests only =====
+  // Happy-path is covered in scripts/surfpool-withdraw-e2e.ts against the
+  // real Kamino mainnet-fork. Here we check the short-circuiting guards that
+  // fire before any CPI: shares=0 reject, over-burn reject, wrong-parent.
+  describe("withdraw (constraint failures — happy path is in surfpool-withdraw-e2e)", () => {
+    const parent = Keypair.generate();
+    const kid = Keypair.generate().publicKey;
+    const streamRate = new BN(50_000_000);
+    let familyPda: PublicKey;
+    let parentUsdcAta: PublicKey;
+    let vaultUsdcAta: PublicKey;
+    let vaultCtokenAta: PublicKey;
+
+    const KLEND_PROGRAM = new PublicKey(
+      "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD"
+    );
+    const SYSVAR_INSTRUCTIONS = new PublicKey(
+      "Sysvar1nstructions1111111111111111111111111"
+    );
+
+    before(async () => {
+      const sig = await provider.connection.requestAirdrop(
+        parent.publicKey,
+        2 * LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(sig, "confirmed");
+
+      [familyPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("family"), parent.publicKey.toBuffer(), kid.toBuffer()],
+        program.programId
+      );
+
+      await program.methods
+        .createFamily(kid, streamRate)
+        .accounts({ parent: parent.publicKey, vaultConfig: vaultConfigPda })
+        .signers([parent])
+        .rpc();
+
+      parentUsdcAta = (
+        await getOrCreateAssociatedTokenAccount(
+          provider.connection,
+          parent,
+          usdcMint,
+          parent.publicKey
+        )
+      ).address;
+
+      vaultUsdcAta = getAssociatedTokenAddressSync(
+        usdcMint,
+        vaultConfigPda,
+        true
+      );
+      vaultCtokenAta = getAssociatedTokenAddressSync(
+        ctokenMint,
+        vaultConfigPda,
+        true
+      );
+    });
+
+    const commonAccounts = () => ({
+      familyPosition: familyPda,
+      parent: parent.publicKey,
+      parentUsdcAta,
+      vaultUsdcAta,
+      vaultCtokenAta,
+      treasuryUsdcAta,
+      vaultConfig: vaultConfigPda,
+      usdcMint,
+      ctokenMint,
+      kaminoReserve,
+      lendingMarket: Keypair.generate().publicKey,
+      lendingMarketAuthority: Keypair.generate().publicKey,
+      reserveLiquiditySupply: Keypair.generate().publicKey,
+      oraclePyth: oracles.pyth,
+      oracleSwitchboardPrice: oracles.switchboardPrice,
+      oracleSwitchboardTwap: oracles.switchboardTwap,
+      oracleScopeConfig: oracles.scopeConfig,
+      kaminoProgram: KLEND_PROGRAM,
+      instructionSysvar: SYSVAR_INSTRUCTIONS,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    });
+
+    it("rejects shares_to_burn = 0", async () => {
+      try {
+        await program.methods
+          .withdraw(new BN(0), new BN(0))
+          .accountsPartial(commonAccounts())
+          .signers([parent])
+          .rpc();
+        assert.fail("expected shares=0 rejection");
+      } catch (e: any) {
+        assert.include(e.toString(), "InvalidAmount");
+      }
+    });
+
+    it("rejects over-burn (shares > family.shares)", async () => {
+      // Family was just created, has 0 shares. Any positive burn = insufficient.
+      try {
+        await program.methods
+          .withdraw(new BN(1), new BN(0))
+          .accountsPartial(commonAccounts())
+          .signers([parent])
+          .rpc();
+        assert.fail("expected InsufficientShares");
+      } catch (e: any) {
+        assert.include(e.toString(), "InsufficientShares");
+      }
+    });
+
+    it("rejects when caller is not the family parent", async () => {
+      const imposter = Keypair.generate();
+      const sig = await provider.connection.requestAirdrop(
+        imposter.publicKey,
+        LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(sig, "confirmed");
+      const imposterUsdcAta = (
+        await getOrCreateAssociatedTokenAccount(
+          provider.connection,
+          imposter,
+          usdcMint,
+          imposter.publicKey
+        )
+      ).address;
+
+      try {
+        await program.methods
+          .withdraw(new BN(1), new BN(0))
+          .accountsPartial({
+            ...commonAccounts(),
+            parent: imposter.publicKey,
+            parentUsdcAta: imposterUsdcAta,
+          })
+          .signers([imposter])
+          .rpc();
+        assert.fail("expected has_one rejection");
+      } catch (e: any) {
+        const msg = e.toString();
+        assert.isTrue(
+          msg.includes("InvalidAuthority") || msg.includes("ConstraintHasOne"),
+          `expected has_one, got: ${msg}`
+        );
+      }
+    });
+  });
 });
