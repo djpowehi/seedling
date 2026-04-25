@@ -58,4 +58,7 @@ pub enum SeedlingError {
 
     #[msg("Kamino CPI failed")]
     KaminoCpiFailed,
+
+    #[msg("Account has unexpected data layout")]
+    InvalidAccountState,
 }

@@ -1,4 +1,8 @@
 use anchor_lang::prelude::*;
+use anchor_lang::pubkey;
+use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
+use anchor_lang::solana_program::program::{invoke, invoke_signed};
+use anchor_lang::solana_program::sysvar;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
@@ -7,35 +11,34 @@ use anchor_spl::token_interface::{
 use crate::errors::SeedlingError;
 use crate::events::Deposited;
 use crate::state::{FamilyPosition, VaultConfig};
-use crate::utils::{
-    compute_shares_to_mint, harvest_and_fee, mint_family_shares,
-};
+use crate::utils::{compute_shares_to_mint, harvest_and_fee, mint_family_shares};
+
+/// Kamino klend program ID (mainnet + devnet). Hardcoded here for the address
+/// constraint on `kamino_program`. If Kamino ever redeploys, single change.
+pub const KLEND_PROGRAM_ID: Pubkey = pubkey!("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
+
+/// Anchor discriminators: sha256("global:<instruction_name>")[0..8].
+/// Verified against klend lib.rs fn names (refresh_reserve @ line 116,
+/// deposit_reserve_liquidity @ 128). Same for all future Kamino CPIs.
+const DISC_REFRESH_RESERVE: [u8; 8] = [2, 218, 138, 235, 79, 201, 25, 102];
+const DISC_DEPOSIT_RESERVE_LIQUIDITY: [u8; 8] = [169, 201, 30, 126, 6, 205, 102, 68];
 
 /// Deposit USDC → vault → Kamino. Mints family shares pro-rata.
 ///
-/// Day-3 status: instruction is fully written but the **real** Kamino CPI
-/// for `refresh_reserve` + `deposit_reserve_liquidity` is stubbed (see
-/// `kamino_cpi_stub_*` calls below). The Day-1 scratch test verified the
-/// CPI surface against devnet from TS; Day-4 will swap these stubs for real
-/// `invoke_signed` calls and run the e2e test on Surfpool mainnet-fork.
+/// Day-4 status: real Kamino CPI live against mainnet-fork (Surfpool).
+/// `refresh_reserve` + `deposit_reserve_liquidity` wired via manual
+/// `invoke` / `invoke_signed` builders (no `declare_program!` dependency).
 ///
-/// Why deferred: doing the real CPI requires either (a) klend's full IDL
-/// pulled via `declare_program!` with manual fixups for Anchor 0.29→0.32
-/// drift, or (b) a thin manual instruction-builder mirroring klend's discriminators.
-/// Both are Day-4 work. Today's value is locking the *rest* of the deposit
-/// flow — share math, fee handling, principal accounting, slippage — so
-/// Day 4 only has to wire the CPI.
-///
-/// Today's compilation gives us a deployable, e2e-testable program that
-/// works EXCEPT cTokens don't actually move in/out of Kamino. The test
-/// suite reflects this: constraint failures (paused, wrong parent, amount=0,
-/// slippage) are tested today; happy-path is Surfpool tomorrow.
+/// Exchange-rate computation uses Path B: `total_liquidity /
+/// total_collateral_supply` from observable accounts, not Kamino's internal
+/// method. Verified within 1bp of Kamino's actual rate by
+/// `tests/deposit-surfpool.test.ts`.
 // CONVENTION (apply to every instruction with 8+ token/mint accounts):
 // Wrap heavy fields (Account<...>, InterfaceAccount<...>) in Box<>.
 // Without it, Anchor's try_accounts macro overflows the SBF 4kb stack frame
 // at compile time. withdraw, distribute_monthly_allowance, distribute_bonus
 // all need this — they each carry the same Kamino CPI account set.
-// See GOTCHAS.md #14.
+// See GOTCHAS.md #4.
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(
@@ -86,35 +89,110 @@ pub struct Deposit<'info> {
     #[account(address = vault_config.usdc_mint @ SeedlingError::MintMismatch)]
     pub usdc_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    #[account(address = vault_config.ctoken_mint @ SeedlingError::MintMismatch)]
+    // Must be mut — Kamino's deposit_reserve_liquidity mints new cTokens into it.
+    #[account(mut, address = vault_config.ctoken_mint @ SeedlingError::MintMismatch)]
     pub ctoken_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    /// Kamino reserve. Validated against the cached pubkey on VaultConfig
-    /// so a malicious caller can't substitute a different reserve.
-    /// CHECK: address constraint enforces it matches our cached value;
-    /// downstream Kamino CPI does its own internal validation.
+    // ===== Kamino CPI accounts =====
+    /// CHECK: address-validated against cached pubkey on VaultConfig.
     #[account(
         mut,
         address = vault_config.kamino_reserve @ SeedlingError::ReserveMismatch,
     )]
     pub kamino_reserve: UncheckedAccount<'info>,
 
+    /// Kamino lending market. Not cached on VaultConfig because the klend
+    /// reserve itself has `has_one = lending_market`, so a caller supplying
+    /// the wrong market gets rejected inside the CPI. Defense-in-depth via
+    /// klend's own constraints.
+    /// CHECK: validated transitively via klend's reserve.has_one check.
+    pub lending_market: UncheckedAccount<'info>,
+
+    /// Kamino lending-market authority PDA. Derived as
+    /// `[LENDING_MARKET_AUTH, lending_market]` inside klend. We pass through.
+    /// CHECK: validated by klend's PDA check inside deposit_reserve_liquidity.
+    /// CHECK
+    pub lending_market_authority: UncheckedAccount<'info>,
+
+    /// Kamino's USDC supply vault (where the reserve holds deposited USDC).
+    /// Mutable because deposit sends USDC into it.
+    /// CHECK: validated by klend's has_one-style check on
+    /// `reserve.liquidity.supply_vault`.
+    #[account(mut)]
+    pub reserve_liquidity_supply: UncheckedAccount<'info>,
+
+    // Oracle accounts. Kamino's klend uses Option<AccountInfo> for each of the
+    // 4 oracle slots, but Anchor's Option<> encoding still requires the
+    // positional account to be present — a caller signals "None" by passing
+    // the klend program ID itself. We mirror that convention: always pass 4
+    // oracle accounts, using KLEND_PROGRAM_ID as sentinel for unused slots.
+    //
+    // Validation is in the handler: when cached vault_config.oracle_X is set
+    // (not KLEND_PROGRAM_ID / not default), the passed account must match.
+    /// CHECK: validated in handler against vault_config.oracle_pyth.
+    pub oracle_pyth: UncheckedAccount<'info>,
+
+    /// CHECK: validated in handler.
+    pub oracle_switchboard_price: UncheckedAccount<'info>,
+
+    /// CHECK: validated in handler.
+    pub oracle_switchboard_twap: UncheckedAccount<'info>,
+
+    /// CHECK: validated in handler.
+    pub oracle_scope_config: UncheckedAccount<'info>,
+
+    /// Kamino program itself. Address-constrained to avoid the arbitrary-CPI
+    /// class of vulnerability where a malicious caller substitutes a fake
+    /// klend-lookalike that steals funds.
+    /// CHECK: address-constrained to the known klend program ID.
+    #[account(address = KLEND_PROGRAM_ID)]
+    pub kamino_program: UncheckedAccount<'info>,
+
+    /// Instruction-introspection sysvar required by klend.
+    /// CHECK: sysvar ID is fixed.
+    #[account(address = sysvar::instructions::ID)]
+    pub instruction_sysvar: UncheckedAccount<'info>,
+
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 
-pub fn deposit_handler(
-    ctx: Context<Deposit>,
-    amount: u64,
-    min_shares_out: u64,
-) -> Result<()> {
+pub fn deposit_handler(ctx: Context<Deposit>, amount: u64, min_shares_out: u64) -> Result<()> {
     require!(amount > 0, SeedlingError::InvalidAmount);
 
-    // Snapshot the bump + key BEFORE we mutably borrow vault_config.
     let vault_config_key = ctx.accounts.vault_config.key();
     let vault_config_bump = ctx.accounts.vault_config.bump;
     let vault_config_account_info = ctx.accounts.vault_config.to_account_info();
+    let vault_config_oracles = (
+        ctx.accounts.vault_config.oracle_pyth,
+        ctx.accounts.vault_config.oracle_switchboard_price,
+        ctx.accounts.vault_config.oracle_switchboard_twap,
+        ctx.accounts.vault_config.oracle_scope_config,
+    );
+
+    // Oracle validation: when cached value is non-default, passed account must
+    // match. For unused oracles (cached == default), accept any pubkey (caller
+    // should pass klend program ID as sentinel for Kamino's Option<>).
+    let check_oracle = |cached: &Pubkey, passed: &Pubkey| -> Result<()> {
+        if *cached != Pubkey::default() {
+            require_keys_eq!(*passed, *cached, SeedlingError::OracleMismatch);
+        }
+        Ok(())
+    };
+    check_oracle(&vault_config_oracles.0, &ctx.accounts.oracle_pyth.key())?;
+    check_oracle(
+        &vault_config_oracles.1,
+        &ctx.accounts.oracle_switchboard_price.key(),
+    )?;
+    check_oracle(
+        &vault_config_oracles.2,
+        &ctx.accounts.oracle_switchboard_twap.key(),
+    )?;
+    check_oracle(
+        &vault_config_oracles.3,
+        &ctx.accounts.oracle_scope_config.key(),
+    )?;
 
     // ---- 1. Transfer USDC parent -> vault ----
     {
@@ -130,26 +208,81 @@ pub fn deposit_handler(
         transfer_checked(cpi_ctx, amount, ctx.accounts.usdc_mint.decimals)?;
     }
 
-    // Reload to see the new vault USDC balance.
+    // ---- 2. Kamino refresh_reserve CPI ----
+    // Anchor's Option<AccountInfo> requires every positional account to be
+    // present. "None" is signaled by passing the program ID itself at the
+    // slot. We always forward all 4 oracle accounts regardless of whether
+    // they're configured; the caller passes klend program ID for unused.
+    {
+        let metas = vec![
+            AccountMeta::new(ctx.accounts.kamino_reserve.key(), false),
+            AccountMeta::new_readonly(ctx.accounts.lending_market.key(), false),
+            AccountMeta::new_readonly(ctx.accounts.oracle_pyth.key(), false),
+            AccountMeta::new_readonly(ctx.accounts.oracle_switchboard_price.key(), false),
+            AccountMeta::new_readonly(ctx.accounts.oracle_switchboard_twap.key(), false),
+            AccountMeta::new_readonly(ctx.accounts.oracle_scope_config.key(), false),
+        ];
+        let infos = [
+            ctx.accounts.kamino_reserve.to_account_info(),
+            ctx.accounts.lending_market.to_account_info(),
+            ctx.accounts.oracle_pyth.to_account_info(),
+            ctx.accounts.oracle_switchboard_price.to_account_info(),
+            ctx.accounts.oracle_switchboard_twap.to_account_info(),
+            ctx.accounts.oracle_scope_config.to_account_info(),
+        ];
+
+        let ix = Instruction {
+            program_id: KLEND_PROGRAM_ID,
+            accounts: metas,
+            data: DISC_REFRESH_RESERVE.to_vec(),
+        };
+        invoke(&ix, &infos)?;
+    }
+
+    // Reload the reserve AND supply vault to see post-refresh state.
+    // Kamino's refresh updates the reserve's market_price_sf / interest state;
+    // we read the supply vault for Path-B exchange-rate math below.
     ctx.accounts.vault_usdc_ata.reload()?;
+    ctx.accounts.vault_ctoken_ata.reload()?;
 
-    // ---- 2-3. Real Kamino CPI lands Day 4 (Surfpool) ----
-    // refresh_reserve + deposit_reserve_liquidity stubbed here.
-    // Today: assume cTokens equal USDC 1:1 (no Kamino interaction).
-    // The placeholder doesn't move tokens — vault's USDC stays in vault_usdc_ata
-    // until Day 4 wires the real CPI. This is intentional: it lets the constraint
-    // tests pass without depending on a fake klend program.
-    kamino_cpi_stub_refresh_reserve()?;
+    // ---- 3. Compute total_assets PRE-deposit via Path B ----
+    // Path B: exchange_rate = liquidity_supply / collateral_supply (both in
+    // base units). Our USDC-equivalent holdings =
+    //   cTokens_held × (liquidity_supply / collateral_supply)
+    // =cTokens_held × liquidity_supply / collateral_supply.
+    //
+    // Read liquidity supply and collateral mint supply directly from chain.
+    // Avoids deserializing klend's 8624-byte Reserve struct.
+    let reserve_liquidity_supply_info = &ctx.accounts.reserve_liquidity_supply;
+    let reserve_liquidity_supply_data = reserve_liquidity_supply_info.try_borrow_data()?;
+    // SPL TokenAccount layout: amount at offset 64, 8 bytes LE u64.
+    require!(
+        reserve_liquidity_supply_data.len() >= 72,
+        SeedlingError::InvalidAccountState
+    );
+    let reserve_liquidity_amount = u64::from_le_bytes(
+        reserve_liquidity_supply_data[64..72]
+            .try_into()
+            .map_err(|_| SeedlingError::InvalidAccountState)?,
+    );
+    drop(reserve_liquidity_supply_data);
 
-    // current_total_assets is what the vault would have on the Kamino side
-    // POST-deposit. Until Day 4, we approximate it as the USDC sitting in
-    // vault_usdc_ata (because we haven't actually deposited to Kamino yet).
-    // After the new amount is included, we subtract it back out to compute
-    // the PRE-deposit-pool size for share math.
-    let total_assets_post_deposit_approx = ctx.accounts.vault_usdc_ata.amount;
-    let total_assets_pre_deposit = total_assets_post_deposit_approx
-        .checked_sub(amount)
-        .ok_or(SeedlingError::Underflow)?;
+    let collateral_supply = ctx.accounts.ctoken_mint.supply;
+    let vault_ctokens_held = ctx.accounts.vault_ctoken_ata.amount;
+
+    // Pre-deposit total assets: cTokens_held × liquidity / collateral_supply.
+    // If we hold zero cTokens or the reserve has no liquidity, total is 0.
+    let total_assets_pre_deposit: u64 = if vault_ctokens_held == 0 || collateral_supply == 0 {
+        0
+    } else {
+        let prod = (vault_ctokens_held as u128)
+            .checked_mul(reserve_liquidity_amount as u128)
+            .ok_or(SeedlingError::Overflow)?;
+        let assets = prod
+            .checked_div(collateral_supply as u128)
+            .ok_or(SeedlingError::DivisionByZero)?;
+        u64::try_from(assets).map_err(|_| SeedlingError::Overflow)?
+    };
 
     // ---- 4. Harvest and fee BEFORE share math ----
     let harvest_result = {
@@ -166,17 +299,69 @@ pub fn deposit_handler(
             &ctx.accounts.token_program,
         )?
     };
-
-    // After fee transfer, vault USDC went down by `fee_to_treasury`.
     ctx.accounts.vault_usdc_ata.reload()?;
     let total_assets_post_fee = total_assets_pre_deposit
         .checked_sub(harvest_result.fee_to_treasury)
         .ok_or(SeedlingError::Underflow)?;
 
-    // ---- 5. (real Kamino deposit_reserve_liquidity is here in Day 4) ----
-    kamino_cpi_stub_deposit_reserve_liquidity(amount)?;
+    // ---- 5. Kamino deposit_reserve_liquidity CPI ----
+    // 12 accounts per master doc §8 + handler_deposit_reserve_liquidity.rs.
+    // Account order must match klend's DepositReserveLiquidity struct:
+    //   owner, reserve, lending_market, lending_market_authority,
+    //   reserve_liquidity_mint, reserve_liquidity_supply,
+    //   reserve_collateral_mint, user_source_liquidity,
+    //   user_destination_collateral, collateral_token_program (SPL Token),
+    //   liquidity_token_program (TokenInterface), instruction_sysvar.
+    //
+    // vault_config is owner + signer via PDA seeds.
+    {
+        let vault_bump = [vault_config_bump];
+        let signer_seeds: &[&[&[u8]]] = &[&[VaultConfig::SEED, &vault_bump]];
 
-    // ---- 6. Compute shares using kvault pattern ----
+        let mut data = DISC_DEPOSIT_RESERVE_LIQUIDITY.to_vec();
+        data.extend_from_slice(&amount.to_le_bytes());
+
+        let ix = Instruction {
+            program_id: KLEND_PROGRAM_ID,
+            accounts: vec![
+                AccountMeta::new_readonly(vault_config_key, true), // owner (PDA signer)
+                AccountMeta::new(ctx.accounts.kamino_reserve.key(), false),
+                AccountMeta::new_readonly(ctx.accounts.lending_market.key(), false),
+                AccountMeta::new_readonly(ctx.accounts.lending_market_authority.key(), false),
+                AccountMeta::new_readonly(ctx.accounts.usdc_mint.key(), false),
+                AccountMeta::new(ctx.accounts.reserve_liquidity_supply.key(), false),
+                AccountMeta::new(ctx.accounts.ctoken_mint.key(), false),
+                AccountMeta::new(ctx.accounts.vault_usdc_ata.key(), false),
+                AccountMeta::new(ctx.accounts.vault_ctoken_ata.key(), false),
+                AccountMeta::new_readonly(anchor_spl::token::ID, false),
+                AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+                AccountMeta::new_readonly(ctx.accounts.instruction_sysvar.key(), false),
+            ],
+            data,
+        };
+
+        let infos: &[AccountInfo] = &[
+            vault_config_account_info.clone(),
+            ctx.accounts.kamino_reserve.to_account_info(),
+            ctx.accounts.lending_market.to_account_info(),
+            ctx.accounts.lending_market_authority.to_account_info(),
+            ctx.accounts.usdc_mint.to_account_info(),
+            ctx.accounts.reserve_liquidity_supply.to_account_info(),
+            ctx.accounts.ctoken_mint.to_account_info(),
+            ctx.accounts.vault_usdc_ata.to_account_info(),
+            ctx.accounts.vault_ctoken_ata.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.instruction_sysvar.to_account_info(),
+        ];
+        invoke_signed(&ix, infos, signer_seeds)?;
+    }
+
+    // Reload to see cTokens minted + USDC moved into Kamino.
+    ctx.accounts.vault_ctoken_ata.reload()?;
+    ctx.accounts.vault_usdc_ata.reload()?;
+
+    // ---- 6. Shares math (kvault pattern, Path A for first-depositor) ----
     let shares_to_mint = compute_shares_to_mint(
         amount,
         ctx.accounts.vault_config.total_shares,
@@ -206,7 +391,6 @@ pub fn deposit_handler(
         .checked_add(amount)
         .ok_or(SeedlingError::Overflow)?;
 
-    // last_known_total_assets includes the new principal: post-fee + new amount.
     ctx.accounts.vault_config.last_known_total_assets = total_assets_post_fee
         .checked_add(amount)
         .ok_or(SeedlingError::Overflow)?;
@@ -221,18 +405,6 @@ pub fn deposit_handler(
         ts: Clock::get()?.unix_timestamp,
     });
 
-    Ok(())
-}
-
-/// Day-3 placeholder. Day-4 replaces with real `invoke_signed` against
-/// Kamino klend program ID (KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD)
-/// using the account list from master doc §8.
-fn kamino_cpi_stub_refresh_reserve() -> Result<()> {
-    Ok(())
-}
-
-/// Day-3 placeholder. Day-4 replaces with real CPI to Kamino's
-/// `deposit_reserve_liquidity(amount)`.
-fn kamino_cpi_stub_deposit_reserve_liquidity(_amount: u64) -> Result<()> {
+    msg!("deposit complete");
     Ok(())
 }
