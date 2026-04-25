@@ -253,12 +253,13 @@ describe("seedling", () => {
     });
   });
 
-  // ===== deposit =====
-  // Day-3 scope: constraint failures only. Real Kamino CPI lands Day 4
-  // on Surfpool, when happy-path tests verify share math + invariants.
-  // What we CAN test today: amount=0 rejected, paused rejected, wrong
-  // parent rejected, slippage guard, etc.
-  describe("deposit (constraint tests only — happy path is Day 4 on Surfpool)", () => {
+  // ===== deposit — constraint tests only =====
+  // Day-4: real Kamino CPI wired. These constraint tests fail BEFORE the CPI
+  // fires (validation / amount=0 / has_one), so they run fine on a local
+  // validator with junk pubkeys for Kamino-side accounts. Happy-path + all
+  // share-math assertions run against Surfpool mainnet-fork in
+  // `tests/deposit-surfpool.test.ts`.
+  describe("deposit (constraint failures — happy path is in deposit-surfpool)", () => {
     const parent = Keypair.generate();
     const kid = Keypair.generate().publicKey;
     const streamRate = new BN(50_000_000);
@@ -266,6 +267,16 @@ describe("seedling", () => {
     let parentUsdcAta: PublicKey;
     let vaultUsdcAta: PublicKey;
     let vaultCtokenAta: PublicKey;
+
+    // Kamino-side accounts: junk pubkeys work for constraint tests that
+    // short-circuit before CPI. Just need to be consistent with cached
+    // oracle pubkeys (Pubkey.default == System Program for unused oracles).
+    const KLEND_PROGRAM = new PublicKey(
+      "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD"
+    );
+    const SYSVAR_INSTRUCTIONS = new PublicKey(
+      "Sysvar1nstructions1111111111111111111111111"
+    );
 
     before(async () => {
       const sig = await provider.connection.requestAirdrop(
@@ -279,7 +290,6 @@ describe("seedling", () => {
         program.programId
       );
 
-      // Create the family for these tests.
       await program.methods
         .createFamily(kid, streamRate)
         .accounts({
@@ -289,7 +299,6 @@ describe("seedling", () => {
         .signers([parent])
         .rpc();
 
-      // Mint some USDC to the parent for deposit attempts.
       parentUsdcAta = (
         await getOrCreateAssociatedTokenAccount(
           provider.connection,
@@ -301,11 +310,11 @@ describe("seedling", () => {
       const { mintTo } = await import("@solana/spl-token");
       await mintTo(
         provider.connection,
-        authority, // mint authority is `authority` from outer scope
+        authority,
         usdcMint,
         parentUsdcAta,
         authority,
-        100_000_000 // 100 USDC
+        100_000_000
       );
 
       vaultUsdcAta = getAssociatedTokenAddressSync(
@@ -320,26 +329,41 @@ describe("seedling", () => {
       );
     });
 
-    const buildDeposit = (amount: BN, minSharesOut: BN) =>
-      program.methods.deposit(amount, minSharesOut).accountsPartial({
-        familyPosition: familyPda,
-        parent: parent.publicKey,
-        parentUsdcAta,
-        vaultUsdcAta,
-        vaultCtokenAta,
-        treasuryUsdcAta,
-        vaultConfig: vaultConfigPda,
-        usdcMint,
-        ctokenMint,
-        kaminoReserve,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-      });
+    const commonAccounts = () => ({
+      familyPosition: familyPda,
+      parent: parent.publicKey,
+      parentUsdcAta,
+      vaultUsdcAta,
+      vaultCtokenAta,
+      treasuryUsdcAta,
+      vaultConfig: vaultConfigPda,
+      usdcMint,
+      ctokenMint,
+      kaminoReserve,
+      // Kamino-side accounts. Junk pubkeys — constraint tests fail
+      // BEFORE the CPI, so these never get dereferenced on-chain.
+      // For address-constrained slots we pass the cached value.
+      lendingMarket: Keypair.generate().publicKey,
+      lendingMarketAuthority: Keypair.generate().publicKey,
+      reserveLiquiditySupply: Keypair.generate().publicKey,
+      oraclePyth: oracles.pyth, // matches cached
+      oracleSwitchboardPrice: oracles.switchboardPrice,
+      oracleSwitchboardTwap: oracles.switchboardTwap,
+      oracleScopeConfig: oracles.scopeConfig,
+      kaminoProgram: KLEND_PROGRAM,
+      instructionSysvar: SYSVAR_INSTRUCTIONS,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    });
 
     it("rejects amount = 0", async () => {
       try {
-        await buildDeposit(new BN(0), new BN(0)).signers([parent]).rpc();
+        await program.methods
+          .deposit(new BN(0), new BN(0))
+          .accountsPartial(commonAccounts())
+          .signers([parent])
+          .rpc();
         assert.fail("expected amount=0 to be rejected");
       } catch (e: any) {
         assert.include(e.toString(), "InvalidAmount");
@@ -367,65 +391,19 @@ describe("seedling", () => {
         await program.methods
           .deposit(new BN(1_000_000), new BN(0))
           .accountsPartial({
-            familyPosition: familyPda,
+            ...commonAccounts(),
             parent: imposter.publicKey,
             parentUsdcAta: imposterUsdcAta,
-            vaultUsdcAta,
-            vaultCtokenAta,
-            treasuryUsdcAta,
-            vaultConfig: vaultConfigPda,
-            usdcMint,
-            ctokenMint,
-            kaminoReserve,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-            systemProgram: SystemProgram.programId,
           })
           .signers([imposter])
           .rpc();
         assert.fail("expected has_one mismatch to reject");
       } catch (e: any) {
         const msg = e.toString();
-        // Anchor surfaces has_one violations as ConstraintHasOne or our
-        // custom InvalidAuthority depending on @ binding.
         assert.isTrue(
           msg.includes("InvalidAuthority") || msg.includes("ConstraintHasOne"),
           `expected has_one rejection, got: ${msg}`
         );
-      }
-    });
-
-    it("happy-path deposit succeeds (no real Kamino CPI yet — stubbed)", async () => {
-      // Today: vault doesn't actually push USDC into Kamino. The deposit
-      // accepts USDC, runs share math against vault_usdc_ata.amount, and
-      // mints family shares. Validates the non-Kamino logic end-to-end.
-      const amount = new BN(10_000_000); // 10 USDC
-
-      await buildDeposit(amount, new BN(0)).signers([parent]).rpc();
-
-      const family = await program.account.familyPosition.fetch(familyPda);
-      const cfg = await program.account.vaultConfig.fetch(vaultConfigPda);
-
-      // First deposit ever → shares = amount, 1:1.
-      assert.isTrue(family.shares.eq(amount));
-      assert.isTrue(cfg.totalShares.eq(amount));
-      assert.isTrue(family.principalDeposited.eq(amount));
-      assert.isTrue(family.principalRemaining.eq(amount));
-
-      // Invariant: total_shares == sum of all family.shares (only one family here).
-      assert.isTrue(cfg.totalShares.eq(family.shares));
-    });
-
-    it("rejects when shares_minted < min_shares_out (slippage)", async () => {
-      // We're already past the first deposit, so total_shares > 0. A second
-      // deposit demanding more shares than possible should fail SlippageExceeded.
-      try {
-        await buildDeposit(new BN(1_000_000), new BN(2_000_000))
-          .signers([parent])
-          .rpc();
-        assert.fail("expected slippage rejection");
-      } catch (e: any) {
-        assert.include(e.toString(), "SlippageExceeded");
       }
     });
   });

@@ -128,6 +128,37 @@ Claude Code's sandbox doesn't handle this even after the fix — runs with `dang
 
 That's the SPL Token Faucet's "DUMMY" token — useful for isolated tests, incompatible with Kamino's USDC reserve. **Real Circle devnet USDC is `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`**, faucet at https://faucet.circle.com (20 USDC / 2h / address).
 
-### 15. Kamino devnet markets ≠ mainnet main market
+### 15. Anchor `Option<AccountInfo>` None sentinel is the target program ID
+
+Kamino klend (and any Anchor program with `pub x: Option<AccountInfo<'info>>`) expects every positional account in the AccountMeta list to be present. Passing fewer accounts = `AccountNotEnoughKeys` error.
+
+To signal "None" for an optional slot: pass the **target program's own ID** at that position. Example: Kamino's refresh_reserve has 4 optional oracle slots; for a reserve using only Scope, pass klend program ID for the pyth/switchboard_price/switchboard_twap slots.
+
+### 16. Kamino lending_market_authority PDA seeds
+
+Seeds: `[b"lma", lending_market.key()]`. The prefix string is literally `lma`, sourced from `klend/programs/klend/src/utils/seeds.rs:1`. Not obvious from the account name.
+
+### 17. `ctoken_mint` must be `mut` in the Deposit struct even if you don't mutate it
+
+Kamino's `deposit_reserve_liquidity` CPI mints new cTokens into the collateral mint. Your Anchor account struct must declare it writable, or Solana rejects the CPI with "writable privilege escalated."
+
+Same will apply to any mint field Kamino writes to.
+
+### 18. Surfpool mainnet-fork oracle prices go stale
+
+Mainnet's oracles are updated by real validators; the fork doesn't get those updates. Kamino's refresh_reserve logs `PriceTooOld` warnings but continues execution. Benign for tests today. If Kamino upgrades to hard-fail on stale prices, Surfpool integration tests break.
+
+### 19. Kamino Path-B exchange rate: `supply_vault.amount` is NOT total assets
+
+Most Kamino USDC is lent out. The reserve's supply_vault holds only the unlent portion. Correct formula for Kamino's internal exchange rate:
+```
+total_assets = supply_vault.amount + borrowed_amount_sf / SF_SCALE
+exchange_rate = total_assets / collateral_mint.supply
+```
+`borrowed_amount_sf` is a scaled-fraction u128 at reserve offset 232, divided by `2^60` to unscale.
+
+Using supply-vault-only (what we did Day 4) gives dramatically wrong shares on any deposit after the first. Fix was Day 5.
+
+### 20. Kamino devnet markets ≠ mainnet main market
 
 Mainnet's `7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF` is a plain System-owned empty account on devnet. Devnet has its own markets (109 of them as of Apr 2026). Primary Seedling target: market `6aaNTBEmwdN19AAdTwbNrWyUo6iEyiLguxCTePEzSqoH`, USDC reserve `HRwMj8uuoGVWCanKzKvpTWN5ZvXjtjKGxcFbn2qTPKMW`. Backups in master doc §20.
