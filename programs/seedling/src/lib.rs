@@ -8,7 +8,7 @@ pub mod utils;
 
 use instructions::*;
 
-declare_id!("E4r6K73vj9HCJxs4ZogAZ1FUSyDufM9ovjApah25qXfA");
+declare_id!("44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN");
 
 #[program]
 pub mod seedling {

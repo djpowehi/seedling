@@ -1,5 +1,5 @@
 # Pinned 2026-04-24. Compatible with Kamino declare_program! IDL approach.
-# Downgrade to 0.31.1 only if Day-3 Kamino CPI breaks.
+# Downgrade to 0.31.1 only if Kamino CPI breaks.
 [toolchain]
 anchor_version = "0.32.1"
 package_manager = "yarn"
@@ -8,11 +8,15 @@ package_manager = "yarn"
 resolution = true
 skip-lint = false
 
+# Single program ID across localnet + devnet (Day 7 deployment).
+# Keypair at target/deploy/seedling-keypair.json; backup at
+# ~/refs/seedling-devnet-program-keypair.json (DO NOT LOSE — redeploying
+# under a new ID orphans any on-chain state).
 [programs.localnet]
-seedling = "E4r6K73vj9HCJxs4ZogAZ1FUSyDufM9ovjApah25qXfA"
+seedling = "44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN"
 
 [programs.devnet]
-seedling = "E4r6K73vj9HCJxs4ZogAZ1FUSyDufM9ovjApah25qXfA"
+seedling = "44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN"
 
 [registry]
 url = "https://api.apr.dev"
