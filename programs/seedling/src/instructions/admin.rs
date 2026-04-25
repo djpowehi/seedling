@@ -64,3 +64,30 @@ pub fn roll_period_handler(ctx: Context<RollPeriod>, next_period_end_ts: i64) ->
     cfg.period_end_ts = next_period_end_ts;
     Ok(())
 }
+
+/// Authority-only emergency pause / unpause. Flips `vault_config.is_paused`,
+/// which is checked by every financial instruction's account constraint
+/// (`constraint = !vault_config.is_paused @ SeedlingError::VaultPaused`).
+///
+/// When paused: deposit, withdraw, distribute_monthly_allowance, and
+/// distribute_bonus all reject with VaultPaused. create_family also rejects
+/// (no new families during incident response). Admin instructions
+/// (set_family_last_distribution, roll_period, set_paused itself) remain
+/// callable so authority can recover state.
+#[derive(Accounts)]
+pub struct SetPaused<'info> {
+    #[account(
+        mut,
+        seeds = [VaultConfig::SEED],
+        bump = vault_config.bump,
+        has_one = authority @ SeedlingError::InvalidAuthority,
+    )]
+    pub vault_config: Account<'info, VaultConfig>,
+
+    pub authority: Signer<'info>,
+}
+
+pub fn set_paused_handler(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+    ctx.accounts.vault_config.is_paused = paused;
+    Ok(())
+}

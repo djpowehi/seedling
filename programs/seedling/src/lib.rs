@@ -55,4 +55,8 @@ pub mod seedling {
     pub fn roll_period(ctx: Context<RollPeriod>, next_period_end_ts: i64) -> Result<()> {
         instructions::roll_period_handler(ctx, next_period_end_ts)
     }
+
+    pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+        instructions::set_paused_handler(ctx, paused)
+    }
 }
