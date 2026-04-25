@@ -127,7 +127,8 @@
 | Custody | Parent has authority, kid has view-only PDA | No minor-custody problem; parent handles offramp |
 | Distribution | Discrete: monthly allowance (30-day rolling gate) + period-end bonus | Matches real-world allowance UX; deterministic on-chain time check; no timezone drift |
 | Keeper | Seedling operates in practice, permissionless at protocol level | Trust-building + decentralization signal |
-| Protocol fee | 10% of ALL yield at each harvest event (NOT of principal). Applies on every monthly harvest AND period-end bonus harvest, not bonus-only. | Matches S7 revenue projections ($30M TVL × 8% APY × 10% = $240K/yr). Bonus-only would leave ~11mo of yield fees on the table. |
+| Protocol fee | 10% of ALL yield at each **cToken-redeeming event**: `withdraw`, `distribute_monthly_allowance`, `distribute_bonus`. NOT collected at `deposit` (see timing note below). | Matches S7 revenue projections ($30M TVL × 8% APY × 10% = $240K/yr). Aggregate is the same; pacing is ~11/12 monthly + bonus + variable-withdraw. |
+| **Fee timing (Day-5 lock)** | Fee accrues at redemption events, NOT at deposit. | Kamino sweeps `vault_usdc_ata` to cTokens on every `deposit_reserve_liquidity`, leaving nothing to skim. Fees must come out of cToken redemption when that conversion back to USDC already happens. Regression test `scripts/surfpool-deposit-precision.ts` caught the original broken design. DO NOT re-add harvest to deposit without also adding an extra Kamino redeem CPI to source USDC for the fee (+40-60k CU per deposit). |
 | Fiat offramp | Not in v1, parent handles manually | Scope discipline |
 | Kid spending | Not in v1, parent offramps on demand | Scope discipline |
 

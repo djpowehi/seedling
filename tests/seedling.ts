@@ -555,4 +555,198 @@ describe("seedling", () => {
       }
     });
   });
+
+  // ===== distribute_monthly_allowance — constraint tests only =====
+  // The 30-day gate check fires BEFORE any Kamino CPI, so we can test it on
+  // a plain local validator. Happy-path with real Kamino is in
+  // scripts/surfpool-distribute-e2e.ts.
+  describe("distribute_monthly_allowance (TooEarly gate on fresh family)", () => {
+    const parent = Keypair.generate();
+    const kid = Keypair.generate(); // need both pubkey AND signer? no, kid is a Pubkey in our state
+    const streamRate = new BN(50_000_000);
+    let familyPda: PublicKey;
+    let kidViewPda: PublicKey;
+
+    const KLEND_PROGRAM = new PublicKey(
+      "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD"
+    );
+    const SYSVAR_INSTRUCTIONS = new PublicKey(
+      "Sysvar1nstructions1111111111111111111111111"
+    );
+
+    before(async () => {
+      const sig = await provider.connection.requestAirdrop(
+        parent.publicKey,
+        2 * LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(sig, "confirmed");
+
+      [familyPda] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("family"),
+          parent.publicKey.toBuffer(),
+          kid.publicKey.toBuffer(),
+        ],
+        program.programId
+      );
+      [kidViewPda] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("kid"),
+          parent.publicKey.toBuffer(),
+          kid.publicKey.toBuffer(),
+        ],
+        program.programId
+      );
+
+      await program.methods
+        .createFamily(kid.publicKey, streamRate)
+        .accounts({ parent: parent.publicKey, vaultConfig: vaultConfigPda })
+        .signers([parent])
+        .rpc();
+    });
+
+    it("rejects distribute immediately after create_family (30-day gate)", async () => {
+      // kid_usdc_ata must exist — Anchor validates account deserialization
+      // before the handler's TooEarly check fires.
+      const kidFunding = await provider.connection.requestAirdrop(
+        kid.publicKey,
+        LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(kidFunding, "confirmed");
+      const kidUsdcAta = (
+        await getOrCreateAssociatedTokenAccount(
+          provider.connection,
+          kid,
+          usdcMint,
+          kid.publicKey
+        )
+      ).address;
+      const vaultUsdcAta = getAssociatedTokenAddressSync(
+        usdcMint,
+        vaultConfigPda,
+        true
+      );
+      const vaultCtokenAta = getAssociatedTokenAddressSync(
+        ctokenMint,
+        vaultConfigPda,
+        true
+      );
+
+      const keeper = Keypair.generate();
+      const sig = await provider.connection.requestAirdrop(
+        keeper.publicKey,
+        1 * LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(sig, "confirmed");
+
+      try {
+        await program.methods
+          .distributeMonthlyAllowance()
+          .accountsPartial({
+            keeper: keeper.publicKey,
+            familyPosition: familyPda,
+            kidView: kidViewPda,
+            kidUsdcAta,
+            kidOwner: kid.publicKey,
+            vaultUsdcAta,
+            vaultCtokenAta,
+            treasuryUsdcAta,
+            vaultConfig: vaultConfigPda,
+            usdcMint,
+            ctokenMint,
+            kaminoReserve,
+            lendingMarket: Keypair.generate().publicKey,
+            lendingMarketAuthority: Keypair.generate().publicKey,
+            reserveLiquiditySupply: Keypair.generate().publicKey,
+            oraclePyth: oracles.pyth,
+            oracleSwitchboardPrice: oracles.switchboardPrice,
+            oracleSwitchboardTwap: oracles.switchboardTwap,
+            oracleScopeConfig: oracles.scopeConfig,
+            kaminoProgram: KLEND_PROGRAM,
+            instructionSysvar: SYSVAR_INSTRUCTIONS,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([keeper])
+          .rpc();
+        assert.fail("expected TooEarly rejection");
+      } catch (e: any) {
+        assert.include(e.toString(), "TooEarly");
+      }
+    });
+  });
+
+  // ===== set_family_last_distribution admin override =====
+  describe("set_family_last_distribution (authority-only)", () => {
+    const parent = Keypair.generate();
+    const kid = Keypair.generate();
+    let familyPda: PublicKey;
+
+    before(async () => {
+      const sig = await provider.connection.requestAirdrop(
+        parent.publicKey,
+        2 * LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(sig, "confirmed");
+
+      [familyPda] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("family"),
+          parent.publicKey.toBuffer(),
+          kid.publicKey.toBuffer(),
+        ],
+        program.programId
+      );
+      await program.methods
+        .createFamily(kid.publicKey, new BN(50_000_000))
+        .accounts({ parent: parent.publicKey, vaultConfig: vaultConfigPda })
+        .signers([parent])
+        .rpc();
+    });
+
+    it("authority can backdate last_distribution", async () => {
+      const backdated = new BN(Math.floor(Date.now() / 1000) - 31 * 86400);
+      await program.methods
+        .setFamilyLastDistribution(backdated)
+        .accounts({
+          vaultConfig: vaultConfigPda,
+          familyPosition: familyPda,
+          authority: authority.publicKey,
+        })
+        .signers([authority])
+        .rpc();
+
+      const family = await program.account.familyPosition.fetch(familyPda);
+      assert.isTrue(family.lastDistribution.eq(backdated));
+    });
+
+    it("non-authority cannot backdate", async () => {
+      const imposter = Keypair.generate();
+      const sig = await provider.connection.requestAirdrop(
+        imposter.publicKey,
+        LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(sig, "confirmed");
+
+      try {
+        await program.methods
+          .setFamilyLastDistribution(new BN(0))
+          .accounts({
+            vaultConfig: vaultConfigPda,
+            familyPosition: familyPda,
+            authority: imposter.publicKey,
+          })
+          .signers([imposter])
+          .rpc();
+        assert.fail("expected has_one rejection");
+      } catch (e: any) {
+        const msg = e.toString();
+        assert.isTrue(
+          msg.includes("InvalidAuthority") || msg.includes("ConstraintHasOne"),
+          `got: ${msg}`
+        );
+      }
+    });
+  });
 });
