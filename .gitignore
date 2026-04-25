@@ -90,7 +90,7 @@ Pipfile.lock
 .pdm.toml
 __pypackages__/
 
-# Distribution / packaging
+# Distribution / packaging (Python; lib/ exception below for frontend/lib)
 *.egg
 *.egg-info/
 dist/
@@ -105,6 +105,10 @@ var/
 wheels/
 share/python-wheels/
 *.manifest
+
+# Override: frontend/lib holds IDL + types + program client (must ship to Vercel)
+!frontend/lib/
+!frontend/lib/**
 *.spec
 
 #############
