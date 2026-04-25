@@ -24,4 +24,8 @@ pub mod seedling {
     pub fn create_family(ctx: Context<CreateFamily>, kid: Pubkey, stream_rate: u64) -> Result<()> {
         instructions::create_family_handler(ctx, kid, stream_rate)
     }
+
+    pub fn deposit(ctx: Context<Deposit>, amount: u64, min_shares_out: u64) -> Result<()> {
+        instructions::deposit_handler(ctx, amount, min_shares_out)
+    }
 }
