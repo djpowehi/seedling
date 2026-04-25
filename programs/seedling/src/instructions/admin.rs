@@ -34,3 +34,33 @@ pub fn set_family_last_distribution_handler(
     ctx.accounts.family_position.last_distribution = new_last_distribution;
     Ok(())
 }
+
+/// Authority-only: bumps the bonus period forward. In production this runs
+/// once per fiscal year (Dec 1 UTC or similar), incrementing
+/// `current_period_id` so families can claim their next bonus. Also lets
+/// authority shift `period_end_ts` for the upcoming period.
+///
+/// Mirrors `set_family_last_distribution`: not test-only, but usable in
+/// tests as the canonical way to advance past a bonus gate.
+#[derive(Accounts)]
+pub struct RollPeriod<'info> {
+    #[account(
+        mut,
+        seeds = [VaultConfig::SEED],
+        bump = vault_config.bump,
+        has_one = authority @ SeedlingError::InvalidAuthority,
+    )]
+    pub vault_config: Account<'info, VaultConfig>,
+
+    pub authority: Signer<'info>,
+}
+
+pub fn roll_period_handler(ctx: Context<RollPeriod>, next_period_end_ts: i64) -> Result<()> {
+    let cfg = &mut ctx.accounts.vault_config;
+    cfg.current_period_id = cfg
+        .current_period_id
+        .checked_add(1)
+        .ok_or(SeedlingError::Overflow)?;
+    cfg.period_end_ts = next_period_end_ts;
+    Ok(())
+}
