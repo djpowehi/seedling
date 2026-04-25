@@ -749,4 +749,93 @@ describe("seedling", () => {
       }
     });
   });
+
+  // ===== set_paused (emergency pause) =====
+  describe("set_paused (emergency kill switch)", () => {
+    it("authority can pause and unpause", async () => {
+      // Pause
+      await program.methods
+        .setPaused(true)
+        .accounts({
+          vaultConfig: vaultConfigPda,
+          authority: authority.publicKey,
+        })
+        .signers([authority])
+        .rpc();
+      let cfg = await program.account.vaultConfig.fetch(vaultConfigPda);
+      assert.isTrue(cfg.isPaused);
+
+      // While paused, create_family rejects with VaultPaused
+      const parent = Keypair.generate();
+      const kid = Keypair.generate().publicKey;
+      const sig = await provider.connection.requestAirdrop(
+        parent.publicKey,
+        LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(sig, "confirmed");
+
+      try {
+        await program.methods
+          .createFamily(kid, new BN(50_000_000))
+          .accounts({
+            parent: parent.publicKey,
+            vaultConfig: vaultConfigPda,
+          })
+          .signers([parent])
+          .rpc();
+        assert.fail("expected VaultPaused");
+      } catch (e: any) {
+        assert.include(e.toString(), "VaultPaused");
+      }
+
+      // Unpause
+      await program.methods
+        .setPaused(false)
+        .accounts({
+          vaultConfig: vaultConfigPda,
+          authority: authority.publicKey,
+        })
+        .signers([authority])
+        .rpc();
+      cfg = await program.account.vaultConfig.fetch(vaultConfigPda);
+      assert.isFalse(cfg.isPaused);
+
+      // Now create_family succeeds
+      await program.methods
+        .createFamily(kid, new BN(50_000_000))
+        .accounts({
+          parent: parent.publicKey,
+          vaultConfig: vaultConfigPda,
+        })
+        .signers([parent])
+        .rpc();
+    });
+
+    it("non-authority cannot pause", async () => {
+      const imposter = Keypair.generate();
+      const sig = await provider.connection.requestAirdrop(
+        imposter.publicKey,
+        LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(sig, "confirmed");
+
+      try {
+        await program.methods
+          .setPaused(true)
+          .accounts({
+            vaultConfig: vaultConfigPda,
+            authority: imposter.publicKey,
+          })
+          .signers([imposter])
+          .rpc();
+        assert.fail("expected has_one rejection");
+      } catch (e: any) {
+        const msg = e.toString();
+        assert.isTrue(
+          msg.includes("InvalidAuthority") || msg.includes("ConstraintHasOne"),
+          `got: ${msg}`
+        );
+      }
+    });
+  });
 });
