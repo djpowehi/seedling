@@ -30,7 +30,12 @@ use crate::utils::{
 /// works EXCEPT cTokens don't actually move in/out of Kamino. The test
 /// suite reflects this: constraint failures (paused, wrong parent, amount=0,
 /// slippage) are tested today; happy-path is Surfpool tomorrow.
-// Box<>'d heavy fields keep try_accounts under the SBF 4kb stack ceiling.
+// CONVENTION (apply to every instruction with 8+ token/mint accounts):
+// Wrap heavy fields (Account<...>, InterfaceAccount<...>) in Box<>.
+// Without it, Anchor's try_accounts macro overflows the SBF 4kb stack frame
+// at compile time. withdraw, distribute_monthly_allowance, distribute_bonus
+// all need this — they each carry the same Kamino CPI account set.
+// See GOTCHAS.md #14.
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(
