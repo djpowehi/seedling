@@ -47,4 +47,12 @@ pub mod seedling {
     pub fn distribute_monthly_allowance(ctx: Context<DistributeMonthlyAllowance>) -> Result<()> {
         instructions::distribute_monthly_allowance_handler(ctx)
     }
+
+    pub fn distribute_bonus(ctx: Context<DistributeBonus>) -> Result<()> {
+        instructions::distribute_bonus_handler(ctx)
+    }
+
+    pub fn roll_period(ctx: Context<RollPeriod>, next_period_end_ts: i64) -> Result<()> {
+        instructions::roll_period_handler(ctx, next_period_end_ts)
+    }
 }
