@@ -150,11 +150,11 @@ export function AddKidForm({
         setKidName(familyPda.toBase58(), nameInput);
       }
 
-      // Give devnet RPC a moment for the new accounts to propagate to the
-      // node serving getProgramAccounts. Without this, the immediate refetch
-      // can briefly hit a stale snapshot and surface a transient error.
-      // 1.5s is overkill for the happy path but prevents flicker.
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Wait for finalization before refetching. Fixed setTimeout was a
+      // mask that breaks under devnet congestion >1.5s; finality
+      // guarantees the new account state has propagated to the nodes
+      // serving getProgramAccounts queries.
+      await connection.confirmTransaction(sig, "finalized");
       console.log(`[create_family] tx ${sig}`);
 
       onCreated();

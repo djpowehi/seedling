@@ -174,12 +174,11 @@ export function DistributeButtons({
         .preInstructions(buildPreIxs())
         .rpc({ commitment: "confirmed" });
       console.log(`[distribute_monthly] tx ${sig}`);
-      await connection.confirmTransaction(sig, "confirmed");
+      await connection.confirmTransaction(sig, "finalized");
       onDistributed();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.toLowerCase().includes("already been processed")) {
-        await connection.confirmTransaction("", "confirmed").catch(() => {});
         onDistributed();
         return;
       }
@@ -204,7 +203,7 @@ export function DistributeButtons({
         .preInstructions(buildPreIxs())
         .rpc({ commitment: "confirmed" });
       console.log(`[distribute_bonus] tx ${sig}`);
-      await connection.confirmTransaction(sig, "confirmed");
+      await connection.confirmTransaction(sig, "finalized");
       onDistributed();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
