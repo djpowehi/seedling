@@ -131,7 +131,9 @@ export function WithdrawForm({
         ])
         .rpc({ commitment: "confirmed" });
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Wait for finalization so the immediate refetch sees the new
+      // family state, not a stale snapshot.
+      await connection.confirmTransaction(sig, "finalized");
       console.log(`[withdraw] tx ${sig}`);
 
       onWithdrawn();
@@ -140,7 +142,6 @@ export function WithdrawForm({
       // Same Anchor-retry duplicate handling as DepositForm.
       if (msg.toLowerCase().includes("already been processed")) {
         console.log("[withdraw] duplicate submission — first tx succeeded");
-        await new Promise((resolve) => setTimeout(resolve, 1500));
         onWithdrawn();
         return;
       }

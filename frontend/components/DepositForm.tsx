@@ -128,8 +128,10 @@ export function DepositForm({
         ])
         .rpc({ commitment: "confirmed" });
 
-      // Same 1.5s mask as AddKidForm — devnet RPC propagation race.
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Wait for finalization so the immediate refetch sees the new
+      // family state, not a stale snapshot. confirmTransaction is
+      // correct under any latency; setTimeout was a known-stale mask.
+      await connection.confirmTransaction(sig, "finalized");
       console.log(`[deposit] tx ${sig}`);
 
       onDeposited();
@@ -140,7 +142,6 @@ export function DepositForm({
       // this as success rather than spooking the user.
       if (msg.toLowerCase().includes("already been processed")) {
         console.log("[deposit] duplicate submission — first tx succeeded");
-        await new Promise((resolve) => setTimeout(resolve, 1500));
         onDeposited();
         return;
       }
