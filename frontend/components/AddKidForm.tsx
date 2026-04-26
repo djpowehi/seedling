@@ -160,6 +160,23 @@ export function AddKidForm({
       onCreated();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
+      // "already been processed" = duplicate submission of a tx that already
+      // landed (Anchor's RPC retried internally). The first attempt
+      // succeeded, so save the name + treat as success.
+      if (msg.toLowerCase().includes("already been processed")) {
+        console.log(
+          "[create_family] duplicate submission — first tx succeeded"
+        );
+        if (nameInput.trim() && parsedKid) {
+          const [familyPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("family"), parent.toBuffer(), parsedKid.toBuffer()],
+            PROGRAM_ID
+          );
+          setKidName(familyPda.toBase58(), nameInput);
+        }
+        onCreated();
+        return;
+      }
       // Map common Anchor error shapes to friendlier copy.
       if (msg.includes("already in use")) {
         setSubmitError("This kid already has an allowance set up.");
