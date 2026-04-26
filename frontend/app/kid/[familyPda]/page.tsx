@@ -13,6 +13,7 @@ import type { FamilyView } from "@/lib/fetchFamilies";
 import { getKidName } from "@/lib/kidNames";
 import { formatUsdc } from "@/lib/format";
 import { Countdowns } from "@/components/Countdowns";
+import { SavingsGoalDisplay } from "@/components/SavingsGoalDisplay";
 import { YieldTicker } from "@/components/YieldTicker";
 
 type PageProps = {
@@ -143,15 +144,12 @@ export default function KidViewPage({ params }: PageProps) {
 
         {clock && <Countdowns family={family} clock={clock} />}
 
-        {/* SAVINGS GOAL PLACEHOLDER — Day 10 #5 fills this */}
-        <section className="rounded-2xl bg-stone-50 border border-stone-200 p-5 flex flex-col gap-2">
-          <span className="text-xs uppercase tracking-wider text-stone-500">
-            saving for
-          </span>
-          <span className="text-sm text-stone-500 italic">
-            ask your parent to set a goal
-          </span>
-        </section>
+        <SavingsGoalDisplay
+          familyPubkey={family.pubkey.toBase58()}
+          combinedBalance={family.principalRemaining.add(
+            family.totalYieldEarned
+          )}
+        />
 
         <footer className="text-center text-xs text-stone-400 pt-4">
           powered by{" "}
