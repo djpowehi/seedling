@@ -12,6 +12,7 @@ import {
 import type { FamilyView } from "@/lib/fetchFamilies";
 import { getKidName } from "@/lib/kidNames";
 import { formatUsdc } from "@/lib/format";
+import { YieldTicker } from "@/components/YieldTicker";
 
 type PageProps = {
   params: Promise<{ familyPda: string }>;
@@ -110,28 +111,34 @@ export default function KidViewPage({ params }: PageProps) {
           <span className="text-7xl">🌱</span>
         </div>
 
-        {/* YIELD TICKER PLACEHOLDER — Day 10 #3 fills with live counter */}
-        <section className="flex flex-col items-center gap-1 text-center">
-          <span className="text-xs uppercase tracking-widest text-stone-500">
-            you&apos;ve earned
-          </span>
-          <span className="text-3xl font-semibold text-lime-700 tabular-nums">
-            {formatUsdc(yieldEarned)}
-          </span>
-          <span className="text-xs text-stone-500">in yield, so far</span>
-        </section>
+        {clock && (
+          <YieldTicker
+            family={family}
+            initialClock={{
+              totalShares: clock.totalShares,
+              lastKnownTotalAssets: clock.lastKnownTotalAssets,
+            }}
+          />
+        )}
 
-        <section className="rounded-2xl bg-white border border-stone-200 p-5 flex flex-col gap-2 shadow-sm">
-          <div className="flex items-baseline justify-between">
+        <div className="grid grid-cols-2 gap-3">
+          <section className="rounded-2xl bg-white border border-stone-200 p-4 flex flex-col gap-1 shadow-sm">
             <span className="text-xs uppercase tracking-wider text-stone-500">
               your savings
             </span>
-            <span className="text-xs text-stone-400">on Solana</span>
-          </div>
-          <span className="text-3xl font-medium text-emerald-900 tabular-nums">
-            {formatUsdc(principal)}
-          </span>
-        </section>
+            <span className="text-xl font-medium text-emerald-900 tabular-nums">
+              {formatUsdc(principal)}
+            </span>
+          </section>
+          <section className="rounded-2xl bg-white border border-stone-200 p-4 flex flex-col gap-1 shadow-sm">
+            <span className="text-xs uppercase tracking-wider text-stone-500">
+              earned in yield
+            </span>
+            <span className="text-xl font-medium text-lime-700 tabular-nums">
+              {formatUsdc(yieldEarned)}
+            </span>
+          </section>
+        </div>
 
         {/* COUNTDOWNS PLACEHOLDER — Day 10 #4 fills these */}
         <section className="rounded-2xl bg-white border border-stone-200 p-5 flex flex-col gap-3 shadow-sm">
