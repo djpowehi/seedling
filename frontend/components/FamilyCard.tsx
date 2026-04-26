@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Connection, PublicKey } from "@solana/web3.js";
 import type { Program } from "@coral-xyz/anchor";
 import { DepositForm } from "@/components/DepositForm";
+import { WithdrawForm } from "@/components/WithdrawForm";
 import { formatUsdc, relativeTime, shortPubkey } from "@/lib/format";
 import type { FamilyView } from "@/lib/fetchFamilies";
 import type { Seedling } from "@/lib/types";
@@ -24,6 +25,7 @@ export function FamilyCard({
   onMutated,
 }: Props) {
   const [showDeposit, setShowDeposit] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
   const nextEligible = Number(family.lastDistribution.toString()) + 30 * 86400;
 
   return (
@@ -84,14 +86,24 @@ export function FamilyCard({
         </span>
       </footer>
 
-      {!showDeposit && (
-        <button
-          type="button"
-          onClick={() => setShowDeposit(true)}
-          className="rounded-full border border-emerald-700 text-emerald-900 px-4 py-1.5 text-sm font-medium hover:bg-emerald-50 self-start"
-        >
-          + deposit
-        </button>
+      {!showDeposit && !showWithdraw && (
+        <div className="flex gap-2 self-start">
+          <button
+            type="button"
+            onClick={() => setShowDeposit(true)}
+            className="rounded-full border border-emerald-700 text-emerald-900 px-4 py-1.5 text-sm font-medium hover:bg-emerald-50"
+          >
+            + deposit
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowWithdraw(true)}
+            disabled={family.shares.isZero()}
+            className="rounded-full border border-stone-400 text-stone-700 px-4 py-1.5 text-sm font-medium hover:bg-stone-100 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            withdraw
+          </button>
+        </div>
       )}
 
       {showDeposit && (
@@ -103,6 +115,20 @@ export function FamilyCard({
           onCancel={() => setShowDeposit(false)}
           onDeposited={() => {
             setShowDeposit(false);
+            onMutated();
+          }}
+        />
+      )}
+
+      {showWithdraw && (
+        <WithdrawForm
+          program={program}
+          connection={connection}
+          parent={parent}
+          family={family}
+          onCancel={() => setShowWithdraw(false)}
+          onWithdrawn={() => {
+            setShowWithdraw(false);
             onMutated();
           }}
         />
