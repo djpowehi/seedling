@@ -1,13 +1,9 @@
-"use client";
+import Link from "next/link";
 
-import dynamic from "next/dynamic";
-
-// WalletMultiButton renders portals + relies on browser APIs — load client-only.
-const WalletMultiButton = dynamic(
-  async () =>
-    (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
-  { ssr: false }
-);
+// Linking pass — design will be replaced via Claude Design later.
+// Per GuiBibeau review pattern: one primary CTA, no wallet connect on
+// the landing page (trust before friction). Wallet connect lives on
+// /dashboard, where the user has already chosen to engage.
 
 export default function Home() {
   return (
@@ -28,10 +24,13 @@ export default function Home() {
         </p>
 
         <div className="flex flex-col items-center gap-3">
-          <WalletMultiButton />
-          <p className="text-xs text-stone-500">
-            Connect a Solana wallet to begin
-          </p>
+          <Link
+            href="/dashboard"
+            className="rounded-full bg-emerald-700 px-8 py-3 text-base font-medium text-white hover:bg-emerald-800 transition-colors"
+          >
+            Open the dashboard →
+          </Link>
+          <p className="text-xs text-stone-500">Live on Solana devnet</p>
         </div>
 
         <footer className="mt-16 flex flex-col items-center gap-2 text-sm text-stone-500">
