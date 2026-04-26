@@ -17,24 +17,32 @@
 
 ## Status
 
-**Days used:** 7 of 19. **Submission target:** May 8, 2026.
+**Days used:** 10 of 19. **Submission target:** May 8, 2026.
 
-- **5 core instructions shipped** end-to-end:
+- **Live product:** [**seedlingsol.xyz**](https://seedlingsol.xyz) — wallet-gated parent dashboard + public read-only kid view at `/kid/<familyPda>`
+- **6 core instructions shipped** end-to-end:
   - `initialize_vault` · `create_family` · `deposit` · `withdraw` · `distribute_monthly_allowance` · `distribute_bonus`
-  - Plus 2 admin helpers: `set_family_last_distribution`, `roll_period`
+  - Plus 3 admin helpers: `set_family_last_distribution`, `roll_period`, `set_paused`
 - **33 tests green** (21 Rust unit on math + 12 anchor integration on constraints)
 - **4 end-to-end flows verified on mainnet-fork** (Surfpool with real Kamino state):
   - Deposit precision regression test (Path B share-math drift < 100 bps)
   - Withdraw round-trip
   - Monthly allowance distribute
   - Bonus distribute
+- **Browser-driven Kamino CPIs on devnet** — every dashboard action submits a real `deposit_reserve_liquidity` / `redeem_reserve_collateral` to klend.
 - **Live on Solana devnet:**
   - Program: [`44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN`](https://solscan.io/account/44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN?cluster=devnet)
   - Vault initialized: [`sok5s1DA…sdRj`](https://solscan.io/tx/sok5s1DAfzDvVCR4p3S8ohZhiRmFrEu75BHvu9wLU9D31sjcXeBFZs4khd9sdygeZAVnEeXfkidCbmWkX4odsRj?cluster=devnet)
   - Smoke deposit (1 USDC → 1M shares): [`58xM1dka…FJ7m`](https://solscan.io/tx/58xM1dkagiDwzSHir6nbtPagECF4vZ4RZ1tPEw9u5BPmD4FzhaqemJdafx4D8kZXs75XsbgyfQuYbJ8EPZgiFJ7m?cluster=devnet)
 - Reserve-agnostic by design — verified on **mainnet** (Kamino USDC reserve uses Scope) and **devnet** (uses Pyth). Oracle pubkeys cached on `VaultConfig` at init, validated on every CPI.
 
-**Not yet shipped:** parent dashboard, deposit/withdraw forms, kid view, demo video. Frontend scaffold + wallet-adapter live; dashboard wiring is Day 8.
+**Frontend (live at seedlingsol.xyz):**
+- Parent dashboard: connect wallet, add kid (with name + monthly stream rate), deposit, withdraw, send monthly allowance, send 13th allowance — all gated by on-chain countdowns
+- Public kid view: live yield ticker (per-family share-math, recalibrated every 30s, projected at ~8% APY between reads), countdowns to next allowance and 13th, savings goal with progress bar
+- Off-chain UX: kid names + savings goals stored in `localStorage`, keyed by family PDA — cosmetic data that doesn't need to be trustless
+- Idempotent ATA pre-flight on every USDC-touching action; duplicate-tx soft-success path; finalized-commitment confirmation before refetch
+
+**Not yet shipped:** growing-tree SVG visualization, plant species selector, distribute-moment confetti polish, demo video, pitch video.
 
 ---
 

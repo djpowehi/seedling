@@ -30,7 +30,20 @@ export function FamilyCard({
 }: Props) {
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [copied, setCopied] = useState(false);
   const familyKey = family.pubkey.toBase58();
+
+  const copyKidLink = async () => {
+    const url = `${window.location.origin}/kid/${familyKey}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Older browsers / insecure context — fall back to opening the link.
+      window.open(`/kid/${familyKey}`, "_blank");
+    }
+  };
   // localStorage is browser-only; useEffect avoids SSR/hydration mismatch.
   const [name, setName] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
@@ -138,13 +151,23 @@ export function FamilyCard({
 
       <footer className="border-t border-stone-100 pt-3 flex items-center justify-between text-xs text-stone-500">
         <span>last paid {relativeTime(family.lastDistribution)}</span>
-        <Link
-          href={`/kid/${familyKey}`}
-          className="text-emerald-700 hover:text-emerald-900 hover:underline"
-          target="_blank"
-        >
-          kid&apos;s page ↗
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={copyKidLink}
+            className="text-stone-500 hover:text-stone-800"
+            title="Copy the kid's public link to share with grandparents"
+          >
+            {copied ? "copied ✓" : "copy link"}
+          </button>
+          <Link
+            href={`/kid/${familyKey}`}
+            className="text-emerald-700 hover:text-emerald-900 hover:underline"
+            target="_blank"
+          >
+            kid&apos;s page ↗
+          </Link>
+        </div>
       </footer>
 
       {!showDeposit && !showWithdraw && (
