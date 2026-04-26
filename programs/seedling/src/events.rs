@@ -61,3 +61,15 @@ pub struct Withdrawn {
     pub fee_to_treasury: u64,
     pub ts: i64,
 }
+
+#[event]
+pub struct FamilyClosed {
+    pub family: Pubkey,
+    pub parent: Pubkey,
+    pub kid: Pubkey,
+    pub shares_redeemed: u64,
+    pub assets_paid_out: u64,
+    pub principal_returned: u64,
+    pub yield_returned: u64,
+    pub ts: i64,
+}

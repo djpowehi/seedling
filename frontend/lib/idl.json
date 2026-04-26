@@ -8,6 +8,192 @@
   },
   "instructions": [
     {
+      "name": "close_family",
+      "discriminator": [197, 119, 251, 108, 241, 185, 168, 156],
+      "accounts": [
+        {
+          "name": "family_position",
+          "writable": true
+        },
+        {
+          "name": "kid_view",
+          "docs": [
+            "Kid's view PDA. Closed alongside family_position so rent is fully",
+            "refunded to the parent. Constrained via seed derivation against the",
+            "stored bump."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [107, 105, 100]
+              },
+              {
+                "kind": "account",
+                "path": "parent"
+              },
+              {
+                "kind": "account",
+                "path": "family_position.kid",
+                "account": "FamilyPosition"
+              }
+            ]
+          }
+        },
+        {
+          "name": "parent",
+          "writable": true,
+          "signer": true,
+          "relations": ["family_position"]
+        },
+        {
+          "name": "parent_usdc_ata",
+          "docs": [
+            "Destination for redeemed USDC. Owned by parent. Must exist if",
+            "shares > 0 (caller is responsible — frontend uses the idempotent",
+            "ATA helper to ensure it does)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "vault_usdc_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "vault_config"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206,
+                  235, 121, 172, 28, 180, 133, 237, 95, 91, 55, 145, 58, 140,
+                  245, 133, 126, 255, 0, 169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "vault_ctoken_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "vault_config"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206,
+                  235, 121, 172, 28, 180, 133, 237, 95, 91, 55, 145, 58, 140,
+                  245, 133, 126, 255, 0, 169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "ctoken_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "treasury_usdc_ata",
+          "writable": true
+        },
+        {
+          "name": "vault_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118, 97, 117, 108, 116, 95, 99, 111, 110, 102, 105, 103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "ctoken_mint",
+          "writable": true
+        },
+        {
+          "name": "kamino_reserve",
+          "writable": true
+        },
+        {
+          "name": "lending_market"
+        },
+        {
+          "name": "lending_market_authority"
+        },
+        {
+          "name": "reserve_liquidity_supply",
+          "writable": true
+        },
+        {
+          "name": "oracle_pyth"
+        },
+        {
+          "name": "oracle_switchboard_price"
+        },
+        {
+          "name": "oracle_switchboard_twap"
+        },
+        {
+          "name": "oracle_scope_config"
+        },
+        {
+          "name": "kamino_program",
+          "address": "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD"
+        },
+        {
+          "name": "instruction_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "create_family",
       "discriminator": [187, 138, 49, 160, 83, 69, 165, 142],
       "accounts": [
@@ -1135,6 +1321,10 @@
       "discriminator": [111, 141, 26, 45, 161, 35, 100, 57]
     },
     {
+      "name": "FamilyClosed",
+      "discriminator": [189, 245, 166, 216, 82, 46, 42, 174]
+    },
+    {
       "name": "FamilyCreated",
       "discriminator": [102, 58, 189, 50, 153, 37, 24, 173]
     },
@@ -1309,6 +1499,46 @@
           },
           {
             "name": "fee_to_treasury",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FamilyClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "family",
+            "type": "pubkey"
+          },
+          {
+            "name": "parent",
+            "type": "pubkey"
+          },
+          {
+            "name": "kid",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares_redeemed",
+            "type": "u64"
+          },
+          {
+            "name": "assets_paid_out",
+            "type": "u64"
+          },
+          {
+            "name": "principal_returned",
+            "type": "u64"
+          },
+          {
+            "name": "yield_returned",
             "type": "u64"
           },
           {
