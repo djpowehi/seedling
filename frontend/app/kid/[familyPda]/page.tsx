@@ -12,6 +12,7 @@ import {
 import type { FamilyView } from "@/lib/fetchFamilies";
 import { getKidName } from "@/lib/kidNames";
 import { formatUsdc } from "@/lib/format";
+import { Countdowns } from "@/components/Countdowns";
 import { YieldTicker } from "@/components/YieldTicker";
 
 type PageProps = {
@@ -140,21 +141,7 @@ export default function KidViewPage({ params }: PageProps) {
           </section>
         </div>
 
-        {/* COUNTDOWNS PLACEHOLDER — Day 10 #4 fills these */}
-        <section className="rounded-2xl bg-white border border-stone-200 p-5 flex flex-col gap-3 shadow-sm">
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm text-stone-700">next allowance</span>
-            <span className="text-xs text-stone-500">…</span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm text-stone-700">13th allowance</span>
-            <span className="text-xs text-stone-500">
-              {clock
-                ? new Date(clock.periodEndTs * 1000).toLocaleDateString()
-                : "…"}
-            </span>
-          </div>
-        </section>
+        {clock && <Countdowns family={family} clock={clock} />}
 
         {/* SAVINGS GOAL PLACEHOLDER — Day 10 #5 fills this */}
         <section className="rounded-2xl bg-stone-50 border border-stone-200 p-5 flex flex-col gap-2">
