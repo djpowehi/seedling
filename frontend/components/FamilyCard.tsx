@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Connection, PublicKey } from "@solana/web3.js";
 import type { Program } from "@coral-xyz/anchor";
 import { DepositForm } from "@/components/DepositForm";
 import { WithdrawForm } from "@/components/WithdrawForm";
 import { formatUsdc, relativeTime, shortPubkey } from "@/lib/format";
+import { getKidName, setKidName } from "@/lib/kidNames";
 import type { FamilyView } from "@/lib/fetchFamilies";
 import type { Seedling } from "@/lib/types";
 
@@ -26,20 +27,73 @@ export function FamilyCard({
 }: Props) {
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const familyKey = family.pubkey.toBase58();
+  // localStorage is browser-only; useEffect avoids SSR/hydration mismatch.
+  const [name, setName] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  useEffect(() => {
+    setName(getKidName(familyKey));
+  }, [familyKey]);
+
+  const commitName = (next: string) => {
+    setKidName(familyKey, next);
+    setName(next.trim() || null);
+    setEditingName(false);
+  };
+
   const nextEligible = Number(family.lastDistribution.toString()) + 30 * 86400;
 
   return (
     <article className="rounded-2xl bg-white border border-stone-200 p-6 flex flex-col gap-4 shadow-sm">
       <header className="flex items-baseline justify-between gap-3">
-        <div className="flex flex-col">
+        <div className="flex flex-col min-w-0">
           <span className="text-xs uppercase tracking-wider text-stone-500">
             kid
           </span>
-          <code className="text-sm text-emerald-900 font-mono">
+          {editingName ? (
+            <input
+              type="text"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={() => commitName(nameDraft)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitName(nameDraft);
+                if (e.key === "Escape") setEditingName(false);
+              }}
+              maxLength={40}
+              autoFocus
+              className="text-base font-medium text-emerald-900 bg-transparent border-b border-emerald-300 focus:outline-none focus:border-emerald-600"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setNameDraft(name ?? "");
+                setEditingName(true);
+              }}
+              className="flex items-baseline gap-2 group text-left"
+              title="Click to rename"
+            >
+              {name ? (
+                <span className="text-base font-medium text-emerald-900">
+                  {name}
+                </span>
+              ) : (
+                <span className="text-base font-medium text-stone-400 italic">
+                  add a name
+                </span>
+              )}
+              <span className="text-xs text-stone-400 opacity-0 group-hover:opacity-100">
+                ✎
+              </span>
+            </button>
+          )}
+          <code className="text-xs text-stone-500 font-mono">
             {shortPubkey(family.kid)}
           </code>
         </div>
-        <span className="text-xs text-stone-500">
+        <span className="text-xs text-stone-500 shrink-0">
           created {relativeTime(family.createdAt)}
         </span>
       </header>

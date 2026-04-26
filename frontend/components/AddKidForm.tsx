@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { Connection } from "@solana/web3.js";
 import type { Program } from "@coral-xyz/anchor";
 import { PROGRAM_ID } from "@/lib/program";
+import { setKidName } from "@/lib/kidNames";
 import type { Seedling } from "@/lib/types";
 
 /**
@@ -41,6 +42,7 @@ export function AddKidForm({
   onCreated,
   onCancel,
 }: Props) {
+  const [nameInput, setNameInput] = useState("");
   const [kidInput, setKidInput] = useState("");
   const [rateInput, setRateInput] = useState("50");
   const [validation, setValidation] = useState<ValidationState>({
@@ -138,6 +140,16 @@ export function AddKidForm({
         .accounts({ parent })
         .rpc({ commitment: "confirmed" });
 
+      // Save the off-chain name keyed by the family PDA, before the parent
+      // navigates away. Cheap; no-op if name is empty.
+      if (nameInput.trim()) {
+        const [familyPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("family"), parent.toBuffer(), parsedKid.toBuffer()],
+          PROGRAM_ID
+        );
+        setKidName(familyPda.toBase58(), nameInput);
+      }
+
       // Give devnet RPC a moment for the new accounts to propagate to the
       // node serving getProgramAccounts. Without this, the immediate refetch
       // can briefly hit a stale snapshot and surface a transient error.
@@ -180,6 +192,28 @@ export function AddKidForm({
           cancel
         </button>
       </header>
+
+      <div className="flex flex-col gap-1.5">
+        <label
+          htmlFor="kid-name"
+          className="text-xs uppercase tracking-wider text-stone-500"
+        >
+          Kid&apos;s name{" "}
+          <span className="text-stone-400 normal-case">
+            (optional, just for you)
+          </span>
+        </label>
+        <input
+          id="kid-name"
+          type="text"
+          value={nameInput}
+          onChange={(e) => setNameInput(e.target.value)}
+          placeholder="e.g. Sofia"
+          maxLength={40}
+          autoComplete="off"
+          className="rounded-lg border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+        />
+      </div>
 
       <div className="flex flex-col gap-1.5">
         <label
