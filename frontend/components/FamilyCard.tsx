@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Connection, PublicKey } from "@solana/web3.js";
 import type { Program } from "@coral-xyz/anchor";
@@ -136,9 +137,13 @@ export function FamilyCard({
 
       <footer className="border-t border-stone-100 pt-3 flex items-center justify-between text-xs text-stone-500">
         <span>last paid {relativeTime(family.lastDistribution)}</span>
-        <span className="text-lime-700">
-          next eligible {relativeTime(nextEligible)}
-        </span>
+        <Link
+          href={`/kid/${familyKey}`}
+          className="text-emerald-700 hover:text-emerald-900 hover:underline"
+          target="_blank"
+        >
+          kid&apos;s page ↗
+        </Link>
       </footer>
 
       {!showDeposit && !showWithdraw && (
