@@ -6,6 +6,7 @@ import type { Connection, PublicKey } from "@solana/web3.js";
 import type { Program } from "@coral-xyz/anchor";
 import { DepositForm } from "@/components/DepositForm";
 import { DistributeButtons } from "@/components/DistributeButtons";
+import { RemoveKidButton } from "@/components/RemoveKidButton";
 import { SavingsGoalEditor } from "@/components/SavingsGoalEditor";
 import { WithdrawForm } from "@/components/WithdrawForm";
 import { formatUsdc, relativeTime, shortPubkey } from "@/lib/format";
@@ -197,6 +198,13 @@ export function FamilyCard({
             onDistributed={onMutated}
           />
           <SavingsGoalEditor familyPubkey={familyKey} />
+          <RemoveKidButton
+            program={program}
+            connection={connection}
+            parent={parent}
+            family={family}
+            onRemoved={onMutated}
+          />
         </div>
       )}
 

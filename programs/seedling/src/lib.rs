@@ -59,4 +59,8 @@ pub mod seedling {
     pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
         instructions::set_paused_handler(ctx, paused)
     }
+
+    pub fn close_family(ctx: Context<CloseFamily>) -> Result<()> {
+        instructions::close_family_handler(ctx)
+    }
 }

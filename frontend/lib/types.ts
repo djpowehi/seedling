@@ -14,6 +14,319 @@ export type Seedling = {
   };
   instructions: [
     {
+      name: "closeFamily";
+      discriminator: [197, 119, 251, 108, 241, 185, 168, 156];
+      accounts: [
+        {
+          name: "familyPosition";
+          writable: true;
+        },
+        {
+          name: "kidView";
+          docs: [
+            "Kid's view PDA. Closed alongside family_position so rent is fully",
+            "refunded to the parent. Constrained via seed derivation against the",
+            "stored bump."
+          ];
+          writable: true;
+          pda: {
+            seeds: [
+              {
+                kind: "const";
+                value: [107, 105, 100];
+              },
+              {
+                kind: "account";
+                path: "parent";
+              },
+              {
+                kind: "account";
+                path: "family_position.kid";
+                account: "familyPosition";
+              }
+            ];
+          };
+        },
+        {
+          name: "parent";
+          writable: true;
+          signer: true;
+          relations: ["familyPosition"];
+        },
+        {
+          name: "parentUsdcAta";
+          docs: [
+            "Destination for redeemed USDC. Owned by parent. Must exist if",
+            "shares > 0 (caller is responsible — frontend uses the idempotent",
+            "ATA helper to ensure it does)."
+          ];
+          writable: true;
+        },
+        {
+          name: "vaultUsdcAta";
+          writable: true;
+          pda: {
+            seeds: [
+              {
+                kind: "account";
+                path: "vaultConfig";
+              },
+              {
+                kind: "const";
+                value: [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ];
+              },
+              {
+                kind: "account";
+                path: "usdcMint";
+              }
+            ];
+            program: {
+              kind: "const";
+              value: [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ];
+            };
+          };
+        },
+        {
+          name: "vaultCtokenAta";
+          writable: true;
+          pda: {
+            seeds: [
+              {
+                kind: "account";
+                path: "vaultConfig";
+              },
+              {
+                kind: "const";
+                value: [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ];
+              },
+              {
+                kind: "account";
+                path: "ctokenMint";
+              }
+            ];
+            program: {
+              kind: "const";
+              value: [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ];
+            };
+          };
+        },
+        {
+          name: "treasuryUsdcAta";
+          writable: true;
+        },
+        {
+          name: "vaultConfig";
+          writable: true;
+          pda: {
+            seeds: [
+              {
+                kind: "const";
+                value: [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ];
+              }
+            ];
+          };
+        },
+        {
+          name: "usdcMint";
+        },
+        {
+          name: "ctokenMint";
+          writable: true;
+        },
+        {
+          name: "kaminoReserve";
+          writable: true;
+        },
+        {
+          name: "lendingMarket";
+        },
+        {
+          name: "lendingMarketAuthority";
+        },
+        {
+          name: "reserveLiquiditySupply";
+          writable: true;
+        },
+        {
+          name: "oraclePyth";
+        },
+        {
+          name: "oracleSwitchboardPrice";
+        },
+        {
+          name: "oracleSwitchboardTwap";
+        },
+        {
+          name: "oracleScopeConfig";
+        },
+        {
+          name: "kaminoProgram";
+          address: "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD";
+        },
+        {
+          name: "instructionSysvar";
+          address: "Sysvar1nstructions1111111111111111111111111";
+        },
+        {
+          name: "tokenProgram";
+        },
+        {
+          name: "associatedTokenProgram";
+          address: "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
+        },
+        {
+          name: "systemProgram";
+          address: "11111111111111111111111111111111";
+        }
+      ];
+      args: [];
+    },
+    {
       name: "createFamily";
       discriminator: [187, 138, 49, 160, 83, 69, 165, 142];
       accounts: [
@@ -1876,6 +2189,10 @@ export type Seedling = {
       discriminator: [111, 141, 26, 45, 161, 35, 100, 57];
     },
     {
+      name: "familyClosed";
+      discriminator: [189, 245, 166, 216, 82, 46, 42, 174];
+    },
+    {
       name: "familyCreated";
       discriminator: [102, 58, 189, 50, 153, 37, 24, 173];
     },
@@ -2050,6 +2367,46 @@ export type Seedling = {
           },
           {
             name: "feeToTreasury";
+            type: "u64";
+          },
+          {
+            name: "ts";
+            type: "i64";
+          }
+        ];
+      };
+    },
+    {
+      name: "familyClosed";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "family";
+            type: "pubkey";
+          },
+          {
+            name: "parent";
+            type: "pubkey";
+          },
+          {
+            name: "kid";
+            type: "pubkey";
+          },
+          {
+            name: "sharesRedeemed";
+            type: "u64";
+          },
+          {
+            name: "assetsPaidOut";
+            type: "u64";
+          },
+          {
+            name: "principalReturned";
+            type: "u64";
+          },
+          {
+            name: "yieldReturned";
             type: "u64";
           },
           {
