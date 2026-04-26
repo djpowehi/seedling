@@ -140,26 +140,37 @@ export default function Dashboard() {
             </div>
           )}
 
-        {!loading && families != null && families.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {families.map((f) => (
-                <FamilyCard key={f.pubkey.toBase58()} family={f} />
-              ))}
-            </div>
-            {!showForm && (
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(true)}
-                  className="rounded-full border border-emerald-700 text-emerald-900 px-5 py-2 text-sm font-medium hover:bg-emerald-50"
-                >
-                  + add another kid
-                </button>
+        {!loading &&
+          families != null &&
+          families.length > 0 &&
+          seedling &&
+          publicKey && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {families.map((f) => (
+                  <FamilyCard
+                    key={f.pubkey.toBase58()}
+                    family={f}
+                    program={seedling.program}
+                    connection={connection}
+                    parent={publicKey}
+                    onMutated={refetch}
+                  />
+                ))}
               </div>
-            )}
-          </>
-        )}
+              {!showForm && (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(true)}
+                    className="rounded-full border border-emerald-700 text-emerald-900 px-5 py-2 text-sm font-medium hover:bg-emerald-50"
+                  >
+                    + add another kid
+                  </button>
+                </div>
+              )}
+            </>
+          )}
       </div>
     </main>
   );
