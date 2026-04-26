@@ -6,19 +6,42 @@
 // its coder — same case-conversion logic as the dashboard, no
 // subtle PascalCase/camelCase bug from raw BorshAccountsCoder.
 
-import { AnchorProvider, Idl, Program, Wallet } from "@coral-xyz/anchor";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { AnchorProvider, Idl, Program } from "@coral-xyz/anchor";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  VersionedTransaction,
+} from "@solana/web3.js";
 import idl from "./idl.json";
 import type { FamilyView } from "./fetchFamilies";
 import type { Seedling } from "./types";
+
+// `Wallet` from @coral-xyz/anchor is a Node-only export (it reads a
+// keypair file). Browsers can't import it. We only need a Wallet-shaped
+// object to instantiate a read-only Program — no signing happens here,
+// so a stub that throws on any signing call is safe.
+const stubKeypair = Keypair.generate();
+const stubWallet = {
+  publicKey: stubKeypair.publicKey,
+  signTransaction: <T extends Transaction | VersionedTransaction>(
+    _tx: T
+  ): Promise<T> => {
+    throw new Error("read-only wallet — signing is not supported");
+  },
+  signAllTransactions: <T extends Transaction | VersionedTransaction>(
+    _txs: T[]
+  ): Promise<T[]> => {
+    throw new Error("read-only wallet — signing is not supported");
+  },
+};
 
 let program: Program<Seedling> | null = null;
 let cachedConnection: Connection | null = null;
 function getProgram(connection: Connection): Program<Seedling> {
   if (program && cachedConnection === connection) return program;
-  // Dummy wallet — no signing happens, this Program is read-only.
-  const wallet = new Wallet(Keypair.generate());
-  const provider = new AnchorProvider(connection, wallet, {
+  const provider = new AnchorProvider(connection, stubWallet, {
     commitment: "confirmed",
   });
   program = new Program(idl as Idl, provider) as unknown as Program<Seedling>;
