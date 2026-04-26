@@ -2,19 +2,28 @@
 //
 // The kid page renders for anyone with the link (grandparents,
 // classmates, the kid themselves on a school computer). They have no
-// wallet adapter, so we cannot use the AnchorProvider/Program path
-// from useSeedlingProgram. Instead we decode the account bytes
-// directly with Anchor's BorshAccountsCoder.
+// wallet adapter, so we build a no-signer Program instance and reuse
+// its coder — same case-conversion logic as the dashboard, no
+// subtle PascalCase/camelCase bug from raw BorshAccountsCoder.
 
-import { BorshAccountsCoder, Idl } from "@coral-xyz/anchor";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { AnchorProvider, Idl, Program, Wallet } from "@coral-xyz/anchor";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import idl from "./idl.json";
 import type { FamilyView } from "./fetchFamilies";
+import type { Seedling } from "./types";
 
-let coder: BorshAccountsCoder | null = null;
-function getCoder(): BorshAccountsCoder {
-  if (!coder) coder = new BorshAccountsCoder(idl as Idl);
-  return coder;
+let program: Program<Seedling> | null = null;
+let cachedConnection: Connection | null = null;
+function getProgram(connection: Connection): Program<Seedling> {
+  if (program && cachedConnection === connection) return program;
+  // Dummy wallet — no signing happens, this Program is read-only.
+  const wallet = new Wallet(Keypair.generate());
+  const provider = new AnchorProvider(connection, wallet, {
+    commitment: "confirmed",
+  });
+  program = new Program(idl as Idl, provider) as unknown as Program<Seedling>;
+  cachedConnection = connection;
+  return program;
 }
 
 export async function fetchFamilyByPda(
@@ -23,10 +32,10 @@ export async function fetchFamilyByPda(
 ): Promise<FamilyView | null> {
   const info = await connection.getAccountInfo(familyPda, "confirmed");
   if (!info) return null;
-  const decoded = getCoder().decode("familyPosition", info.data) as Omit<
-    FamilyView,
-    "pubkey"
-  >;
+  const decoded = getProgram(connection).coder.accounts.decode(
+    "familyPosition",
+    info.data
+  ) as Omit<FamilyView, "pubkey">;
   return { ...decoded, pubkey: familyPda };
 }
 
@@ -43,7 +52,10 @@ export async function fetchVaultClock(
 ): Promise<VaultClock | null> {
   const info = await connection.getAccountInfo(vaultConfigPda, "confirmed");
   if (!info) return null;
-  const decoded = getCoder().decode("vaultConfig", info.data) as {
+  const decoded = getProgram(connection).coder.accounts.decode(
+    "vaultConfig",
+    info.data
+  ) as {
     totalShares: { toString(): string };
     lastKnownTotalAssets: { toString(): string };
     periodEndTs: { toString(): string };
