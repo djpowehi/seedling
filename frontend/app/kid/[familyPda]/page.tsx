@@ -1,0 +1,172 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Connection, PublicKey } from "@solana/web3.js";
+import { DEVNET_ADDRESSES, DEVNET_RPC } from "@/lib/program";
+import {
+  fetchFamilyByPda,
+  fetchVaultClock,
+  type VaultClock,
+} from "@/lib/fetchFamilyByPda";
+import type { FamilyView } from "@/lib/fetchFamilies";
+import { getKidName } from "@/lib/kidNames";
+import { formatUsdc } from "@/lib/format";
+
+type PageProps = {
+  params: Promise<{ familyPda: string }>;
+};
+
+export default function KidViewPage({ params }: PageProps) {
+  const [familyPda, setFamilyPda] = useState<PublicKey | null>(null);
+  const [family, setFamily] = useState<FamilyView | null>(null);
+  const [clock, setClock] = useState<VaultClock | null>(null);
+  const [name, setName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const { familyPda: pdaStr } = await params;
+        const pda = new PublicKey(pdaStr);
+        if (cancelled) return;
+        setFamilyPda(pda);
+
+        const connection = new Connection(DEVNET_RPC, "confirmed");
+        const [fam, clk] = await Promise.all([
+          fetchFamilyByPda(connection, pda),
+          fetchVaultClock(connection, DEVNET_ADDRESSES.vaultConfig),
+        ]);
+        if (cancelled) return;
+        if (!fam) {
+          setError("We couldn't find this kid's allowance. Check the link?");
+          setLoading(false);
+          return;
+        }
+        setFamily(fam);
+        setClock(clk);
+        setName(getKidName(pda.toBase58()));
+        setLoading(false);
+      } catch (e) {
+        if (cancelled) return;
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Something went wrong loading this page."
+        );
+        setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [params]);
+
+  if (loading) {
+    return (
+      <main className="flex flex-1 items-center justify-center px-6 py-24">
+        <div className="text-stone-500 text-sm">Loading…</div>
+      </main>
+    );
+  }
+
+  if (error || !family) {
+    return (
+      <main className="flex flex-1 items-center justify-center px-6 py-24">
+        <div className="max-w-md text-center flex flex-col gap-4">
+          <span className="text-4xl">🌱</span>
+          <h1 className="text-xl font-medium text-emerald-900">
+            {error ?? "Not found"}
+          </h1>
+          <Link href="/" className="text-sm text-emerald-900 hover:underline">
+            ← seedling
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const greetingName = name ?? "friend";
+  const principal = family.principalRemaining;
+  const yieldEarned = family.totalYieldEarned;
+
+  return (
+    <main className="flex flex-1 w-full flex-col items-center px-6 py-12 bg-gradient-to-b from-emerald-50/40 to-stone-50">
+      <div className="w-full max-w-md flex flex-col gap-8">
+        <header className="flex flex-col items-center text-center gap-2">
+          <span className="text-xs uppercase tracking-widest text-stone-500">
+            hi
+          </span>
+          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-emerald-900">
+            {greetingName}
+          </h1>
+        </header>
+
+        {/* TREE PLACEHOLDER — Day 11 #1 fills this with the growing-tree SVG */}
+        <div className="aspect-square rounded-3xl bg-white border border-emerald-100 shadow-sm flex items-center justify-center">
+          <span className="text-7xl">🌱</span>
+        </div>
+
+        {/* YIELD TICKER PLACEHOLDER — Day 10 #3 fills with live counter */}
+        <section className="flex flex-col items-center gap-1 text-center">
+          <span className="text-xs uppercase tracking-widest text-stone-500">
+            you&apos;ve earned
+          </span>
+          <span className="text-3xl font-semibold text-lime-700 tabular-nums">
+            {formatUsdc(yieldEarned)}
+          </span>
+          <span className="text-xs text-stone-500">in yield, so far</span>
+        </section>
+
+        <section className="rounded-2xl bg-white border border-stone-200 p-5 flex flex-col gap-2 shadow-sm">
+          <div className="flex items-baseline justify-between">
+            <span className="text-xs uppercase tracking-wider text-stone-500">
+              your savings
+            </span>
+            <span className="text-xs text-stone-400">on Solana</span>
+          </div>
+          <span className="text-3xl font-medium text-emerald-900 tabular-nums">
+            {formatUsdc(principal)}
+          </span>
+        </section>
+
+        {/* COUNTDOWNS PLACEHOLDER — Day 10 #4 fills these */}
+        <section className="rounded-2xl bg-white border border-stone-200 p-5 flex flex-col gap-3 shadow-sm">
+          <div className="flex items-baseline justify-between">
+            <span className="text-sm text-stone-700">next allowance</span>
+            <span className="text-xs text-stone-500">…</span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <span className="text-sm text-stone-700">13th allowance</span>
+            <span className="text-xs text-stone-500">
+              {clock
+                ? new Date(clock.periodEndTs * 1000).toLocaleDateString()
+                : "…"}
+            </span>
+          </div>
+        </section>
+
+        {/* SAVINGS GOAL PLACEHOLDER — Day 10 #5 fills this */}
+        <section className="rounded-2xl bg-stone-50 border border-stone-200 p-5 flex flex-col gap-2">
+          <span className="text-xs uppercase tracking-wider text-stone-500">
+            saving for
+          </span>
+          <span className="text-sm text-stone-500 italic">
+            ask your parent to set a goal
+          </span>
+        </section>
+
+        <footer className="text-center text-xs text-stone-400 pt-4">
+          powered by{" "}
+          <Link href="/" className="hover:text-stone-600 underline">
+            seedling
+          </Link>{" "}
+          on Solana devnet
+        </footer>
+      </div>
+    </main>
+  );
+}
