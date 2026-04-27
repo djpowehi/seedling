@@ -7,8 +7,7 @@ import type { Program } from "@coral-xyz/anchor";
 import { DepositForm } from "@/components/DepositForm";
 import { DistributeButtons } from "@/components/DistributeButtons";
 import { RemoveKidButton } from "@/components/RemoveKidButton";
-import { SavingsGoalDisplay } from "@/components/SavingsGoalDisplay";
-import { SavingsGoalEditor } from "@/components/SavingsGoalEditor";
+import { SavingsGoals } from "@/components/SavingsGoals";
 import { WithdrawForm } from "@/components/WithdrawForm";
 import { formatUsdc, relativeTime, shortPubkey } from "@/lib/format";
 import { getKidName, setKidName } from "@/lib/kidNames";
@@ -66,9 +65,6 @@ export function FamilyCard({
     <article className="rounded-2xl bg-white border border-stone-200 p-6 flex flex-col gap-4 shadow-sm">
       <header className="flex items-baseline justify-between gap-3">
         <div className="flex flex-col min-w-0">
-          <span className="text-xs uppercase tracking-wider text-stone-500">
-            kid
-          </span>
           {editingName ? (
             <input
               type="text"
@@ -172,9 +168,10 @@ export function FamilyCard({
         </div>
       </footer>
 
-      <SavingsGoalDisplay
+      <SavingsGoals
         familyPubkey={familyKey}
         combinedBalance={family.principalRemaining.add(family.totalYieldEarned)}
+        editable
         showEmptyPlaceholder={false}
       />
 
@@ -204,7 +201,6 @@ export function FamilyCard({
             family={family}
             onDistributed={onMutated}
           />
-          <SavingsGoalEditor familyPubkey={familyKey} />
           <RemoveKidButton
             program={program}
             connection={connection}

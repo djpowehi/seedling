@@ -13,7 +13,7 @@ import type { FamilyView } from "@/lib/fetchFamilies";
 import { getKidName } from "@/lib/kidNames";
 import { formatUsdc } from "@/lib/format";
 import { Countdowns } from "@/components/Countdowns";
-import { SavingsGoalDisplay } from "@/components/SavingsGoalDisplay";
+import { SavingsGoals } from "@/components/SavingsGoals";
 import { YieldTicker } from "@/components/YieldTicker";
 
 type PageProps = {
@@ -144,7 +144,7 @@ export default function KidViewPage({ params }: PageProps) {
 
         {clock && <Countdowns family={family} clock={clock} />}
 
-        <SavingsGoalDisplay
+        <SavingsGoals
           familyPubkey={family.pubkey.toBase58()}
           combinedBalance={family.principalRemaining.add(
             family.totalYieldEarned
