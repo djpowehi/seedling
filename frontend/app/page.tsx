@@ -265,6 +265,7 @@ const STYLES = `
     grid-template-columns: repeat(3, 1fr);
     gap: 18px;
   }
+  .landing-shots--two { grid-template-columns: repeat(2, 1fr); }
   .landing-shot {
     aspect-ratio: 9 / 14;
     background: var(--stone-100);
@@ -391,7 +392,9 @@ export default function Home() {
 
       <header className="landing-hero">
         <div>
-          <div className="landing-eyebrow">A protocol for patient money</div>
+          <div className="landing-eyebrow">
+            Allowance, with yield · on Solana
+          </div>
           <h1 className="landing-headline">
             allowance
             <br />
@@ -529,18 +532,6 @@ export default function Home() {
               <circle className="soil-detail" cx="256" cy="373" r="1" />
               <circle className="soil-detail" cx="218" cy="375" r="1" />
             </g>
-
-            <text
-              x="230"
-              y="488"
-              textAnchor="middle"
-              fontFamily="var(--font-jetbrains-mono), monospace"
-              fontSize="10"
-              fill="#8A8169"
-              letterSpacing="2"
-            >
-              FIG. 01 — DAY ONE
-            </text>
           </svg>
         </div>
       </header>
@@ -636,29 +627,22 @@ export default function Home() {
           <span>
             <span className="num">03</span> &nbsp;&nbsp;The product
           </span>
-          <span>Three views · same family</span>
+          <span>Two views · same family</span>
         </div>
 
-        <div className="landing-shots">
+        <div className="landing-shots landing-shots--two">
           <div className="landing-shot">
-            <span className="landing-shot-tag">screen 01</span>
+            <span className="landing-shot-tag">screen 01 · parent</span>
             <div className="landing-shot-name">
               Parent dashboard
-              <span>balance · schedule · yield</span>
+              <span>deposit · withdraw · monthly · 13th</span>
             </div>
           </div>
           <div className="landing-shot">
-            <span className="landing-shot-tag">screen 02</span>
+            <span className="landing-shot-tag">screen 02 · kid</span>
             <div className="landing-shot-name">
               Kid view
-              <span>a tree, mid-balance</span>
-            </div>
-          </div>
-          <div className="landing-shot">
-            <span className="landing-shot-tag">screen 03</span>
-            <div className="landing-shot-name">
-              13th allowance
-              <span>arriving · december</span>
+              <span>a tree, growing — no wallet needed</span>
             </div>
           </div>
         </div>
