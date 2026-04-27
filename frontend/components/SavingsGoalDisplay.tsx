@@ -8,9 +8,17 @@ type Props = {
   familyPubkey: string;
   // Combined balance = principal_remaining + total_yield_earned, in USDC base units.
   combinedBalance: BN;
+  // When true (default), show a "ask your parent to set a goal" placeholder
+  // if no goal is set. Set false on the parent dashboard, where the goal
+  // editor sits right next to this and the placeholder is noise.
+  showEmptyPlaceholder?: boolean;
 };
 
-export function SavingsGoalDisplay({ familyPubkey, combinedBalance }: Props) {
+export function SavingsGoalDisplay({
+  familyPubkey,
+  combinedBalance,
+  showEmptyPlaceholder = true,
+}: Props) {
   const [goal, setGoal] = useState<SavingsGoal | null>(null);
   const [imgOk, setImgOk] = useState(true);
   useEffect(() => {
@@ -18,6 +26,7 @@ export function SavingsGoalDisplay({ familyPubkey, combinedBalance }: Props) {
   }, [familyPubkey]);
 
   if (!goal) {
+    if (!showEmptyPlaceholder) return null;
     return (
       <section className="rounded-2xl bg-stone-50 border border-stone-200 p-5 flex flex-col gap-2">
         <span className="text-xs uppercase tracking-wider text-stone-500">
