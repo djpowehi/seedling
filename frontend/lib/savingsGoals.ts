@@ -47,10 +47,14 @@ export function getSavingsGoal(familyPubkey: string): SavingsGoal | null {
 }
 
 export function setSavingsGoal(familyPubkey: string, goal: SavingsGoal): void {
+  // photoUrl can be either a normal URL (~200 chars) or a base64 data URL
+  // from the file uploader (~20-50k chars after canvas compression). No
+  // length cap — the upload helper already enforces the size budget at
+  // 320×320 + JPEG-82, which keeps us well under localStorage's quota.
   const trimmed: SavingsGoal = {
     label: goal.label.trim().slice(0, 60),
     amountUsd: Math.max(0, goal.amountUsd),
-    photoUrl: goal.photoUrl?.trim().slice(0, 500) || undefined,
+    photoUrl: goal.photoUrl?.trim() || undefined,
   };
   if (!trimmed.label || trimmed.amountUsd <= 0) {
     removeSavingsGoal(familyPubkey);

@@ -7,6 +7,7 @@ import type { Program } from "@coral-xyz/anchor";
 import { DepositForm } from "@/components/DepositForm";
 import { DistributeButtons } from "@/components/DistributeButtons";
 import { RemoveKidButton } from "@/components/RemoveKidButton";
+import { SavingsGoalDisplay } from "@/components/SavingsGoalDisplay";
 import { SavingsGoalEditor } from "@/components/SavingsGoalEditor";
 import { WithdrawForm } from "@/components/WithdrawForm";
 import { formatUsdc, relativeTime, shortPubkey } from "@/lib/format";
@@ -170,6 +171,12 @@ export function FamilyCard({
           </Link>
         </div>
       </footer>
+
+      <SavingsGoalDisplay
+        familyPubkey={familyKey}
+        combinedBalance={family.principalRemaining.add(family.totalYieldEarned)}
+        showEmptyPlaceholder={false}
+      />
 
       {!showDeposit && !showWithdraw && (
         <div className="flex flex-col gap-2">
