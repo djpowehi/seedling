@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { fileToCompressedDataUrl } from "@/lib/imageUpload";
 import {
   getSavingsGoal,
   removeSavingsGoal,
@@ -18,6 +19,9 @@ export function SavingsGoalEditor({ familyPubkey }: Props) {
   const [labelInput, setLabelInput] = useState("");
   const [amountInput, setAmountInput] = useState("");
   const [photoInput, setPhotoInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setGoal(getSavingsGoal(familyPubkey));
@@ -27,7 +31,21 @@ export function SavingsGoalEditor({ familyPubkey }: Props) {
     setLabelInput(goal?.label ?? "");
     setAmountInput(goal ? goal.amountUsd.toString() : "");
     setPhotoInput(goal?.photoUrl ?? "");
+    setUploadError(null);
     setEditing(true);
+  };
+
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    const result = await fileToCompressedDataUrl(file);
+    setUploading(false);
+    if (!result.ok) {
+      setUploadError(result.error);
+      return;
+    }
+    setPhotoInput(result.dataUrl);
   };
 
   const save = () => {
@@ -88,13 +106,53 @@ export function SavingsGoalEditor({ familyPubkey }: Props) {
           />
           <span className="text-xs text-stone-500">target</span>
         </div>
-        <input
-          type="url"
-          value={photoInput}
-          onChange={(e) => setPhotoInput(e.target.value)}
-          placeholder="https://… (optional photo of the goal)"
-          className="rounded-md border border-stone-300 px-2 py-1 text-xs focus:outline-none focus:border-amber-500"
-        />
+        <div className="flex items-center gap-3">
+          {photoInput ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photoInput}
+              alt="goal preview"
+              className="w-12 h-12 rounded-md object-cover bg-white border border-amber-100"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-md bg-amber-100 border border-amber-200 flex items-center justify-center text-lg shrink-0">
+              🎯
+            </div>
+          )}
+          <div className="flex flex-col gap-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="text-xs text-amber-900 hover:text-amber-950 underline self-start disabled:opacity-50"
+            >
+              {uploading
+                ? "uploading…"
+                : photoInput
+                ? "change photo"
+                : "+ add a photo (optional)"}
+            </button>
+            {photoInput && !uploading && (
+              <button
+                type="button"
+                onClick={() => setPhotoInput("")}
+                className="text-xs text-stone-500 hover:text-stone-700 self-start"
+              >
+                remove photo
+              </button>
+            )}
+            {uploadError && (
+              <span className="text-xs text-red-700">{uploadError}</span>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files?.[0])}
+          />
+        </div>
         <div className="flex justify-between items-center">
           {goal ? (
             <button
