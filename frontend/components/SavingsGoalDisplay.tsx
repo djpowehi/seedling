@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import type { BN } from "@coral-xyz/anchor";
 import { getSavingsGoal, type SavingsGoal } from "@/lib/savingsGoals";
@@ -49,14 +48,13 @@ export function SavingsGoalDisplay({ familyPubkey, combinedBalance }: Props) {
       <div className="flex items-center gap-3">
         {goal.photoUrl && imgOk ? (
           <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-white border border-amber-100 shrink-0">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={goal.photoUrl}
               alt={goal.label}
-              fill
-              sizes="64px"
-              className="object-cover"
+              className="w-full h-full object-cover"
               onError={() => setImgOk(false)}
-              unoptimized
+              referrerPolicy="no-referrer"
             />
           </div>
         ) : (
