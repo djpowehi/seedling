@@ -10,7 +10,7 @@ import { DEVNET_ADDRESSES, DEVNET_RPC } from "@/lib/program";
 import { fetchFamilyByPda, fetchVaultClock } from "@/lib/fetchFamilyByPda";
 import type { FamilyView } from "@/lib/fetchFamilies";
 import { getSavingsGoals, type SavingsGoal } from "@/lib/savingsGoals";
-import { Tree, stageFor } from "@/components/Tree";
+import { Tree, stageForMonths, monthsSince } from "@/components/Tree";
 
 const ESTIMATED_APY = 0.08;
 const YEAR_SECONDS = 365 * 86_400;
@@ -24,6 +24,7 @@ type Props = {
     totalShares: bigint;
     lastKnownTotalAssets: bigint;
     periodEndTs: number;
+    currentPeriodId: number;
   };
   kidName: string | null;
 };
@@ -126,7 +127,6 @@ export function KidView({ family, initialClock, kidName }: Props) {
   const monthlyReady = monthlyDelta === 0;
   const bonusDelta = Math.max(0, initialClock.periodEndTs - now);
   const bonusDays = Math.floor(bonusDelta / 86_400);
-  const bonusReady = bonusDelta === 0;
   const monthlyAllowanceUsd = Number(family.streamRate.toString()) / 1_000_000;
 
   // ───── goals + balances ─────
@@ -139,7 +139,16 @@ export function KidView({ family, initialClock, kidName }: Props) {
   const principalUsd = Number(family.principalRemaining.toString()) / 1_000_000;
   const yieldEarnedUsd = Number(family.totalYieldEarned.toString()) / 1_000_000;
   const combinedBalanceUsd = principalUsd + yieldEarnedUsd;
-  const stage = stageFor(combinedBalanceUsd);
+  // Time-based stage: rewards loyalty regardless of allowance size. Every
+  // family hits stage 12 (mature, flowering) by month 11 — egalitarian.
+  const createdAtSec = Number(family.createdAt.toString());
+  const stage = stageForMonths(monthsSince(createdAtSec, now));
+  // Celebration state — separate from stage. Fires when the year-end bonus
+  // is actually claimable on chain. Falls back to the time-based stage
+  // after the bonus is distributed.
+  const bonusReady =
+    now >= initialClock.periodEndTs &&
+    family.lastBonusPeriodId < initialClock.currentPeriodId;
 
   const ticker = fmtTicker(displayUsd);
   const greetingName = kidName ?? "friend";
@@ -159,7 +168,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
         </header>
 
         <div className="kv-tree-wrap">
-          <Tree stage={stage} />
+          <Tree stage={stage} bonusReady={bonusReady} />
         </div>
 
         <section className="kv-ticker">
@@ -385,7 +394,31 @@ const KID_VIEW_STYLES = `
     50%      { transform: rotate(1.2deg); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .kv-sway, .kv-pulse, .kv-tick-dot { animation: none; }
+    .kv-sway, .kv-pulse, .kv-tick-dot,
+    .kv-petal-fall, .kv-acorn-drop { animation: none; }
+  }
+
+  .kv-petal-fall {
+    animation: kv-petal-fall 5s ease-in infinite;
+    opacity: 0;
+  }
+  .kv-petal-1 { animation-delay: 0s;   }
+  .kv-petal-2 { animation-delay: 1.6s; }
+  .kv-petal-3 { animation-delay: 3.0s; }
+  .kv-petal-4 { animation-delay: 4.2s; }
+  @keyframes kv-petal-fall {
+    0%   { transform: translate(0, 0) rotate(0deg);   opacity: 0; }
+    10%  { opacity: 0.95; }
+    100% { transform: translate(-18px, 220px) rotate(420deg); opacity: 0; }
+  }
+  .kv-acorn-drop {
+    animation: kv-acorn-drop 4.5s cubic-bezier(0.55, 0, 0.65, 1) infinite;
+  }
+  @keyframes kv-acorn-drop {
+    0%, 25%   { transform: translate(0, 0); opacity: 1; }
+    85%       { transform: translate(-8px, 110px); opacity: 1; }
+    92%       { transform: translate(-8px, 116px) scale(1.05, 0.92); }
+    100%      { transform: translate(-8px, 110px); opacity: 0; }
   }
 
   .kv-ticker { display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center; padding: 4px 0 0; }
