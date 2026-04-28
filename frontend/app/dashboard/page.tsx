@@ -4,10 +4,15 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { AddKidForm } from "@/components/AddKidForm";
-import { FamilyCard } from "@/components/FamilyCard";
+import { DEVNET_ADDRESSES } from "@/lib/program";
 import { fetchFamiliesForParent, type FamilyView } from "@/lib/fetchFamilies";
+import { fetchVaultClock, type VaultClock } from "@/lib/fetchFamilyByPda";
 import { useSeedlingProgram } from "@/lib/useSeedlingProgram";
+import { AddKidForm } from "@/components/dashboard/AddKidForm";
+import { EmptyState } from "@/components/dashboard/EmptyState";
+import { FamilyCard } from "@/components/dashboard/FamilyCard";
+import { Plus } from "@/components/dashboard/icons";
+import { DASHBOARD_STYLES } from "@/components/dashboard/styles";
 
 const WalletMultiButton = dynamic(
   async () =>
@@ -21,24 +26,24 @@ export default function Dashboard() {
   const seedling = useSeedlingProgram();
 
   const [families, setFamilies] = useState<FamilyView[] | null>(null);
+  const [vaultClock, setVaultClock] = useState<VaultClock | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const refetch = useCallback(async () => {
     if (!seedling || !publicKey) return;
     setLoading(true);
     setError(null);
     try {
-      const result = await fetchFamiliesForParent(
-        connection,
-        seedling.program,
-        publicKey
-      );
+      const [result, clk] = await Promise.all([
+        fetchFamiliesForParent(connection, seedling.program, publicKey),
+        fetchVaultClock(connection, DEVNET_ADDRESSES.vaultConfig),
+      ]);
       setFamilies(result);
+      setVaultClock(clk);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg);
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -49,129 +54,249 @@ export default function Dashboard() {
     else setFamilies(null);
   }, [connected, seedling, refetch]);
 
-  if (!connected) {
-    return (
-      <main className="flex flex-1 w-full flex-col items-center justify-center px-6 py-24">
-        <section className="w-full max-w-xl flex flex-col items-center text-center gap-8">
-          <Link href="/" className="text-emerald-900 hover:underline text-sm">
-            ← back
-          </Link>
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-emerald-900">
-            connect to see your families
-          </h1>
-          <p className="text-stone-600">
-            Seedling lives on Solana devnet. Connect Phantom or Solflare to view
-            your kids&apos; positions, deposit USDC, and trigger distributions.
-          </p>
-          <WalletMultiButton />
-        </section>
-      </main>
-    );
-  }
-
   return (
-    <main className="flex flex-1 w-full flex-col items-center px-6 py-12">
-      <div className="w-full max-w-3xl flex flex-col gap-8">
-        <header className="flex items-center justify-between">
-          <Link href="/" className="text-emerald-900 hover:underline text-sm">
-            ← seedling
+    <div className="dash-root">
+      <style dangerouslySetInnerHTML={{ __html: DASHBOARD_STYLES }} />
+
+      <nav className="dash-nav">
+        <div className="dash-wrap dash-nav-inner">
+          <Link href="/" className="dash-wordmark">
+            seedling
+            <span className="dot" />
           </Link>
-          <WalletMultiButton />
-        </header>
-
-        <section className="flex flex-col gap-2">
-          <h1 className="text-3xl font-semibold tracking-tight text-emerald-900">
-            your families
-          </h1>
-          <p className="text-sm text-stone-600">
-            {families == null
-              ? "Loading…"
-              : `${families.length} ${
-                  families.length === 1 ? "family" : "families"
-                } on devnet`}
-          </p>
-        </section>
-
-        {loading && (
-          <div className="text-stone-500 text-sm">Fetching from devnet…</div>
-        )}
-
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-            <strong>Couldn&apos;t fetch families.</strong> {error}
+          <div className="dash-row" style={{ gap: 28, alignItems: "center" }}>
+            <span
+              className="dash-mono"
+              style={{
+                fontSize: 11,
+                color: "var(--ink-2)",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <span className="dash-pulse-dot" />
+              Solana devnet · live
+            </span>
+            <WalletMultiButton />
           </div>
-        )}
+        </div>
+      </nav>
 
-        {showForm && seedling && publicKey && (
-          <AddKidForm
-            program={seedling.program}
-            connection={connection}
-            parent={publicKey}
-            onCancel={() => setShowForm(false)}
-            onCreated={() => {
-              setShowForm(false);
-              refetch();
-            }}
-          />
-        )}
-
-        {!loading &&
-          !error &&
-          !showForm &&
-          families != null &&
-          families.length === 0 && (
-            <div className="rounded-2xl border-2 border-dashed border-stone-300 p-12 flex flex-col items-center text-center gap-4">
-              <span className="text-4xl">🌱</span>
-              <h2 className="text-xl font-medium text-emerald-900">
-                No kids yet
-              </h2>
-              <p className="text-sm text-stone-600 max-w-sm">
-                Add your first kid to start their allowance. They&apos;ll need a
-                Solana wallet address — you can use Phantom to generate one for
-                them.
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowForm(true)}
-                className="mt-2 rounded-full bg-lime-600 px-5 py-2 text-sm font-medium text-white hover:bg-lime-700"
-              >
-                Add your first kid
-              </button>
-            </div>
-          )}
-
-        {!loading &&
-          families != null &&
-          families.length > 0 &&
-          seedling &&
-          publicKey && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {families.map((f) => (
-                  <FamilyCard
-                    key={f.pubkey.toBase58()}
-                    family={f}
-                    program={seedling.program}
-                    connection={connection}
-                    parent={publicKey}
-                    onMutated={refetch}
-                  />
-                ))}
+      <div className="dash-wrap">
+        {!connected ? (
+          <ConnectGate />
+        ) : (
+          <>
+            <header style={{ paddingTop: 80, paddingBottom: 56 }}>
+              <div className="dash-col" style={{ gap: 18, maxWidth: 760 }}>
+                <span className="dash-eyebrow">
+                  <span className="rule" /> your families
+                </span>
+                <h1
+                  className="dash-serif"
+                  style={{
+                    fontSize: 88,
+                    lineHeight: 0.95,
+                    margin: 0,
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  {families == null ? (
+                    <>loading…</>
+                  ) : families.length === 0 ? (
+                    <>
+                      start the <span className="dash-italic">first</span>.
+                    </>
+                  ) : (
+                    <>
+                      {families.length} {families.length === 1 ? "kid" : "kids"}{" "}
+                      <span className="dash-italic">saving</span>.
+                    </>
+                  )}
+                </h1>
+                <span
+                  className="dash-mono"
+                  style={{
+                    fontSize: 13,
+                    color: "var(--ink-3)",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  all live on Solana devnet
+                </span>
               </div>
-              {!showForm && (
-                <div className="flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(true)}
-                    className="rounded-full border border-emerald-700 text-emerald-900 px-5 py-2 text-sm font-medium hover:bg-emerald-50"
+            </header>
+
+            {error && (
+              <div
+                className="dash-card"
+                style={{
+                  padding: 24,
+                  marginBottom: 32,
+                  borderColor: "var(--rose)",
+                }}
+              >
+                <span
+                  className="dash-mono"
+                  style={{ color: "var(--rose)", fontSize: 12 }}
+                >
+                  Couldn&apos;t load families. {error}
+                </span>
+              </div>
+            )}
+
+            {showAddForm && seedling && publicKey && (
+              <AddKidForm
+                program={seedling.program}
+                connection={connection}
+                parent={publicKey}
+                onCancel={() => setShowAddForm(false)}
+                onCreated={() => {
+                  setShowAddForm(false);
+                  refetch();
+                }}
+              />
+            )}
+
+            {loading && families == null && (
+              <div
+                className="dash-mono"
+                style={{
+                  textAlign: "center",
+                  padding: "40px 0",
+                  color: "var(--ink-3)",
+                  fontSize: 12,
+                }}
+              >
+                Fetching from devnet…
+              </div>
+            )}
+
+            {!loading &&
+              families != null &&
+              families.length === 0 &&
+              !showAddForm && <EmptyState onAdd={() => setShowAddForm(true)} />}
+
+            {families != null &&
+              families.length > 0 &&
+              seedling &&
+              publicKey && (
+                <>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(min(100%, 520px), 1fr))",
+                      gap: 36,
+                    }}
                   >
-                    + add another kid
-                  </button>
-                </div>
+                    {families.map((family) => (
+                      <FamilyCard
+                        key={family.pubkey.toBase58()}
+                        family={family}
+                        program={seedling.program}
+                        connection={connection}
+                        parent={publicKey}
+                        vaultClock={vaultClock}
+                        onMutated={refetch}
+                      />
+                    ))}
+                  </div>
+                  {!showAddForm && (
+                    <div
+                      className="dash-row"
+                      style={{
+                        justifyContent: "center",
+                        marginTop: 56,
+                      }}
+                    >
+                      <button
+                        className="dash-btn dash-btn-ghost"
+                        onClick={() => setShowAddForm(true)}
+                        style={{ padding: "14px 22px" }}
+                      >
+                        <Plus /> add another kid
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
+          </>
+        )}
       </div>
-    </main>
+
+      <footer className="dash-footer">
+        <div className="dash-wrap dash-footer-inner">
+          <div className="dash-row" style={{ gap: 18, alignItems: "baseline" }}>
+            <span className="dash-serif" style={{ fontSize: 22 }}>
+              seedling.
+            </span>
+            <span
+              className="dash-mono"
+              style={{ fontSize: 11, color: "var(--ink-3)" }}
+            >
+              Built on Kamino · Solana devnet
+            </span>
+          </div>
+          <div className="dash-row" style={{ gap: 22 }}>
+            <a
+              className="dash-btn-link"
+              href="https://github.com/djpowehi/seedling"
+              target="_blank"
+              rel="noreferrer"
+            >
+              github ↗
+            </a>
+            <a
+              className="dash-btn-link"
+              href="https://twitter.com/seedling_sol"
+              target="_blank"
+              rel="noreferrer"
+            >
+              @seedling_sol ↗
+            </a>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function ConnectGate() {
+  return (
+    <div style={{ paddingTop: 120, paddingBottom: 120 }}>
+      <div
+        className="dash-col"
+        style={{
+          maxWidth: 560,
+          margin: "0 auto",
+          gap: 24,
+          alignItems: "center",
+          textAlign: "center",
+        }}
+      >
+        <span className="dash-eyebrow">
+          <span className="rule" /> sign in
+        </span>
+        <h1
+          className="dash-serif"
+          style={{
+            fontSize: 68,
+            lineHeight: 1,
+            margin: 0,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          connect to see <span className="dash-italic">your families</span>.
+        </h1>
+        <p style={{ color: "var(--ink-2)", margin: 0, maxWidth: 460 }}>
+          Seedling lives on Solana devnet. Connect Phantom or Solflare to view
+          your kids&apos; positions, deposit USDC, and trigger distributions.
+        </p>
+      </div>
+    </div>
   );
 }
