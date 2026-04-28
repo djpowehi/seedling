@@ -7,7 +7,10 @@ const POT_COLORS = {
   body: "#ECE4D2",
   shade: "#D9CFB8",
   edge: "#5A4A36",
-  soil: "#4A3A28",
+  // Lightened from #4A3A28 (dark chocolate) — the dark soil read as
+  // "dirt overflowing the pot" against the calm beige palette. Warm umber
+  // sits inside the rim instead of dominating it.
+  soil: "#7B6750",
 };
 const LEAF = {
   dark: "#1F3A2A",
@@ -61,16 +64,18 @@ function Pot() {
         strokeWidth="1.6"
         strokeLinejoin="round"
       />
-      <ellipse cx="230" cy="302" rx="62" ry="4.5" fill={POT_COLORS.soil} />
-      <path
-        d="M198 302 C 210 296, 250 296, 262 302 Z"
-        fill={POT_COLORS.soil}
-        opacity="0.85"
-      />
-      <circle cx="210" cy="301" r="1.2" fill={POT_COLORS.edge} opacity="0.55" />
-      <circle cx="246" cy="303" r="1" fill={POT_COLORS.edge} opacity="0.5" />
-      <circle cx="256" cy="301" r="0.9" fill={POT_COLORS.edge} opacity="0.5" />
-      <circle cx="218" cy="303" r="0.9" fill={POT_COLORS.edge} opacity="0.4" />
+      {/*
+        Soil — flatter (ry 4.5 → 2.5) and narrower (rx 62 → 56) so its top
+        edge sits right at the pot's body-opening line (y=300) instead of
+        rising 2.5px above it. Mound dropped entirely; the seed/trunk in
+        each stage already implies the dirt level, so the mound was just
+        adding visual weight that competed with the rim.
+      */}
+      <ellipse cx="230" cy="302" rx="56" ry="2.5" fill={POT_COLORS.soil} />
+      <circle cx="210" cy="301" r="1.1" fill={POT_COLORS.edge} opacity="0.4" />
+      <circle cx="246" cy="302" r="0.9" fill={POT_COLORS.edge} opacity="0.35" />
+      <circle cx="256" cy="301" r="0.8" fill={POT_COLORS.edge} opacity="0.35" />
+      <circle cx="218" cy="302" r="0.8" fill={POT_COLORS.edge} opacity="0.3" />
     </g>
   );
 }
