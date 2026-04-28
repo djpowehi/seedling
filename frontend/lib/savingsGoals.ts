@@ -19,6 +19,11 @@ export type SavingsGoal = {
   label: string;
   amountUsd: number;
   photoUrl?: string;
+  // Optional hand-drawn illustration key (pig, bike, switch, guitar,
+  // camera, book, art). When photoUrl is missing, the icon is used
+  // as a fallback in the parent dashboard. Kid view always falls back
+  // to the generic seedling 🎯 if no photo.
+  illo?: string;
 };
 
 type GoalMap = Record<string, SavingsGoal[]>;
@@ -91,6 +96,7 @@ export function addSavingsGoal(
     label: goal.label.trim().slice(0, 60),
     amountUsd: Math.max(0, goal.amountUsd),
     photoUrl: goal.photoUrl?.trim() || undefined,
+    illo: goal.illo,
   };
   const map = read();
   map[familyPubkey] = [...(map[familyPubkey] ?? []), next];
@@ -112,6 +118,7 @@ export function updateSavingsGoal(
           label: patch.label.trim().slice(0, 60),
           amountUsd: Math.max(0, patch.amountUsd),
           photoUrl: patch.photoUrl?.trim() || undefined,
+          illo: patch.illo ?? g.illo,
         }
       : g
   );
