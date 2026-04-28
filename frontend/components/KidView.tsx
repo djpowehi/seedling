@@ -160,7 +160,21 @@ export function KidView({ family, initialClock, kidName }: Props) {
 
   // ───── gift wall (gifts only — top-ups by parent are filtered out) ─────
   const [gifts, setGifts] = useState<GiftEntry[]>([]);
+  const [giftsLoading, setGiftsLoading] = useState(true);
   const [names, setNames] = useState<Record<string, string>>({});
+  // Drive timeAgo updates: tick `now` every 30s so the timestamps refresh
+  // without a full refetch. Distinct from the 1s `now` already used for
+  // countdowns — gifts don't need second precision.
+  const [walClockSec, setWallClockSec] = useState(() =>
+    Math.floor(Date.now() / 1000)
+  );
+  useEffect(() => {
+    const id = setInterval(
+      () => setWallClockSec(Math.floor(Date.now() / 1000)),
+      30_000
+    );
+    return () => clearInterval(id);
+  }, []);
   useEffect(() => {
     setNames(getGiftNames(familyKey));
   }, [familyKey]);
@@ -170,8 +184,12 @@ export function KidView({ family, initialClock, kidName }: Props) {
     const load = async () => {
       try {
         const list = await fetchGifts(conn, family.pubkey, family.parent);
-        if (!cancelled) setGifts(list);
+        if (!cancelled) {
+          setGifts(list);
+          setGiftsLoading(false);
+        }
       } catch {
+        if (!cancelled) setGiftsLoading(false);
         // Silent retry on next interval. RPC blips shouldn't blank the wall.
       }
     };
@@ -301,25 +319,44 @@ export function KidView({ family, initialClock, kidName }: Props) {
           </span>
         </button>
 
-        {gifts.length > 0 && (
+        {(giftsLoading || gifts.length > 0) && (
           <section className="kv-card kv-gift-wall">
             <div className="kv-card-eyebrow">gifts received</div>
             <ul className="kv-wall-list">
-              {gifts.slice(0, 8).map((g) => {
-                // Three-tier fallback:
-                //   1. gifter's self-chosen name (from memo, on-chain)
-                //   2. parent's localStorage override
-                //   3. truncated wallet address
-                const display =
-                  g.fromName ?? names[g.depositor] ?? shortPubkey(g.depositor);
-                return (
-                  <li key={g.sig} className="kv-wall-row">
-                    <span className="kv-wall-who">{display}</span>
-                    <span className="kv-wall-amount">{fmt2(g.amountUsd)}</span>
-                    <span className="kv-wall-when">{timeAgo(g.ts)}</span>
-                  </li>
-                );
-              })}
+              {giftsLoading
+                ? // Skeleton placeholder rows during the initial fetch — keeps
+                  // the section visible from first paint instead of popping in
+                  // 3s later.
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <li
+                      key={`skeleton-${i}`}
+                      className="kv-wall-row kv-wall-row-skeleton"
+                    >
+                      <span className="kv-wall-skeleton-name" />
+                      <span className="kv-wall-skeleton-amount" />
+                      <span className="kv-wall-skeleton-when" />
+                    </li>
+                  ))
+                : gifts.slice(0, 8).map((g) => {
+                    // Three-tier fallback:
+                    //   1. gifter's self-chosen name (from memo, on-chain)
+                    //   2. parent's localStorage override
+                    //   3. truncated wallet address
+                    const display =
+                      g.fromName ??
+                      names[g.depositor] ??
+                      shortPubkey(g.depositor);
+                    void walClockSec; // dependency: keeps timeAgo current
+                    return (
+                      <li key={g.sig} className="kv-wall-row">
+                        <span className="kv-wall-who">{display}</span>
+                        <span className="kv-wall-amount">
+                          {fmt2(g.amountUsd)}
+                        </span>
+                        <span className="kv-wall-when">{timeAgo(g.ts)}</span>
+                      </li>
+                    );
+                  })}
             </ul>
           </section>
         )}
@@ -717,6 +754,24 @@ const KID_VIEW_STYLES = `
   .kv-wall-when {
     font-family: var(--mono); font-size: 11px;
     color: var(--ink-muted); letter-spacing: 0.04em;
+  }
+
+  .kv-wall-row-skeleton { animation: kv-skeleton-pulse 1.4s ease-in-out infinite; }
+  .kv-wall-skeleton-name {
+    height: 18px; width: 40%;
+    background: var(--stone-200); border-radius: 4px;
+  }
+  .kv-wall-skeleton-amount {
+    height: 13px; width: 48px;
+    background: var(--stone-200); border-radius: 4px;
+  }
+  .kv-wall-skeleton-when {
+    height: 11px; width: 56px;
+    background: var(--stone-200); border-radius: 4px;
+  }
+  @keyframes kv-skeleton-pulse {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 0.95; }
   }
 
   .kv-footer {
