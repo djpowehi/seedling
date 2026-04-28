@@ -17,11 +17,24 @@ type Props = {
   onClose: () => void;
 };
 
+function isMobileUA(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android|webOS|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(
+    navigator.userAgent
+  );
+}
+
 export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
   const [amountUsd, setAmountUsd] = useState<number>(20);
   const [customDraft, setCustomDraft] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Detect after mount — UA isn't available during SSR.
+  useEffect(() => {
+    setIsMobile(isMobileUA());
+  }, []);
 
   // Solana Pay URL the wallet consumes. Uses absolute origin so the QR is
   // valid regardless of where the page is served from.
@@ -137,16 +150,25 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
         </div>
 
         <div className="gm-mobile-row">
-          <a href={giftUrl} className="gm-deep-link">
-            open in wallet app
-          </a>
-          <button type="button" className="gm-copy-btn" onClick={handleCopy}>
+          {isMobile && (
+            <a href={giftUrl} className="gm-deep-link">
+              open in wallet app
+            </a>
+          )}
+          <button
+            type="button"
+            className="gm-copy-btn"
+            onClick={handleCopy}
+            style={isMobile ? undefined : { flex: 1 }}
+          >
             {copied ? "copied" : "copy link"}
           </button>
         </div>
 
         <div className="gm-foot">
-          scan with Phantom, Solflare, or Backpack on mobile
+          {isMobile
+            ? "or scan with Phantom, Solflare, or Backpack"
+            : "scan the QR with Phantom, Solflare, or Backpack on your phone"}
         </div>
       </div>
     </div>
