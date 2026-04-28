@@ -95,7 +95,8 @@ export function GiftsSection({
             if (seenRef.current.has(g.sig)) continue;
             seenRef.current.add(g.sig);
             dirty = true;
-            const who = currentNames[g.depositor] ?? "Someone";
+            // Three-tier name resolution mirrors the kid view.
+            const who = g.fromName ?? currentNames[g.depositor] ?? "Someone";
             const recipient = kidName ?? "your family";
             showToast({
               title: `${who} gifted $${g.amountUsd.toFixed(2)} to ${recipient}`,
@@ -124,9 +125,12 @@ export function GiftsSection({
     };
   }, [connection, familyPda, familyPdaStr, parent, kidName, showToast]);
 
-  const startEditName = (pubkey: string) => {
+  const startEditName = (pubkey: string, suggestedFrom?: string) => {
     setEditingPubkey(pubkey);
-    setDraft(names[pubkey] ?? "");
+    // Seed the draft with whatever's currently visible (parent override
+    // first, then the gifter's self-chosen name) so the parent rarely has
+    // to type from scratch.
+    setDraft(names[pubkey] ?? suggestedFrom ?? "");
   };
 
   const saveName = () => {
@@ -180,7 +184,11 @@ export function GiftsSection({
 
       <div className="dash-col" style={{ gap: 0 }}>
         {gifts.slice(0, 8).map((g) => {
-          const name = names[g.depositor];
+          // Three-tier resolution. Parent override beats the gifter's
+          // self-chosen name (parent's home, parent's labels), but we
+          // still surface the gifter's name as a sensible default.
+          const overrideName = names[g.depositor];
+          const display = overrideName ?? g.fromName;
           const isEditing = editingPubkey === g.depositor;
           return (
             <div
@@ -222,11 +230,11 @@ export function GiftsSection({
                       save
                     </button>
                   </div>
-                ) : name ? (
+                ) : display ? (
                   <button
                     type="button"
                     className="dash-btn-link"
-                    onClick={() => startEditName(g.depositor)}
+                    onClick={() => startEditName(g.depositor, g.fromName)}
                     style={{
                       fontSize: 16,
                       fontFamily: "var(--font-instrument-serif), serif",
@@ -234,14 +242,21 @@ export function GiftsSection({
                       textAlign: "left",
                       padding: 0,
                     }}
+                    title={
+                      overrideName
+                        ? "click to rename"
+                        : g.fromName
+                        ? "name supplied by the gifter — click to override"
+                        : "click to name"
+                    }
                   >
-                    {name}
+                    {display}
                   </button>
                 ) : (
                   <button
                     type="button"
                     className="dash-btn-link"
-                    onClick={() => startEditName(g.depositor)}
+                    onClick={() => startEditName(g.depositor, g.fromName)}
                     style={{
                       fontSize: 13,
                       textAlign: "left",
