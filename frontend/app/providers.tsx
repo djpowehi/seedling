@@ -10,6 +10,7 @@ import {
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import { useMemo } from "react";
+import { ToastProvider } from "@/components/Toast";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 
@@ -24,7 +25,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ConnectionProvider endpoint={DEVNET_RPC}>
       <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>{children}</WalletModalProvider>
+        <WalletModalProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );

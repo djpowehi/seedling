@@ -15,8 +15,12 @@ import {
 import type { Connection } from "@solana/web3.js";
 import type { Program } from "@coral-xyz/anchor";
 import { DEVNET_ADDRESSES, PROGRAM_ID } from "@/lib/program";
+import { celebrateBonus, celebrateMonthly } from "@/lib/celebrate";
+import { fetchFamilyByPda } from "@/lib/fetchFamilyByPda";
 import type { FamilyView } from "@/lib/fetchFamilies";
+import { getKidName } from "@/lib/kidNames";
 import type { Seedling } from "@/lib/types";
+import { useToast } from "@/components/Toast";
 
 const SYSVAR_INSTRUCTIONS = new PublicKey(
   "Sysvar1nstructions1111111111111111111111111"
@@ -50,6 +54,8 @@ export function DistributeButtons({
     null
   );
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
+  const kidLabel = getKidName(family.pubkey.toBase58()) ?? "your kid";
 
   // Fetch period_end_ts once. Tick `now` every 1s so the gate flips live.
   useEffect(() => {
@@ -175,6 +181,14 @@ export function DistributeButtons({
         .rpc({ commitment: "confirmed" });
       console.log(`[distribute_monthly] tx ${sig}`);
       await connection.confirmTransaction(sig, "finalized");
+      const amountUsd = Number(family.streamRate.toString()) / 1_000_000;
+      celebrateMonthly();
+      showToast({
+        variant: "monthly",
+        title: `Sent to ${kidLabel}`,
+        countUpUsd: amountUsd,
+        subtitle: "monthly allowance · on chain",
+      });
       onDistributed();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -197,6 +211,7 @@ export function DistributeButtons({
     setSubmitting("bonus");
     setError(null);
     try {
+      const yieldBefore = Number(family.totalYieldEarned.toString());
       const sig = await program.methods
         .distributeBonus()
         .accountsPartial(buildSharedAccounts())
@@ -204,6 +219,26 @@ export function DistributeButtons({
         .rpc({ commitment: "confirmed" });
       console.log(`[distribute_bonus] tx ${sig}`);
       await connection.confirmTransaction(sig, "finalized");
+      // Refetch the family to compute exactly how much was sent —
+      // the bonus amount is the delta on totalYieldEarned, since
+      // distribute_bonus only sweeps yield (not principal).
+      let bonusUsd = 0;
+      try {
+        const refetched = await fetchFamilyByPda(connection, family.pubkey);
+        if (refetched) {
+          const yieldAfter = Number(refetched.totalYieldEarned.toString());
+          bonusUsd = Math.max(0, (yieldAfter - yieldBefore) / 1_000_000);
+        }
+      } catch {
+        // If refetch fails, just skip the count-up; toast still fires.
+      }
+      celebrateBonus();
+      showToast({
+        variant: "bonus",
+        title: `${kidLabel}'s 13th allowance arrived`,
+        countUpUsd: bonusUsd > 0 ? bonusUsd : undefined,
+        subtitle: "year-end yield · sent on chain",
+      });
       onDistributed();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
