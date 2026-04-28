@@ -41,21 +41,22 @@ const DISC_DEPOSIT_RESERVE_LIQUIDITY: [u8; 8] = [169, 201, 30, 126, 6, 205, 102,
 // See GOTCHAS.md #4.
 #[derive(Accounts)]
 pub struct Deposit<'info> {
-    #[account(
-        mut,
-        has_one = parent @ SeedlingError::InvalidAuthority,
-    )]
+    // No `has_one = parent` — gift mode allows any wallet to deposit into
+    // any family. The depositor pays USDC from their own ATA; vault state and
+    // share minting are unchanged. Off-chain consumers tell gifts from
+    // top-ups by comparing `Deposited.depositor` to `family_position.parent`.
+    #[account(mut)]
     pub family_position: Box<Account<'info, FamilyPosition>>,
 
     #[account(mut)]
-    pub parent: Signer<'info>,
+    pub depositor: Signer<'info>,
 
     #[account(
         mut,
-        constraint = parent_usdc_ata.mint == vault_config.usdc_mint @ SeedlingError::MintMismatch,
-        constraint = parent_usdc_ata.owner == parent.key() @ SeedlingError::InvalidAuthority,
+        constraint = depositor_usdc_ata.mint == vault_config.usdc_mint @ SeedlingError::MintMismatch,
+        constraint = depositor_usdc_ata.owner == depositor.key() @ SeedlingError::InvalidAuthority,
     )]
-    pub parent_usdc_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub depositor_usdc_ata: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         mut,
@@ -194,15 +195,15 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64, min_shares_out: u64) 
         &ctx.accounts.oracle_scope_config.key(),
     )?;
 
-    // ---- 1. Transfer USDC parent -> vault ----
+    // ---- 1. Transfer USDC depositor -> vault ----
     {
         let cpi_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             TransferChecked {
-                from: ctx.accounts.parent_usdc_ata.to_account_info(),
+                from: ctx.accounts.depositor_usdc_ata.to_account_info(),
                 mint: ctx.accounts.usdc_mint.to_account_info(),
                 to: ctx.accounts.vault_usdc_ata.to_account_info(),
-                authority: ctx.accounts.parent.to_account_info(),
+                authority: ctx.accounts.depositor.to_account_info(),
             },
         );
         transfer_checked(cpi_ctx, amount, ctx.accounts.usdc_mint.decimals)?;
@@ -424,7 +425,7 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64, min_shares_out: u64) 
     // ---- 10. Emit ----
     emit!(Deposited {
         family: ctx.accounts.family_position.key(),
-        parent: ctx.accounts.parent.key(),
+        depositor: ctx.accounts.depositor.key(),
         amount,
         shares_minted: shares_to_mint,
         fee_to_treasury: harvest_fee_to_treasury,

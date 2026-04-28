@@ -74,7 +74,7 @@ export function DepositForm({
       const amountBaseUnits = Math.round(amountNum * 1_000_000);
       const amount = new BN(amountBaseUnits);
 
-      const parentUsdcAta = getAssociatedTokenAddressSync(
+      const depositorUsdcAta = getAssociatedTokenAddressSync(
         DEVNET_ADDRESSES.usdcMint,
         parent
       );
@@ -88,7 +88,7 @@ export function DepositForm({
       // for first-time wallets that never touched devnet USDC.
       const ataIx = createAssociatedTokenAccountIdempotentInstruction(
         parent,
-        parentUsdcAta,
+        depositorUsdcAta,
         parent,
         DEVNET_ADDRESSES.usdcMint
       );
@@ -100,8 +100,8 @@ export function DepositForm({
         .deposit(amount, new BN(0))
         .accountsPartial({
           familyPosition: family.pubkey,
-          parent,
-          parentUsdcAta,
+          depositor: parent,
+          depositorUsdcAta,
           vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
           vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
           treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
