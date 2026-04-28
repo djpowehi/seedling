@@ -24,9 +24,24 @@ function isMobileUA(): boolean {
   );
 }
 
+// Mirror the server's sanitizer: strip control chars, trim, cap to 32.
+// Cheap to also enforce client-side so the QR encodes the same payload
+// the server eventually attaches to the memo.
+function sanitizeNameClient(raw: string): string {
+  const cleaned = Array.from(raw)
+    .filter((c) => {
+      const cp = c.codePointAt(0) ?? 0;
+      return cp >= 0x20 && cp !== 0x7f;
+    })
+    .join("")
+    .trim();
+  return cleaned.slice(0, 32);
+}
+
 export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
   const [amountUsd, setAmountUsd] = useState<number>(20);
   const [customDraft, setCustomDraft] = useState<string>("");
+  const [fromName, setFromName] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -41,8 +56,10 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
   const giftUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
     const origin = window.location.origin;
-    return `solana:${origin}/api/gift/${familyPda}?amount=${amountUsd}`;
-  }, [familyPda, amountUsd]);
+    const cleaned = sanitizeNameClient(fromName);
+    const fromParam = cleaned ? `&from=${encodeURIComponent(cleaned)}` : "";
+    return `solana:${origin}/api/gift/${familyPda}?amount=${amountUsd}${fromParam}`;
+  }, [familyPda, amountUsd, fromName]);
 
   // Render QR onto canvas whenever the URL changes.
   useEffect(() => {
@@ -113,6 +130,19 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
           {kidName ? ` ${kidName}'s` : " the family's"} seedling vault and
           starts earning yield.
         </p>
+
+        <label className="gm-from-row">
+          <span className="gm-from-label">your name</span>
+          <input
+            type="text"
+            value={fromName}
+            onChange={(e) => setFromName(e.target.value)}
+            placeholder="Grandma · Uncle Tom · …"
+            maxLength={32}
+            className="gm-from-input"
+            autoComplete="off"
+          />
+        </label>
 
         <div className="gm-amount-row">
           {PRESETS.map((p) => (
@@ -231,6 +261,25 @@ const GIFT_MODAL_STYLES = `
     font-size: 14px; line-height: 1.5;
     color: #6F6A58; margin: 0;
   }
+
+  .gm-from-row {
+    display: flex; flex-direction: column; gap: 6px;
+    margin-top: 4px;
+  }
+  .gm-from-label {
+    font-family: var(--font-jetbrains-mono), monospace;
+    font-size: 10.5px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: #6F6A58;
+  }
+  .gm-from-input {
+    font-family: var(--font-instrument-serif), Georgia, serif;
+    padding: 10px 14px; font-size: 18px;
+    border: 1px solid #D9CFB8; border-radius: 12px;
+    background: #FBF8F2; color: #1F3A2A;
+    outline: none; transition: border-color 140ms ease;
+  }
+  .gm-from-input:focus { border-color: #2E5C40; }
+  .gm-from-input::placeholder { color: #B8AC8E; font-style: italic; }
 
   .gm-amount-row {
     display: flex; gap: 8px; flex-wrap: wrap;

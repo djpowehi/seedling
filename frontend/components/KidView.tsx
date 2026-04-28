@@ -306,12 +306,15 @@ export function KidView({ family, initialClock, kidName }: Props) {
             <div className="kv-card-eyebrow">gifts received</div>
             <ul className="kv-wall-list">
               {gifts.slice(0, 8).map((g) => {
-                const name = names[g.depositor];
+                // Three-tier fallback:
+                //   1. gifter's self-chosen name (from memo, on-chain)
+                //   2. parent's localStorage override
+                //   3. truncated wallet address
+                const display =
+                  g.fromName ?? names[g.depositor] ?? shortPubkey(g.depositor);
                 return (
                   <li key={g.sig} className="kv-wall-row">
-                    <span className="kv-wall-who">
-                      {name ?? shortPubkey(g.depositor)}
-                    </span>
+                    <span className="kv-wall-who">{display}</span>
                     <span className="kv-wall-amount">{fmt2(g.amountUsd)}</span>
                     <span className="kv-wall-when">{timeAgo(g.ts)}</span>
                   </li>

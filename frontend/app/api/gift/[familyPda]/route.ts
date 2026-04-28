@@ -7,10 +7,15 @@
 // so anyone with a wallet (grandma, classmate, anonymous gifter) can fund
 // any family vault. The depositor signs in their wallet; we never sign.
 //
+// Optional `?from=Grandma` query param attaches an SPL Memo instruction
+// before the deposit, encoding the gifter's self-chosen display name.
+// fetchGifts decodes that on the kid view so "Grandma" shows up the
+// instant the tx confirms — no parent action required.
+//
 // Solana Pay spec: https://docs.solanapay.com/spec#specification-transaction-request
 //
 // Why this is its own route: the QR encoded on the kid view is
-//   solana:https://seedlingsol.xyz/api/gift/<familyPda>?amount=20
+//   solana:https://seedlingsol.xyz/api/gift/<familyPda>?amount=20&from=Grandma
 // and the wallet hits THIS endpoint twice (GET, then POST). The familyPda
 // parameter is what scopes a gift to a specific kid.
 
@@ -28,6 +33,7 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
+  TransactionInstruction,
   type VersionedTransaction,
 } from "@solana/web3.js";
 import { NextRequest, NextResponse } from "next/server";
@@ -39,6 +45,36 @@ import type { Seedling } from "@/lib/types";
 const SYSVAR_INSTRUCTIONS = new PublicKey(
   "Sysvar1nstructions1111111111111111111111111"
 );
+
+// SPL Memo v2. We tag gift names with a fixed prefix so fetchGifts can
+// distinguish them from any other memo a future feature might attach.
+const MEMO_PROGRAM_ID = new PublicKey(
+  "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+);
+export const GIFT_MEMO_PREFIX = "seedling-gift:";
+const MAX_NAME_LEN = 32;
+
+// Sanitize the gifter-provided name. Cap at MAX_NAME_LEN, strip ASCII
+// control chars (0x00-0x1F) + DEL (0x7F), keep printable Unicode.
+// The memo lives on-chain forever — we filter out non-printable junk.
+function sanitizeName(raw: string): string {
+  const cleaned = Array.from(raw)
+    .filter((c) => {
+      const cp = c.codePointAt(0) ?? 0;
+      return cp >= 0x20 && cp !== 0x7f;
+    })
+    .join("")
+    .trim();
+  return cleaned.slice(0, MAX_NAME_LEN);
+}
+
+function buildMemoIx(payload: string): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: MEMO_PROGRAM_ID,
+    keys: [],
+    data: Buffer.from(payload, "utf-8"),
+  });
+}
 
 // Stub wallet — same pattern as fetchFamilyByPda. We're read-only on the
 // server: the route builds the transaction but the depositor signs it
@@ -90,6 +126,9 @@ export async function POST(
       );
     }
 
+    const fromRaw = url.searchParams.get("from") ?? "";
+    const fromName = sanitizeName(fromRaw);
+
     const body = (await req.json()) as { account?: string };
     if (!body.account) {
       return NextResponse.json({ error: "missing account" }, { status: 400 });
@@ -97,7 +136,7 @@ export async function POST(
     const depositor = new PublicKey(body.account);
     const familyPda = new PublicKey(familyPdaStr);
 
-    // Verify the family exists (and grab kid pubkey for the wallet message).
+    // Verify the family exists.
     const connection = new Connection(DEVNET_RPC, "confirmed");
     const program = getProgram(connection);
     const family = await program.account.familyPosition
@@ -163,7 +202,11 @@ export async function POST(
     const tx = new Transaction();
     tx.feePayer = depositor;
     tx.recentBlockhash = blockhash;
-    tx.add(cuIx, ataIx, depositIx);
+    tx.add(cuIx, ataIx);
+    if (fromName.length > 0) {
+      tx.add(buildMemoIx(GIFT_MEMO_PREFIX + fromName));
+    }
+    tx.add(depositIx);
 
     // Serialize unsigned. The wallet completes signing client-side.
     const serialized = tx.serialize({
@@ -173,7 +216,9 @@ export async function POST(
 
     return NextResponse.json({
       transaction: serialized.toString("base64"),
-      message: `Gift $${amountUsd} to a Seedling family`,
+      message: fromName
+        ? `Gift $${amountUsd} from ${fromName}`
+        : `Gift $${amountUsd} to a Seedling family`,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error";

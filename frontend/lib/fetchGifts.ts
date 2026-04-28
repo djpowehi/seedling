@@ -31,6 +31,9 @@ export type GiftEntry = {
   amountUsd: number;
   ts: number; // unix seconds
   sig: string;
+  // Self-chosen name from the gifter's `?from=` memo. Undefined when the
+  // gift came from a wallet that didn't supply one.
+  fromName?: string;
 };
 
 const stubKeypair = Keypair.generate();
@@ -99,10 +102,15 @@ export async function fetchGifts(
       commitment: "confirmed",
     });
     if (!tx?.meta?.logMessages) continue;
-    // Skip reverted transactions — even if `emit!` ran before the
-    // failing step, no USDC actually moved, so we shouldn't display
-    // it as a gift.
     if (tx.meta.err) continue;
+
+    // Two-pass over the log lines:
+    //   pass 1 — find any seedling-gift memo
+    //   pass 2 — find the Deposited event
+    // Memo always logs before the Deposited event because it's
+    // ordered ahead in the tx, but we don't want to assume it.
+    const fromName = extractGiftMemo(tx.meta.logMessages);
+
     for (const line of tx.meta.logMessages) {
       if (!line.startsWith(PROGRAM_LOG_PREFIX)) continue;
       const b64 = line.slice(PROGRAM_LOG_PREFIX.length);
@@ -116,6 +124,7 @@ export async function fetchGifts(
           amountUsd: Number(data.amount.toString()) / 1_000_000,
           ts: Number(data.ts.toString()),
           sig: s.signature,
+          fromName,
         });
       } catch {
         // Not our event or decode failure — ignore this log line.
@@ -125,4 +134,19 @@ export async function fetchGifts(
 
   out.sort((a, b) => b.ts - a.ts);
   return out;
+}
+
+// SPL Memo logs as: `Program log: Memo (len 22): "seedling-gift:Grandma"`
+// We match on the prefix and pull out the trailing name.
+const MEMO_LOG_RE = /Program log: Memo \(len \d+\): "seedling-gift:([^"]*)"/;
+
+function extractGiftMemo(logs: string[]): string | undefined {
+  for (const line of logs) {
+    const m = MEMO_LOG_RE.exec(line);
+    if (m) {
+      const name = m[1].trim();
+      return name.length > 0 ? name : undefined;
+    }
+  }
+  return undefined;
 }
