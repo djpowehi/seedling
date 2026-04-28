@@ -424,13 +424,12 @@ export type Seedling = {
           writable: true;
         },
         {
-          name: "parent";
+          name: "depositor";
           writable: true;
           signer: true;
-          relations: ["familyPosition"];
         },
         {
-          name: "parentUsdcAta";
+          name: "depositorUsdcAta";
           writable: true;
         },
         {
@@ -2354,7 +2353,12 @@ export type Seedling = {
             type: "pubkey";
           },
           {
-            name: "parent";
+            name: "depositor";
+            docs: [
+              "Whoever signed the deposit. May be the family's parent (a normal",
+              "top-up) or any other wallet (a gift). Off-chain consumers compare",
+              "against `family_position.parent` to distinguish the two cases."
+            ];
             type: "pubkey";
           },
           {

@@ -254,17 +254,20 @@ describe("seedling", () => {
   });
 
   // ===== deposit — constraint tests only =====
-  // Day-4: real Kamino CPI wired. These constraint tests fail BEFORE the CPI
-  // fires (validation / amount=0 / has_one), so they run fine on a local
-  // validator with junk pubkeys for Kamino-side accounts. Happy-path + all
-  // share-math assertions run against Surfpool mainnet-fork in
-  // `tests/deposit-surfpool.test.ts`.
+  // These constraint tests fail BEFORE the CPI fires (amount=0 / ATA-owner
+  // mismatch), so they run fine on a local validator with junk pubkeys for
+  // Kamino-side accounts. Happy-path + all share-math assertions run
+  // against Surfpool mainnet-fork in `tests/deposit-surfpool.test.ts`.
+  //
+  // NOTE: gift mode dropped `has_one = parent` from Deposit. The remaining
+  // security boundary is `depositor_usdc_ata.owner == depositor.key()` —
+  // tested below.
   describe("deposit (constraint failures — happy path is in deposit-surfpool)", () => {
     const parent = Keypair.generate();
     const kid = Keypair.generate().publicKey;
     const streamRate = new BN(50_000_000);
     let familyPda: PublicKey;
-    let parentUsdcAta: PublicKey;
+    let depositorUsdcAta: PublicKey;
     let vaultUsdcAta: PublicKey;
     let vaultCtokenAta: PublicKey;
 
@@ -299,7 +302,7 @@ describe("seedling", () => {
         .signers([parent])
         .rpc();
 
-      parentUsdcAta = (
+      depositorUsdcAta = (
         await getOrCreateAssociatedTokenAccount(
           provider.connection,
           parent,
@@ -312,7 +315,7 @@ describe("seedling", () => {
         provider.connection,
         authority,
         usdcMint,
-        parentUsdcAta,
+        depositorUsdcAta,
         authority,
         100_000_000
       );
@@ -331,8 +334,8 @@ describe("seedling", () => {
 
     const commonAccounts = () => ({
       familyPosition: familyPda,
-      parent: parent.publicKey,
-      parentUsdcAta,
+      depositor: parent.publicKey,
+      depositorUsdcAta,
       vaultUsdcAta,
       vaultCtokenAta,
       treasuryUsdcAta,
@@ -370,7 +373,11 @@ describe("seedling", () => {
       }
     });
 
-    it("rejects when caller is not the family parent", async () => {
+    // Gift-mode security boundary: anyone may deposit to any family
+    // (the family's parent has no veto). What they may NOT do is sign a
+    // deposit using somebody else's USDC ATA — `depositor_usdc_ata.owner`
+    // must equal `depositor.key()`. This test asserts that boundary.
+    it("rejects when depositor_usdc_ata is not owned by the depositor", async () => {
       const imposter = Keypair.generate();
       const sig = await provider.connection.requestAirdrop(
         imposter.publicKey,
@@ -378,32 +385,21 @@ describe("seedling", () => {
       );
       await provider.connection.confirmTransaction(sig, "confirmed");
 
-      const imposterUsdcAta = (
-        await getOrCreateAssociatedTokenAccount(
-          provider.connection,
-          imposter,
-          usdcMint,
-          imposter.publicKey
-        )
-      ).address;
-
+      // imposter signs but tries to drain the family's parent ATA.
       try {
         await program.methods
           .deposit(new BN(1_000_000), new BN(0))
           .accountsPartial({
             ...commonAccounts(),
-            parent: imposter.publicKey,
-            parentUsdcAta: imposterUsdcAta,
+            depositor: imposter.publicKey,
+            depositorUsdcAta, // owned by `parent`, not `imposter`
           })
           .signers([imposter])
           .rpc();
-        assert.fail("expected has_one mismatch to reject");
+        assert.fail("expected ATA-ownership mismatch to reject");
       } catch (e: any) {
         const msg = e.toString();
-        assert.isTrue(
-          msg.includes("InvalidAuthority") || msg.includes("ConstraintHasOne"),
-          `expected has_one rejection, got: ${msg}`
-        );
+        assert.include(msg, "InvalidAuthority", `got: ${msg}`);
       }
     });
   });

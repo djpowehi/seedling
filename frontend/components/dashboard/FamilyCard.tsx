@@ -31,6 +31,7 @@ import { WithdrawForm } from "@/components/WithdrawForm";
 import { ArrowUR, Copy, Plus } from "./icons";
 import { GoalRow } from "./GoalRow";
 import { AddGoalInline } from "./AddGoalInline";
+import { GiftsSection } from "./GiftsSection";
 
 const SYSVAR_INSTRUCTIONS = new PublicKey(
   "Sysvar1nstructions1111111111111111111111111"
@@ -737,6 +738,13 @@ export function FamilyCard({
           )}
         </div>
       </div>
+
+      <GiftsSection
+        familyPda={family.pubkey}
+        parent={parent}
+        kidName={name}
+        connection={connection}
+      />
 
       {/* Remove */}
       <div

@@ -11,6 +11,9 @@ import { fetchFamilyByPda, fetchVaultClock } from "@/lib/fetchFamilyByPda";
 import type { FamilyView } from "@/lib/fetchFamilies";
 import { getSavingsGoals, type SavingsGoal } from "@/lib/savingsGoals";
 import { Tree, stageForMonths, monthsSince } from "@/components/Tree";
+import { GiftModal } from "@/components/GiftModal";
+import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
+import { getGiftNames, shortPubkey, timeAgo } from "@/lib/giftNames";
 
 const ESTIMATED_APY = 0.08;
 const YEAR_SECONDS = 365 * 86_400;
@@ -153,6 +156,33 @@ export function KidView({ family, initialClock, kidName }: Props) {
   const ticker = fmtTicker(displayUsd);
   const greetingName = kidName ?? "friend";
 
+  const [giftOpen, setGiftOpen] = useState(false);
+
+  // ───── gift wall (gifts only — top-ups by parent are filtered out) ─────
+  const [gifts, setGifts] = useState<GiftEntry[]>([]);
+  const [names, setNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    setNames(getGiftNames(familyKey));
+  }, [familyKey]);
+  useEffect(() => {
+    let cancelled = false;
+    const conn = new Connection(DEVNET_RPC, "confirmed");
+    const load = async () => {
+      try {
+        const list = await fetchGifts(conn, family.pubkey, family.parent);
+        if (!cancelled) setGifts(list);
+      } catch {
+        // Silent retry on next interval. RPC blips shouldn't blank the wall.
+      }
+    };
+    load();
+    const id = setInterval(load, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [family.pubkey, family.parent]);
+
   return (
     <div className="kv-page">
       <style dangerouslySetInnerHTML={{ __html: KID_VIEW_STYLES }} />
@@ -242,9 +272,65 @@ export function KidView({ family, initialClock, kidName }: Props) {
           </div>
         </section>
 
+        <button
+          type="button"
+          className="kv-gift-cta"
+          onClick={() => setGiftOpen(true)}
+        >
+          <span className="kv-gift-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+              <path
+                d="M3 11h18v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+              <path
+                d="M2 7h20v4H2zM12 7v14M12 7c-2.5-3-5-3-5-1s2.5 1 5 1Zm0 0c2.5-3 5-3 5-1s-2.5 1-5 1Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+          <span className="kv-gift-text">
+            <span className="kv-gift-line">send a gift</span>
+            <span className="kv-gift-hint">grandma · auntie · anyone</span>
+          </span>
+          <span className="kv-gift-arrow" aria-hidden="true">
+            →
+          </span>
+        </button>
+
+        {gifts.length > 0 && (
+          <section className="kv-card kv-gift-wall">
+            <div className="kv-card-eyebrow">gifts received</div>
+            <ul className="kv-wall-list">
+              {gifts.slice(0, 8).map((g) => {
+                const name = names[g.depositor];
+                return (
+                  <li key={g.sig} className="kv-wall-row">
+                    <span className="kv-wall-who">
+                      {name ?? shortPubkey(g.depositor)}
+                    </span>
+                    <span className="kv-wall-amount">{fmt2(g.amountUsd)}</span>
+                    <span className="kv-wall-when">{timeAgo(g.ts)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         {goals.map((goal) => (
           <GoalCard key={goal.id} goal={goal} balanceUsd={combinedBalanceUsd} />
         ))}
+
+        <GiftModal
+          familyPda={familyKey}
+          kidName={kidName}
+          open={giftOpen}
+          onClose={() => setGiftOpen(false)}
+        />
 
         <footer className="kv-footer">
           <div className="kv-foot-mark">
@@ -561,6 +647,74 @@ const KID_VIEW_STYLES = `
   }
   .kv-goal-of { color: var(--ink-muted); }
   .kv-goal-pct { margin-left: auto; color: var(--green-700); font-weight: 500; }
+
+  .kv-gift-cta {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 18px;
+    background: var(--stone-50);
+    border: 1px solid var(--stone-200);
+    border-radius: 14px;
+    color: var(--green-900);
+    cursor: pointer; text-align: left;
+    font-family: var(--sans);
+    transition: all 180ms ease;
+  }
+  .kv-gift-cta:hover {
+    border-color: var(--green-600);
+    background: var(--stone-100);
+  }
+  .kv-gift-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--green-700); color: var(--stone-50);
+    flex-shrink: 0;
+  }
+  .kv-gift-text {
+    display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;
+  }
+  .kv-gift-line {
+    font-family: var(--serif); font-size: 22px; line-height: 1.1;
+    letter-spacing: -0.005em; color: var(--green-900);
+  }
+  .kv-gift-hint {
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.06em; color: var(--ink-muted);
+  }
+  .kv-gift-arrow {
+    font-family: var(--serif); font-size: 22px;
+    color: var(--green-700);
+    transition: transform 200ms ease;
+  }
+  .kv-gift-cta:hover .kv-gift-arrow { transform: translateX(3px); }
+
+  .kv-wall-list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column;
+  }
+  .kv-wall-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    align-items: baseline;
+    padding: 12px 0;
+    border-top: 1px dashed var(--stone-200);
+  }
+  .kv-wall-row:first-child { border-top: none; padding-top: 4px; }
+  .kv-wall-who {
+    font-family: var(--serif); font-size: 18px;
+    color: var(--green-900); letter-spacing: -0.005em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .kv-wall-amount {
+    font-family: var(--mono); font-size: 13px;
+    color: var(--green-700); font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+  .kv-wall-when {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-muted); letter-spacing: 0.04em;
+  }
 
   .kv-footer {
     margin-top: 12px; padding-top: 20px;

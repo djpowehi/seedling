@@ -22,7 +22,10 @@ pub struct FamilyCreated {
 #[event]
 pub struct Deposited {
     pub family: Pubkey,
-    pub parent: Pubkey,
+    /// Whoever signed the deposit. May be the family's parent (a normal
+    /// top-up) or any other wallet (a gift). Off-chain consumers compare
+    /// against `family_position.parent` to distinguish the two cases.
+    pub depositor: Pubkey,
     pub amount: u64,
     pub shares_minted: u64,
     pub fee_to_treasury: u64,
