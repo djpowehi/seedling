@@ -21,10 +21,7 @@ pub fn compute_shares_to_mint(
         // First depositor. If the vault has unclaimed assets, that's the
         // donation attack — refuse the deposit loudly. Caller's responsibility
         // to surface a useful error; here we treat it as InvalidAmount.
-        require!(
-            total_assets_pre_deposit == 0,
-            SeedlingError::InvalidAmount
-        );
+        require!(total_assets_pre_deposit == 0, SeedlingError::InvalidAmount);
         return Ok(amount);
     }
 
@@ -137,6 +134,7 @@ mod tests {
             last_known_total_assets: 0,
             period_end_ts: 0,
             current_period_id: 0,
+            cycle_months: 12,
             is_paused: false,
             bump: 0,
         }

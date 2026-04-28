@@ -167,7 +167,7 @@ async function main() {
       oracleSwitchboardPrice: PublicKey.default,
       oracleSwitchboardTwap: PublicKey.default,
       oracleScopeConfig: SCOPE,
-      periodEndTs: new BN(Math.floor(Date.now() / 1000) + 365 * 86400),
+      cycleMonths: 12,
       feeBps: 1000,
     })
     .accountsPartial({

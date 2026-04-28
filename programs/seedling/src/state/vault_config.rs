@@ -31,6 +31,15 @@ pub struct VaultConfig {
     pub period_end_ts: i64,
     pub current_period_id: u32,
 
+    /// Bonus-cycle length picked at vault init. Default 12 (annual "13th
+    /// allowance"). Allowed values: 6 / 12 / 18 / 24 — semi-annual to
+    /// biennial. Stored on-chain as documentation + so future rolls can
+    /// auto-compute the next period end without a redeploy. The current
+    /// `roll_period` still takes an explicit arg so admin can override
+    /// for retakes / ops corrections; cycle_months is the canonical
+    /// default the frontend renders ("annual 13th").
+    pub cycle_months: u8,
+
     pub is_paused: bool,
     pub bump: u8,
 }
@@ -51,10 +60,11 @@ impl VaultConfig {
     // 8  last_known_total_assets
     // 8  period_end_ts
     // 4  current_period_id
+    // 1  cycle_months
     // 1  is_paused
     // 1  bump
     pub const LEN: usize =
-        8 + 32 + 32 + 2 + 32 + 32 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 4 + 1 + 1;
+        8 + 32 + 32 + 2 + 32 + 32 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 4 + 1 + 1 + 1;
 
     pub const SEED: &'static [u8] = b"vault_config";
 }
