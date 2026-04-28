@@ -393,7 +393,7 @@ export default function Home() {
       <header className="landing-hero">
         <div>
           <div className="landing-eyebrow">
-            Allowance, with yield · on Solana
+            Programmable allowance for families · on Solana
           </div>
           <h1 className="landing-headline">
             allowance
@@ -401,8 +401,9 @@ export default function Home() {
             that <em>grows</em>.
           </h1>
           <p className="landing-subhead">
-            Parents deposit USDC. Kids earn yield through Kamino. We only earn
-            when families do.
+            Money grows. Habits grow. Your kid grows with both. Parents deposit
+            USDC, the vault earns yield through Kamino, and we only earn when
+            families do.
           </p>
           <div className="landing-cta-row">
             <Link href="/dashboard" className="landing-cta">
