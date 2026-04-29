@@ -77,38 +77,52 @@ type DepositedEvent = {
   ts: { toString(): string };
 };
 
+// Module-level cache keyed by familyPda. We store every gift we've ever
+// decoded for this family. On subsequent polls we only fetch the
+// transactions whose signatures we haven't seen yet — a tight diff that
+// makes the 30s poll cycle effectively instant.
+type CacheEntry = {
+  byPubkey: Map<string, GiftEntry>; // sig → entry (dedup-friendly)
+};
+const giftCache = new Map<string, CacheEntry>();
+
 export async function fetchGifts(
   connection: Connection,
   familyPda: PublicKey,
   parent: PublicKey,
   limit = 20
 ): Promise<GiftEntry[]> {
-  const sigs = await connection.getSignaturesForAddress(familyPda, { limit });
-  if (sigs.length === 0) return [];
+  const cacheKey = familyPda.toBase58();
+  const cached = giftCache.get(cacheKey) ?? { byPubkey: new Map() };
 
-  // Anchor's BorshCoder gives us event-log decoding without needing the
-  // full Program — but we instantiate the Program once anyway so its
-  // accountsCoder is around for any future event<->account joins.
+  const sigs = await connection.getSignaturesForAddress(familyPda, { limit });
+  if (sigs.length === 0) {
+    return Array.from(cached.byPubkey.values()).sort((a, b) => b.ts - a.ts);
+  }
+
+  // Diff: only fetch txs we don't already have decoded. On a quiet family
+  // this is empty most of the time → we skip getTransactions entirely.
+  const missingSigs = sigs.filter((s) => !cached.byPubkey.has(s.signature));
+  if (missingSigs.length === 0) {
+    return Array.from(cached.byPubkey.values()).sort((a, b) => b.ts - a.ts);
+  }
+
   const program = getProgram(connection);
   const eventCoder = new BorshCoder(program.idl as Idl).events;
 
-  // Serial fetch with a tiny gap. Devnet's public RPC 429s if you batch
-  // even ~10 getTransaction calls; the wall doesn't need to be fast (it
-  // updates every 30s) so we trade latency for being a good citizen.
-  const out: GiftEntry[] = [];
-  for (const s of sigs) {
-    const tx = await connection.getTransaction(s.signature, {
-      maxSupportedTransactionVersion: 0,
-      commitment: "confirmed",
-    });
-    if (!tx?.meta?.logMessages) continue;
-    if (tx.meta.err) continue;
+  // Batched fetch: web3.js 1.x's getTransactions packs all sigs into a
+  // single JSON-RPC batch request (one HTTP roundtrip, server processes
+  // them in parallel). Cuts cold-fetch from 10-20s of serial calls down
+  // to ~1-2s.
+  const txs = await connection.getTransactions(
+    missingSigs.map((s) => s.signature),
+    { maxSupportedTransactionVersion: 0, commitment: "confirmed" }
+  );
 
-    // Two-pass over the log lines:
-    //   pass 1 — find any seedling-gift memo
-    //   pass 2 — find the Deposited event
-    // Memo always logs before the Deposited event because it's
-    // ordered ahead in the tx, but we don't want to assume it.
+  txs.forEach((tx, i) => {
+    if (!tx?.meta?.logMessages) return;
+    if (tx.meta.err) return;
+    const sig = missingSigs[i].signature;
     const fromName = extractGiftMemo(tx.meta.logMessages);
 
     for (const line of tx.meta.logMessages) {
@@ -119,21 +133,21 @@ export async function fetchGifts(
         if (!ev || ev.name !== "deposited") continue;
         const data = ev.data as DepositedEvent;
         if (data.depositor.equals(parent)) continue;
-        out.push({
+        cached.byPubkey.set(sig, {
           depositor: data.depositor.toBase58(),
           amountUsd: Number(data.amount.toString()) / 1_000_000,
           ts: Number(data.ts.toString()),
-          sig: s.signature,
+          sig,
           fromName,
         });
       } catch {
         // Not our event or decode failure — ignore this log line.
       }
     }
-  }
+  });
 
-  out.sort((a, b) => b.ts - a.ts);
-  return out;
+  giftCache.set(cacheKey, cached);
+  return Array.from(cached.byPubkey.values()).sort((a, b) => b.ts - a.ts);
 }
 
 // SPL Memo logs as: `Program log: Memo (len 22): "seedling-gift:Grandma"`
