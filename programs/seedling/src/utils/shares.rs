@@ -134,7 +134,6 @@ mod tests {
             last_known_total_assets: 0,
             period_end_ts: 0,
             current_period_id: 0,
-            cycle_months: 12,
             is_paused: false,
             bump: 0,
         }

@@ -81,11 +81,8 @@ pub struct InitializeVaultArgs {
     pub oracle_switchboard_twap: Pubkey,
     /// Scope oracle config. Pubkey::default() = not used.
     pub oracle_scope_config: Pubkey,
-    /// Bonus-cycle length in months. Allowed: 6, 12, 18, 24.
-    /// Default in any UI should be 12 (annual "13th allowance" — the demo
-    /// narrative). Vault stores this on-chain and computes the first
-    /// `period_end_ts` as `now + cycle_months * 30 days`.
-    pub cycle_months: u8,
+    /// Unix timestamp when the current bonus period ends (e.g. Dec 1 2026 UTC).
+    pub period_end_ts: i64,
     /// Protocol fee in basis points. Pass 1000 for the 10% default.
     pub fee_bps: u16,
 }
@@ -100,17 +97,6 @@ pub fn initialize_vault_handler(
     args: InitializeVaultArgs,
 ) -> Result<()> {
     require!(args.fee_bps <= 10_000, SeedlingError::InvalidAmount);
-    // Constrain to the four canonical cycles. Anything else is either a
-    // typo (cycle_months: 1) or a feature we haven't designed for.
-    require!(
-        matches!(args.cycle_months, 6 | 12 | 18 | 24),
-        SeedlingError::InvalidCycleMonths
-    );
-
-    let now = Clock::get()?.unix_timestamp;
-    let period_end_ts = now
-        .checked_add((args.cycle_months as i64) * 30 * 86_400)
-        .ok_or(SeedlingError::Overflow)?;
 
     let cfg = &mut ctx.accounts.vault_config;
     cfg.authority = ctx.accounts.authority.key();
@@ -125,9 +111,8 @@ pub fn initialize_vault_handler(
     cfg.oracle_scope_config = args.oracle_scope_config;
     cfg.total_shares = 0;
     cfg.last_known_total_assets = 0;
-    cfg.period_end_ts = period_end_ts;
+    cfg.period_end_ts = args.period_end_ts;
     cfg.current_period_id = 0;
-    cfg.cycle_months = args.cycle_months;
     cfg.is_paused = false;
     cfg.bump = ctx.bumps.vault_config;
 
