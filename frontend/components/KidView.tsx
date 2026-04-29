@@ -7,13 +7,18 @@
 import { useEffect, useRef, useState } from "react";
 import { Connection } from "@solana/web3.js";
 import { DEVNET_ADDRESSES, DEVNET_RPC } from "@/lib/program";
-import { fetchFamilyByPda, fetchVaultClock } from "@/lib/fetchFamilyByPda";
+import {
+  cycleLabel,
+  fetchFamilyByPda,
+  fetchVaultClock,
+} from "@/lib/fetchFamilyByPda";
 import type { FamilyView } from "@/lib/fetchFamilies";
 import { getSavingsGoals, type SavingsGoal } from "@/lib/savingsGoals";
 import { Tree, stageForMonths, monthsSince } from "@/components/Tree";
 import { GiftModal } from "@/components/GiftModal";
 import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
 import { getGiftNames, shortPubkey, timeAgo } from "@/lib/giftNames";
+import { useToast } from "@/components/Toast";
 
 const ESTIMATED_APY = 0.08;
 const YEAR_SECONDS = 365 * 86_400;
@@ -28,6 +33,7 @@ type Props = {
     lastKnownTotalAssets: bigint;
     periodEndTs: number;
     currentPeriodId: number;
+    cycleMonths: number;
   };
   kidName: string | null;
 };
@@ -178,16 +184,38 @@ export function KidView({ family, initialClock, kidName }: Props) {
   useEffect(() => {
     setNames(getGiftNames(familyKey));
   }, [familyKey]);
+  // Toast on the FIRST sight of any new gift sig. The first poll seeds the
+  // baseline silently — only gifts that arrive while the kid is watching
+  // fire a notification. This is the "grandma sent you $20!" demo moment.
+  const seenGiftSigs = useRef<Set<string>>(new Set());
+  const giftsSeeded = useRef(false);
+  const { showToast } = useToast();
   useEffect(() => {
     let cancelled = false;
     const conn = new Connection(DEVNET_RPC, "confirmed");
     const load = async () => {
       try {
         const list = await fetchGifts(conn, family.pubkey, family.parent);
-        if (!cancelled) {
-          setGifts(list);
-          setGiftsLoading(false);
+        if (cancelled) return;
+        // Toast on each NEW sig after baseline. Pick a name with the same
+        // three-tier resolution the wall uses.
+        if (giftsSeeded.current) {
+          const currentNames = getGiftNames(familyKey);
+          for (const g of list) {
+            if (seenGiftSigs.current.has(g.sig)) continue;
+            seenGiftSigs.current.add(g.sig);
+            const who = g.fromName ?? currentNames[g.depositor] ?? "Someone";
+            showToast({
+              title: `${who} sent you $${g.amountUsd.toFixed(2)}`,
+              subtitle: "A GIFT JUST LANDED",
+            });
+          }
+        } else {
+          for (const g of list) seenGiftSigs.current.add(g.sig);
+          giftsSeeded.current = true;
         }
+        setGifts(list);
+        setGiftsLoading(false);
       } catch {
         if (!cancelled) setGiftsLoading(false);
         // Silent retry on next interval. RPC blips shouldn't blank the wall.
@@ -199,7 +227,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
       cancelled = true;
       clearInterval(id);
     };
-  }, [family.pubkey, family.parent]);
+  }, [family.pubkey, family.parent, familyKey, showToast]);
 
   return (
     <div className="kv-page">
@@ -384,7 +412,9 @@ export function KidView({ family, initialClock, kidName }: Props) {
             </span>
             powered by <span className="kv-foot-name">seedling</span>
           </div>
-          <div className="kv-foot-meta">on Solana devnet</div>
+          <div className="kv-foot-meta">
+            {cycleLabel(initialClock.cycleMonths)} 13<sup>th</sup> · on Solana
+          </div>
         </footer>
       </div>
     </div>

@@ -43,7 +43,7 @@ const jetbrainsMono = JetBrains_Mono({
 const SITE_URL = "https://seedlingsol.xyz";
 const SITE_TITLE = "Seedling — allowance that grows";
 const SITE_DESCRIPTION =
-  "Parents deposit USDC. Kamino lends it at ~8% APY. The kid gets paid on the 1st of every month, plus a yield bonus when the year ends.";
+  "Programmable allowance for families on Solana. Money grows, habits grow, kids grow with both. Parents deposit USDC, the vault earns ~8% via Kamino, and the kid is paid on the 1st of every month plus a year-end 13th allowance.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
