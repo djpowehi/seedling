@@ -61,6 +61,7 @@ export function GiftsSection({
 }: Props) {
   const familyPdaStr = familyPda.toBase58();
   const [gifts, setGifts] = useState<GiftEntry[]>([]);
+  const [giftsLoading, setGiftsLoading] = useState(true);
   const [names, setNames] = useState<Record<string, string>>({});
   const [editingPubkey, setEditingPubkey] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -83,6 +84,7 @@ export function GiftsSection({
         const list = await fetchGifts(connection, familyPda, parent);
         if (cancelled) return;
         setGifts(list);
+        setGiftsLoading(false);
 
         // Toast new gifts — but skip the first load so we don't toast
         // historical entries every page-mount. Only re-persist when the
@@ -114,6 +116,7 @@ export function GiftsSection({
         }
         if (dirty) persistSeenSet(familyPdaStr, seenRef.current);
       } catch {
+        if (!cancelled) setGiftsLoading(false);
         // Silent retry on next interval.
       }
     };
@@ -144,7 +147,17 @@ export function GiftsSection({
     setDraft("");
   };
 
-  if (gifts.length === 0) return null;
+  // Render the section as soon as we mount (with skeleton rows during the
+  // initial fetch) so the parent doesn't see the page "pop" 30 seconds in.
+  // Once the fetch returns and there are zero gifts, the section is hidden.
+  if (!giftsLoading && gifts.length === 0) return null;
+
+  const skeletonStyles = `
+    @keyframes dash-skel-pulse {
+      0%, 100% { opacity: 0.45; }
+      50%      { opacity: 0.85; }
+    }
+  `;
 
   return (
     <div
@@ -155,7 +168,10 @@ export function GiftsSection({
         paddingTop: 20,
         borderTop: "1px solid var(--line-soft)",
       }}
+      // Local keyframe — dashboard styles.ts doesn't have a skeleton pulse.
+      // Cheaper than threading through a global. See <style> below.
     >
+      <style dangerouslySetInnerHTML={{ __html: skeletonStyles }} />
       <div
         className="dash-row"
         style={{
@@ -178,11 +194,53 @@ export function GiftsSection({
           className="dash-mono"
           style={{ fontSize: 10, color: "var(--ink-3)" }}
         >
-          {gifts.length} total
+          {giftsLoading ? "loading…" : `${gifts.length} total`}
         </span>
       </div>
 
       <div className="dash-col" style={{ gap: 0 }}>
+        {giftsLoading &&
+          gifts.length === 0 &&
+          Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={`skeleton-${i}`}
+              className="dash-row"
+              style={{
+                gap: 12,
+                alignItems: "center",
+                padding: "10px 0",
+                borderTop: "1px dashed var(--line-soft)",
+                opacity: 0.55,
+                animation: "dash-skel-pulse 1.4s ease-in-out infinite",
+              }}
+            >
+              <span
+                style={{
+                  height: 16,
+                  width: "32%",
+                  background: "var(--line-soft)",
+                  borderRadius: 4,
+                }}
+              />
+              <span
+                style={{
+                  height: 12,
+                  width: 44,
+                  background: "var(--line-soft)",
+                  borderRadius: 4,
+                  marginLeft: "auto",
+                }}
+              />
+              <span
+                style={{
+                  height: 10,
+                  width: 50,
+                  background: "var(--line-soft)",
+                  borderRadius: 4,
+                }}
+              />
+            </div>
+          ))}
         {gifts.slice(0, 8).map((g) => {
           // Three-tier resolution. Parent override beats the gifter's
           // self-chosen name (parent's home, parent's labels), but we
