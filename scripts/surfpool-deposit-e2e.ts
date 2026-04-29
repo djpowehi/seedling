@@ -209,12 +209,13 @@ async function main() {
 
   if (!vaultExists) {
     console.log("Initializing vault...");
+    const periodEndTs = new BN(Math.floor(Date.now() / 1000) + 365 * 24 * 3600);
     const args = {
       oraclePyth: PublicKey.default,
       oracleSwitchboardPrice: PublicKey.default,
       oracleSwitchboardTwap: PublicKey.default,
       oracleScopeConfig: SCOPE,
-      cycleMonths: 12,
+      periodEndTs,
       feeBps: 1000,
     };
     await program.methods

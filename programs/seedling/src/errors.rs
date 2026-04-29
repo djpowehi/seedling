@@ -38,9 +38,6 @@ pub enum SeedlingError {
     #[msg("Invalid deposit amount: must be > 0")]
     InvalidAmount,
 
-    #[msg("Invalid cycle_months: allowed values are 6, 12, 18, 24")]
-    InvalidCycleMonths,
-
     #[msg("Reserve account does not match cached VaultConfig.kamino_reserve")]
     ReserveMismatch,
 

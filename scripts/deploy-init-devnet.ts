@@ -108,7 +108,7 @@ async function main() {
     oracleSwitchboardPrice: PublicKey.default,
     oracleSwitchboardTwap: PublicKey.default,
     oracleScopeConfig: PublicKey.default,
-    cycleMonths: 12,
+    periodEndTs: new BN(Math.floor(Date.now() / 1000) + 365 * 86400),
     feeBps: 1000,
   };
   const tx = await program.methods

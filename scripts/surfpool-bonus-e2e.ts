@@ -125,16 +125,15 @@ async function main() {
   });
 
   if (!vaultExists) {
-    // Init takes cycle_months and computes period_end_ts internally.
-    // We immediately roll the period below to backdate it to 0 so the
-    // bonus gate always passes in this test.
+    // Init with period_end_ts = 0 so the bonus period gate passes immediately.
+    // In production this would be Dec 1 UTC of the current year.
     await program.methods
       .initializeVault({
         oraclePyth: PublicKey.default,
         oracleSwitchboardPrice: PublicKey.default,
         oracleSwitchboardTwap: PublicKey.default,
         oracleScopeConfig: SCOPE,
-        cycleMonths: 12,
+        periodEndTs: new BN(0), // already-ended period — gate always passes
         feeBps: 1000,
       })
       .accountsPartial({

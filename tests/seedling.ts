@@ -90,15 +90,16 @@ describe("seedling", () => {
         true
       );
 
-      const cycleMonths = 12;
-      const expectedPeriodEnd = Math.floor(Date.now() / 1000) + 12 * 30 * 86_400;
+      const periodEndTs = new BN(
+        Math.floor(Date.now() / 1000) + 365 * 24 * 3600
+      );
 
       const args = {
         oraclePyth: oracles.pyth,
         oracleSwitchboardPrice: oracles.switchboardPrice,
         oracleSwitchboardTwap: oracles.switchboardTwap,
         oracleScopeConfig: oracles.scopeConfig,
-        cycleMonths,
+        periodEndTs,
         feeBps: 1000,
       };
 
@@ -143,13 +144,8 @@ describe("seedling", () => {
       );
       assert.isTrue(cfg.totalShares.eq(new BN(0)));
       assert.isTrue(cfg.lastKnownTotalAssets.eq(new BN(0)));
-      // period_end_ts is computed on-chain from cycle_months. Allow ±5s
-      // slop because the on-chain Clock may differ from local Date.now()
-      // by a few seconds.
-      const actualEnd = Number(cfg.periodEndTs.toString());
-      assert.closeTo(actualEnd, expectedPeriodEnd, 5);
+      assert.isTrue(cfg.periodEndTs.eq(periodEndTs));
       assert.equal(cfg.currentPeriodId, 0);
-      assert.equal(cfg.cycleMonths, cycleMonths);
       assert.isFalse(cfg.isPaused);
       assert.equal(cfg.bump, vaultConfigBump);
 
