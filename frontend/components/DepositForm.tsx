@@ -146,7 +146,7 @@ export function DepositForm({
         return;
       }
       if (msg.includes("0x1") && msg.toLowerCase().includes("custom")) {
-        setSubmitError("Insufficient devnet USDC. Use the faucets below.");
+        setSubmitError("Insufficient USDC. Use the faucets below.");
       } else if (
         msg.toLowerCase().includes("insufficient funds") ||
         msg.toLowerCase().includes("0x1")
@@ -209,7 +209,7 @@ export function DepositForm({
 
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-stone-500">
-          Need devnet USDC?{" "}
+          Need USDC?{" "}
           <a
             href="https://solfaucet.com"
             target="_blank"

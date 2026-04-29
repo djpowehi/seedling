@@ -386,7 +386,7 @@ export default function Home() {
         </Link>
         <div className="landing-nav-meta">
           <span className="landing-pulse"></span>
-          <span>Solana devnet · live</span>
+          <span>live on Solana</span>
         </div>
       </nav>
 
@@ -425,7 +425,7 @@ export default function Home() {
               </svg>
             </Link>
             <span className="landing-cta-note">
-              Live on Solana devnet · no wallet required to look around
+              Live on Solana · no wallet required to look around
             </span>
           </div>
         </div>
@@ -652,9 +652,7 @@ export default function Home() {
       <footer className="landing-footer">
         <div className="landing-foot-mark">seedling.</div>
         <div className="landing-foot-meta">
-          <div className="landing-foot-built">
-            Built on Kamino · Solana devnet
-          </div>
+          <div className="landing-foot-built">Built on Kamino · Solana</div>
           <div>
             <a
               href="https://github.com/djpowehi/seedling"

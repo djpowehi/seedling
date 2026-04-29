@@ -78,7 +78,7 @@ export default function Dashboard() {
               }}
             >
               <span className="dash-pulse-dot" />
-              Solana devnet · live
+              live on Solana
             </span>
             <WalletMultiButton />
           </div>
@@ -125,7 +125,7 @@ export default function Dashboard() {
                     letterSpacing: "0.04em",
                   }}
                 >
-                  all live on Solana devnet
+                  all live on Solana
                 </span>
               </div>
             </header>
@@ -238,7 +238,7 @@ export default function Dashboard() {
               className="dash-mono"
               style={{ fontSize: 11, color: "var(--ink-3)" }}
             >
-              Built on Kamino · Solana devnet
+              Built on Kamino · Solana
             </span>
           </div>
           <div className="dash-row" style={{ gap: 22 }}>
@@ -293,8 +293,8 @@ function ConnectGate() {
           connect to see <span className="dash-italic">your families</span>.
         </h1>
         <p style={{ color: "var(--ink-2)", margin: 0, maxWidth: 460 }}>
-          Seedling lives on Solana devnet. Connect Phantom or Solflare to view
-          your kids&apos; positions, deposit USDC, and trigger distributions.
+          Seedling lives on Solana. Connect Phantom or Solflare to view your
+          kids&apos; positions, deposit USDC, and trigger distributions.
         </p>
       </div>
     </div>

@@ -276,7 +276,7 @@ export function AddKidForm({
             className="dash-mono"
             style={{ fontSize: 11, color: "var(--ink-3)" }}
           >
-            opens phantom to sign · ~0.001 SOL devnet fee
+            opens phantom to sign · ~0.001 SOL fee
           </span>
         </div>
 
@@ -296,7 +296,7 @@ export function AddKidForm({
             className="dash-mono"
             style={{ fontSize: 11, color: "var(--ink-3)" }}
           >
-            need devnet usdc?
+            need usdc?
           </span>
           <div className="dash-row" style={{ gap: 18 }}>
             <a
