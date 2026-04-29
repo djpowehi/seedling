@@ -67,6 +67,7 @@ export type VaultClock = {
   lastKnownTotalAssets: bigint;
   periodEndTs: number;
   currentPeriodId: number;
+  cycleMonths: number;
 };
 
 export async function fetchVaultClock(
@@ -83,11 +84,29 @@ export async function fetchVaultClock(
     lastKnownTotalAssets: { toString(): string };
     periodEndTs: { toString(): string };
     currentPeriodId: number;
+    cycleMonths: number;
   };
   return {
     totalShares: BigInt(decoded.totalShares.toString()),
     lastKnownTotalAssets: BigInt(decoded.lastKnownTotalAssets.toString()),
     periodEndTs: Number(decoded.periodEndTs.toString()),
     currentPeriodId: Number(decoded.currentPeriodId),
+    cycleMonths: Number(decoded.cycleMonths),
   };
+}
+
+/** Human label for cycle_months. Used in kid view + dashboard footers. */
+export function cycleLabel(cycleMonths: number): string {
+  switch (cycleMonths) {
+    case 6:
+      return "semi-annual";
+    case 12:
+      return "annual";
+    case 18:
+      return "18-month";
+    case 24:
+      return "biennial";
+    default:
+      return `${cycleMonths}-month`;
+  }
 }

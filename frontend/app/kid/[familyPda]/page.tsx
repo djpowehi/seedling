@@ -95,6 +95,7 @@ export default function KidViewPage({ params }: PageProps) {
         lastKnownTotalAssets: clock.lastKnownTotalAssets,
         periodEndTs: clock.periodEndTs,
         currentPeriodId: clock.currentPeriodId,
+        cycleMonths: clock.cycleMonths,
       }}
       kidName={name}
     />
