@@ -84,14 +84,18 @@ export async function fetchVaultClock(
     lastKnownTotalAssets: { toString(): string };
     periodEndTs: { toString(): string };
     currentPeriodId: number;
-    cycleMonths: number;
+    // Optional — only present once the program is redeployed with the
+    // cycle_months field. Devnet still runs the old binary so this is
+    // undefined there. We fall back to 12 (annual) for the UI label.
+    cycleMonths?: number;
   };
   return {
     totalShares: BigInt(decoded.totalShares.toString()),
     lastKnownTotalAssets: BigInt(decoded.lastKnownTotalAssets.toString()),
     periodEndTs: Number(decoded.periodEndTs.toString()),
     currentPeriodId: Number(decoded.currentPeriodId),
-    cycleMonths: Number(decoded.cycleMonths),
+    cycleMonths:
+      typeof decoded.cycleMonths === "number" ? decoded.cycleMonths : 12,
   };
 }
 
