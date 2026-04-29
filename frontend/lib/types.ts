@@ -2271,46 +2271,41 @@ export type Seedling = {
     },
     {
       code: 6012;
-      name: "invalidCycleMonths";
-      msg: "Invalid cycle_months: allowed values are 6, 12, 18, 24";
-    },
-    {
-      code: 6013;
       name: "reserveMismatch";
       msg: "Reserve account does not match cached VaultConfig.kamino_reserve";
     },
     {
-      code: 6014;
+      code: 6013;
       name: "mintMismatch";
       msg: "Mint account does not match cached VaultConfig mint";
     },
     {
-      code: 6015;
+      code: 6014;
       name: "oracleMismatch";
       msg: "Oracle account does not match cached VaultConfig oracle";
     },
     {
-      code: 6016;
+      code: 6015;
       name: "belowDustThreshold";
       msg: "Amount below dust threshold";
     },
     {
-      code: 6017;
+      code: 6016;
       name: "sharesInvariantViolation";
       msg: "Invariant violation: total_shares != sum(family_position.shares)";
     },
     {
-      code: 6018;
+      code: 6017;
       name: "principalInvariantViolation";
       msg: "Invariant violation: principal over-withdrawn";
     },
     {
-      code: 6019;
+      code: 6018;
       name: "kaminoCpiFailed";
       msg: "Kamino CPI failed";
     },
     {
-      code: 6020;
+      code: 6019;
       name: "invalidAccountState";
       msg: "Account has unexpected data layout";
     }
@@ -2549,14 +2544,11 @@ export type Seedling = {
             type: "pubkey";
           },
           {
-            name: "cycleMonths";
+            name: "periodEndTs";
             docs: [
-              "Bonus-cycle length in months. Allowed: 6, 12, 18, 24.",
-              'Default in any UI should be 12 (annual "13th allowance" — the demo',
-              "narrative). Vault stores this on-chain and computes the first",
-              "`period_end_ts` as `now + cycle_months * 30 days`."
+              "Unix timestamp when the current bonus period ends (e.g. Dec 1 2026 UTC)."
             ];
-            type: "u8";
+            type: "i64";
           },
           {
             name: "feeBps";
@@ -2693,19 +2685,6 @@ export type Seedling = {
           {
             name: "currentPeriodId";
             type: "u32";
-          },
-          {
-            name: "cycleMonths";
-            docs: [
-              'Bonus-cycle length picked at vault init. Default 12 (annual "13th',
-              'allowance"). Allowed values: 6 / 12 / 18 / 24 — semi-annual to',
-              "biennial. Stored on-chain as documentation + so future rolls can",
-              "auto-compute the next period end without a redeploy. The current",
-              "`roll_period` still takes an explicit arg so admin can override",
-              "for retakes / ops corrections; cycle_months is the canonical",
-              'default the frontend renders ("annual 13th").'
-            ];
-            type: "u8";
           },
           {
             name: "isPaused";
