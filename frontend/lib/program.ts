@@ -14,7 +14,12 @@ export const PROGRAM_ID = new PublicKey(
   "44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN"
 );
 
-export const DEVNET_RPC = "https://api.devnet.solana.com";
+// Prefer Helius devnet RPC when configured (free tier, ~10x faster). Falls
+// back to public devnet which works but rate-limits aggressively. Set
+// NEXT_PUBLIC_HELIUS_RPC in .env.local locally and in Vercel project
+// settings for production.
+export const DEVNET_RPC =
+  process.env.NEXT_PUBLIC_HELIUS_RPC ?? "https://api.devnet.solana.com";
 
 // Devnet addresses captured at deploy time. Source of truth:
 // ~/refs/seedling-devnet-addresses.json (kept off-repo for safety).
