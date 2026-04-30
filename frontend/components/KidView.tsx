@@ -16,6 +16,7 @@ import type { FamilyView } from "@/lib/fetchFamilies";
 import { getSavingsGoals, type SavingsGoal } from "@/lib/savingsGoals";
 import { Tree, stageForMonths, monthsSince } from "@/components/Tree";
 import { GiftModal } from "@/components/GiftModal";
+import { PredictionCard } from "@/components/PredictionCard";
 import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
 import { getGiftNames, shortPubkey, timeAgo } from "@/lib/giftNames";
 import { useToast } from "@/components/Toast";
@@ -317,6 +318,22 @@ export function KidView({ family, initialClock, kidName }: Props) {
             </div>
           </div>
         </section>
+
+        <PredictionCard
+          familyKey={familyKey}
+          kidName={kidName}
+          totalYieldEarnedBaseUnits={family.totalYieldEarned.toString()}
+          lastDistribution={lastDist}
+          goal={
+            goals[0]
+              ? {
+                  label: goals[0].label,
+                  progressUsd: combinedBalanceUsd,
+                  targetUsd: goals[0].amountUsd,
+                }
+              : undefined
+          }
+        />
 
         <button
           type="button"
