@@ -19,9 +19,14 @@ export type Prediction = {
   guess: number;
   /** Unix seconds the kid tapped. */
   predictedAt: number;
-  /** family.totalYieldEarned at the moment of prediction, as a string
-   *  (BN-as-string for safe round-trip through localStorage). Base units. */
-  totalYieldAtPrediction: string;
+  /** Live unrealized yield at prediction time, in DOLLARS (not base units).
+   *  Computed as (familyValue - principalRemaining) — same number the kid
+   *  was looking at in the "earned in yield" stat tile. The next monthly
+   *  distribute pays out from PRINCIPAL ONLY (principal-first drawdown),
+   *  so the unrealized-yield meter keeps ticking until the 13th allowance.
+   *  Reveal compares this snapshot against the same delta after the next
+   *  distribute fires. */
+  unrealizedYieldAtPrediction: number;
   /** Filled in once a distribute fires and we compute the actual delta. */
   resolved?: {
     /** Actual yield earned during the period in dollars. */
@@ -57,9 +62,4 @@ export function clearPrediction(familyPda: string): void {
   } catch {
     // ignore
   }
-}
-
-/** USDC has 6 decimals. Convert base-unit BN-string → dollars. */
-export function baseUnitsToUsd(baseUnits: string): number {
-  return Number(baseUnits) / 1_000_000;
 }
