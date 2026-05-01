@@ -169,14 +169,41 @@ export function FamilyCard({
     showToast({ title: "kid pubkey copied" });
   };
 
-  const copyKidPageLink = async () => {
+  const buildKidPageUrl = () => {
     // Bake the kid's name into the link so the receiving device sees
     // "hi Maria" on first load instead of "hi friend". The kid view
     // strips `?n=` after persisting the name to localStorage.
     const base = `${window.location.origin}/kid/${familyKey}`;
-    const url = encodeKidNameToUrl(base, getKidName(familyKey));
-    await navigator.clipboard?.writeText(url);
+    return encodeKidNameToUrl(base, getKidName(familyKey));
+  };
+
+  const copyKidPageLink = async () => {
+    await navigator.clipboard?.writeText(buildKidPageUrl());
     showToast({ title: "kid's page link copied" });
+  };
+
+  const shareKidPageLink = async () => {
+    const url = buildKidPageUrl();
+    const kidLabel = getKidName(familyKey) ?? "your kid";
+    // Native share sheet on mobile + supported desktop browsers; clipboard
+    // fallback elsewhere so the button is never a dead end.
+    if (
+      typeof navigator !== "undefined" &&
+      typeof navigator.share === "function"
+    ) {
+      try {
+        await navigator.share({
+          title: `${kidLabel}'s seedling page`,
+          text: `${kidLabel}'s growing savings on seedling.`,
+          url,
+        });
+        return;
+      } catch {
+        // user cancelled or share failed → fall through to clipboard copy.
+      }
+    }
+    await navigator.clipboard?.writeText(url);
+    showToast({ title: "share unavailable here · link copied instead" });
   };
 
   // ───── chain handlers ─────
@@ -543,6 +570,17 @@ export function FamilyCard({
         >
           last paid {fmtAgo(now - lastDistSec)}
         </span>
+        <span
+          style={{
+            width: 3,
+            height: 3,
+            borderRadius: "50%",
+            background: "var(--line)",
+          }}
+        />
+        <button className="dash-btn-link" onClick={shareKidPageLink}>
+          share link
+        </button>
         <span
           style={{
             width: 3,
