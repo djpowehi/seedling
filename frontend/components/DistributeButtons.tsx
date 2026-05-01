@@ -235,7 +235,7 @@ export function DistributeButtons({
       celebrateBonus();
       showToast({
         variant: "bonus",
-        title: `${kidLabel}'s 13th allowance arrived`,
+        title: `${kidLabel}'s annual bonus arrived`,
         countUpUsd: bonusUsd > 0 ? bonusUsd : undefined,
         subtitle: "year-end yield · sent on chain",
       });
@@ -247,7 +247,7 @@ export function DistributeButtons({
         return;
       }
       if (msg.includes("PeriodNotEnded"))
-        setError("13th allowance not ready yet.");
+        setError("Annual bonus not ready yet.");
       else if (msg.includes("BonusAlreadyClaimed"))
         setError("This year's bonus has already been distributed.");
       else if (msg.includes("VaultPaused"))
@@ -285,19 +285,19 @@ export function DistributeButtons({
           className="rounded-full bg-amber-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed"
           title={
             bonusReady
-              ? "Send the 13th allowance (year-end yield bonus)"
+              ? "Send the annual bonus (year-end yield)"
               : clock
-              ? `13th allowance in ${formatRemaining(clock.periodEndTs)}`
+              ? `Annual bonus in ${formatRemaining(clock.periodEndTs)}`
               : "Loading…"
           }
         >
           {submitting === "bonus"
             ? "Sending…"
             : bonusReady
-            ? "Send 13th allowance 🎁"
+            ? "Send annual bonus 🎁"
             : clock
-            ? `13th in ${formatRemaining(clock.periodEndTs)}`
-            : "13th in …"}
+            ? `Bonus in ${formatRemaining(clock.periodEndTs)}`
+            : "Bonus in …"}
         </button>
       </div>
       {error && (

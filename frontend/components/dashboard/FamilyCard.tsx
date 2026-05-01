@@ -332,7 +332,7 @@ export function FamilyCard({
       celebrateBonus();
       showToast({
         variant: "bonus",
-        title: `${name ?? "Your kid"}'s 13th allowance arrived`,
+        title: `${name ?? "Your kid"}'s annual bonus arrived`,
         countUpUsd: bonusUsd > 0 ? bonusUsd : undefined,
         subtitle: "year-end yield · sent on chain",
       });
@@ -344,7 +344,7 @@ export function FamilyCard({
         return;
       }
       if (msg.includes("PeriodNotEnded"))
-        setError("13th allowance not ready yet.");
+        setError("Annual bonus not ready yet.");
       else if (msg.includes("BonusAlreadyClaimed"))
         setError("Bonus already distributed.");
       else if (msg.includes("VaultPaused"))
@@ -672,10 +672,10 @@ export function FamilyCard({
           {submitting === "bonus"
             ? "sending…"
             : bonusReady
-            ? "Send 13th"
+            ? "Send bonus"
             : vaultClock
-            ? `13th in ${fmtCountdown(bonusSecondsLeft)}`
-            : "13th in …"}
+            ? `Bonus in ${fmtCountdown(bonusSecondsLeft)}`
+            : "Bonus in …"}
         </button>
       </div>
 

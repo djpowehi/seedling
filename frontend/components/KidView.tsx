@@ -52,7 +52,10 @@ function fmt2(n: number): string {
 }
 
 function fmtTicker(n: number): { whole: string; dec: string } {
-  const [whole, dec = "0000"] = n.toFixed(4).split(".");
+  // 6 decimals = sub-microsecond resolution at 8% APY on $30 (~$0.0007/min).
+  // The trailing two digits flicker constantly — drives the "money is
+  // growing every instant" feeling.
+  const [whole, dec = "000000"] = n.toFixed(6).split(".");
   const wholeFormatted = Number(whole).toLocaleString("en-US");
   return { whole: "$" + wholeFormatted, dec: "." + dec };
 }
@@ -284,16 +287,14 @@ export function KidView({ family, initialClock, kidName }: Props) {
           />
         )}
 
-        <div className="kv-tree-wrap">
-          <Tree stage={stage} bonusReady={bonusReady} />
-        </div>
-
+        {/* Ticker FIRST — it's the kid's most important on-screen number.
+            Tree comes second as the celebratory visual, not the lead. */}
         <section className="kv-ticker">
           <div className="kv-ticker-label">your money, right now</div>
           <div className="kv-ticker-num">
             <span className="kv-ticker-whole">{ticker.whole}</span>
             {hideYield ? (
-              <span className="kv-ticker-dec kv-ticker-hidden">.••••</span>
+              <span className="kv-ticker-dec kv-ticker-hidden">.••••••</span>
             ) : (
               <span className="kv-ticker-dec">{ticker.dec}</span>
             )}
@@ -305,6 +306,10 @@ export function KidView({ family, initialClock, kidName }: Props) {
               : "estimated 8% APY · ticking on Solana"}
           </div>
         </section>
+
+        <div className="kv-tree-wrap">
+          <Tree stage={stage} bonusReady={bonusReady} />
+        </div>
 
         <section className="kv-stats">
           <div className="kv-stat">
@@ -355,10 +360,8 @@ export function KidView({ family, initialClock, kidName }: Props) {
 
           <div className="kv-countdown-row">
             <div className="kv-cd-left">
-              <div className="kv-cd-label">
-                13<sup>th</sup> allowance
-              </div>
-              <div className="kv-cd-hint">year-end yield bonus</div>
+              <div className="kv-cd-label">annual bonus</div>
+              <div className="kv-cd-hint">year-end yield gift</div>
             </div>
             <div className="kv-cd-time">
               {bonusReady ? (
@@ -494,7 +497,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
             powered by <span className="kv-foot-name">seedling</span>
           </div>
           <div className="kv-foot-meta">
-            {cycleLabel(initialClock.cycleMonths)} 13<sup>th</sup> · on Solana
+            {cycleLabel(initialClock.cycleMonths)} bonus · on Solana
           </div>
         </footer>
       </div>
@@ -592,11 +595,11 @@ const KID_VIEW_STYLES = `
   .kv-header { display: flex; flex-direction: column; gap: 14px; padding-top: 8px; }
   .kv-eyebrow {
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 13px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--ink-muted);
-    display: inline-flex; align-items: center; gap: 10px;
+    display: inline-flex; align-items: center; gap: 11px;
   }
   .kv-pulse {
     width: 7px; height: 7px; border-radius: 50%;
@@ -721,6 +724,25 @@ const KID_VIEW_STYLES = `
     border-radius: 14px;
     padding: 18px 18px 20px;
     display: flex; flex-direction: column; gap: 14px;
+  }
+  /* Per-section tints so each card reads as a different "world" instead
+     of a wall of identical cream rectangles. Subtle — stays in the warm
+     palette, doesn't fight the brand. STBR feedback Apr 28. */
+  .kv-card.kv-countdowns {
+    background: linear-gradient(135deg, #FBF8F2 0%, #E5EFE3 100%);
+    border-color: #C5D9C2;
+  }
+  .kv-card.kv-predict {
+    background: linear-gradient(135deg, #FBF8F2 0%, #F5E8C0 100%);
+    border-color: #D9C088;
+  }
+  .kv-card.kv-gift-wall {
+    background: linear-gradient(135deg, #FBF8F2 0%, #F0E0CB 100%);
+    border-color: #D6BB97;
+  }
+  .kv-card.kv-goal {
+    background: linear-gradient(135deg, #FBF8F2 0%, #ECE4D2 100%);
+    border-color: var(--stone-300);
   }
   .kv-card-eyebrow {
     font-family: var(--mono); font-size: 10.5px;

@@ -93,7 +93,7 @@ function ToastCard({ toast }: { toast: ActiveToast }) {
       <div className="seedling-toast-eyebrow">
         <span className="seedling-toast-pulse"></span>
         {variant === "bonus"
-          ? "13th allowance"
+          ? "annual bonus"
           : variant === "monthly"
           ? "monthly allowance"
           : "seedling"}

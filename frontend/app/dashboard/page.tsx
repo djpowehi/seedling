@@ -93,7 +93,7 @@ export default function Dashboard() {
             <header style={{ paddingTop: 80, paddingBottom: 56 }}>
               <div className="dash-col" style={{ gap: 18, maxWidth: 760 }}>
                 <span className="dash-eyebrow">
-                  <span className="rule" /> your families
+                  <span className="rule" /> parent dashboard
                 </span>
                 <h1
                   className="dash-serif"
