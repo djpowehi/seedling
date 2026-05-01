@@ -185,7 +185,7 @@ export function YearRecap({
         onClick={handleOpen}
       >
         <span className="yr-cta-eyebrow">
-          {bonusReady ? "13th allowance" : "year recap"}
+          {bonusReady ? "annual bonus" : "year recap"}
         </span>
         <span className="yr-cta-title">{ctaLabel}</span>
         <span className="yr-cta-num">+{recap.percentGrowth.toFixed(2)}%</span>
@@ -399,9 +399,7 @@ function SlideView({
     return (
       <div className="yr-slide yr-slide-yielded">
         <div className="yr-eyebrow">
-          {slide.bonusReady
-            ? "your 13th allowance"
-            : "what your savings earned"}
+          {slide.bonusReady ? "your annual bonus" : "what your savings earned"}
         </div>
         <h2 className="yr-headline-num yr-emphasized">
           ${slide.total.toFixed(2)}

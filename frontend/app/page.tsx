@@ -616,8 +616,8 @@ export default function Home() {
             </svg>
             <h3>Kids get paid monthly. Bonus at year-end.</h3>
             <p>
-              The 1st of every month, the allowance arrives. December brings the
-              13th — the yield bonus.
+              The 1st of every month, the allowance arrives. Year-end brings the
+              annual bonus — pure yield.
             </p>
           </div>
         </div>
@@ -636,7 +636,7 @@ export default function Home() {
             <span className="landing-shot-tag">screen 01 · parent</span>
             <div className="landing-shot-name">
               Parent dashboard
-              <span>deposit · withdraw · monthly · 13th</span>
+              <span>deposit · withdraw · monthly · bonus</span>
             </div>
           </div>
           <div className="landing-shot">

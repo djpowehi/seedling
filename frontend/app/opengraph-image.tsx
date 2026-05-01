@@ -101,7 +101,7 @@ export default async function Image() {
           <span style={{ color: "#B8AC91" }}>·</span>
           <span>Kamino yield</span>
           <span style={{ color: "#B8AC91" }}>·</span>
-          <span>13th allowance</span>
+          <span>annual bonus</span>
         </div>
 
         {/* bottom-right wordmark */}

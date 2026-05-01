@@ -19,7 +19,10 @@ export const DASHBOARD_STYLES = `
     --rose:         #B0473A;
     --gold:         #B8893E;
 
-    background: var(--stone);
+    /* Distinct, slightly darker canvas vs the kid view (#FBF8F2). Reads
+       as "the parent surface" the moment the page loads — Vicenzo's STBR
+       feedback. Keeps the warm beige family. */
+    background: var(--stone-2);
     color: var(--ink);
     font-family: var(--font-inter), system-ui, sans-serif;
     font-size: 15px;
@@ -28,7 +31,7 @@ export const DASHBOARD_STYLES = `
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     min-height: 100vh;
-    background-image: radial-gradient(circle at 1px 1px, rgba(31,27,20,0.055) 1px, transparent 0);
+    background-image: radial-gradient(circle at 1px 1px, rgba(31,27,20,0.075) 1px, transparent 0);
     background-size: 22px 22px;
     width: 100%;
   }
