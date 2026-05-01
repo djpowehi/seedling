@@ -251,9 +251,10 @@ export function PredictionCard({
       <style dangerouslySetInnerHTML={{ __html: PREDICT_STYLES }} />
       {!prediction && pendingGuess == null && (
         <>
-          <div className="kv-card-eyebrow">guess this month</div>
+          <div className="kv-card-eyebrow">guess before this month closes</div>
           <p className="kv-predict-prompt">
-            how much yield will your savings earn this month?
+            how much yield will your savings have earned by the time the next
+            allowance fires?
           </p>
           <div className="kv-predict-chips">
             {chips.map((v) => (
@@ -272,7 +273,7 @@ export function PredictionCard({
             ))}
           </div>
           <div className="kv-predict-foot">
-            we&apos;ll show the actual when next allowance lands.
+            actual is revealed at distribute — guess first.
           </div>
         </>
       )}
@@ -315,7 +316,8 @@ export function PredictionCard({
               ${guessUsd.toFixed(2)}
             </span>
             <span className="kv-predict-locked-hint">
-              we&apos;ll reveal the actual when next allowance lands.
+              waiting for this month&apos;s distribute. the actual unlocks the
+              moment the next allowance fires.
             </span>
           </div>
         </>
