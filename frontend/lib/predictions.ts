@@ -138,34 +138,97 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+function roundChip(v: number): number {
+  // Two decimals for sub-dollar, one for sub-$10, integer otherwise.
+  // Apply the same rounding to actual + chips so chip values can match
+  // the actual exactly.
+  if (v < 1) return Math.max(0, Math.round(v * 100) / 100);
+  if (v < 10) return Math.max(0, Math.round(v * 10) / 10);
+  return Math.max(0, Math.round(v));
+}
+
 /**
- * Compute the simulated "actual yield" for a given calendar month, given
- * the family's principal. Honest framing: this is what the savings WOULD
- * have earned at Kamino's ~8% APY for the days in that month, with a
- * small seeded jitter so the answer feels real rather than perfectly clean.
+ * Build BOTH the chip set AND the actual answer in one pass. Computed from
+ * a single seeded RNG so the actual is GUARANTEED to be one of the four
+ * chips (after rounding) — kid can pick "spot on" if they read the
+ * magnitude correctly.
  *
- *   $30 principal, April (30 days):  base $0.20 → jittered $0.18 - $0.22
- *   $300 principal, March (31 days): base $2.04 → jittered $1.83 - $2.24
+ * Decoy strategy: each decoy independently rolls "smaller" or "larger"
+ * with random spread. The actual is NOT always at a fixed rank — sometimes
+ * smallest, sometimes middle, sometimes largest. Kid can't game by
+ * picking "the second-from-bottom chip."
  *
- * Deterministic given (principal, cycleKey, familyPda) — no need to store
- * the result. Refresh shows the same answer.
+ * Deterministic given (principal, cycleKey, familyPda) — refresh, same
+ * chips, same actual.
+ *
+ *   $30 principal, April (30 days):
+ *     base $0.20 → actual $0.18-$0.22, chips e.g. [$0.08, $0.20, $0.45, $0.78]
+ *   $300 principal, March (31 days):
+ *     base $2.04 → actual $1.85-$2.25, chips e.g. [$1, $2, $5.5, $7.4]
  */
-export function computeActualYield(
+export function buildChipsAndActual(
   principalUsd: number,
-  cycleKey: string,
+  targetCycleKey: string,
   familyPda: string
-): number {
-  const days = daysInCycle(cycleKey);
-  const base = (principalUsd * 0.08 * days) / 365;
-  const rng = mulberry32(seedFromString(`actual|${familyPda}|${cycleKey}`));
-  // ±15% jitter — feels organic without being absurd.
-  const jitter = 0.85 + rng() * 0.3;
-  const jittered = base * jitter;
-  // Round to 2 decimals for sub-dollar amounts, 1 decimal for sub-$10,
-  // integer otherwise. Same magnitude rules as the chip set.
-  if (jittered < 1) return Math.max(0, Math.round(jittered * 100) / 100);
-  if (jittered < 10) return Math.max(0, Math.round(jittered * 10) / 10);
-  return Math.max(0, Math.round(jittered));
+): { chips: number[]; actual: number } {
+  const rng = mulberry32(
+    seedFromString(
+      `v2|${familyPda}|${targetCycleKey}|${principalUsd.toFixed(2)}`
+    )
+  );
+
+  // Step 1: compute the rounded actual
+  const days = daysInCycle(targetCycleKey);
+  const base = Math.max(0.01, (principalUsd * 0.08 * days) / 365);
+  const actualJitter = 0.85 + rng() * 0.3; // ±15%
+  const rawActual = base * actualJitter;
+  const actual = roundChip(rawActual);
+
+  // Step 2: build 3 decoys with a uniform rank distribution for the
+  // actual. Picking each decoy independently with 50/50 smaller/larger
+  // gives a binomial skew toward ranks 2 & 3 — kid could game by always
+  // picking middle. Instead, choose `numSmaller` ∈ {0, 1, 2, 3} uniformly
+  // up front; that puts the actual at rank (numSmaller + 1) with equal
+  // probability across the four ranks.
+  const numSmaller = Math.floor(rng() * 4); // 0..3
+  const numLarger = 3 - numSmaller;
+  const decoys: number[] = [];
+  for (let i = 0; i < numSmaller; i++) {
+    // 0.3× to 0.75× of rawActual
+    decoys.push(roundChip(rawActual * (0.3 + rng() * 0.45)));
+  }
+  for (let i = 0; i < numLarger; i++) {
+    // 1.4× to 3.5× of rawActual, weighted slightly toward the lower end
+    decoys.push(roundChip(rawActual * (1.4 + rng() * 2.1)));
+  }
+
+  // Step 3: combine + dedup. If dedup collapsed (rounding made decoys
+  // equal to actual or each other), pad with extra random factors.
+  const chipSet = new Set<number>([actual, ...decoys]);
+  let attempts = 0;
+  while (chipSet.size < 4 && attempts < 30) {
+    const fallbackFactor = 0.2 + rng() * 4.5;
+    const v = roundChip(rawActual * fallbackFactor);
+    if (v > 0) chipSet.add(v);
+    attempts++;
+  }
+  // Last-resort: nudge by one display unit until we have 4 distinct values.
+  const unit = rawActual < 1 ? 0.01 : rawActual < 10 ? 0.1 : 1;
+  let cursor = actual + unit;
+  while (chipSet.size < 4) {
+    if (!chipSet.has(cursor)) chipSet.add(cursor);
+    cursor += unit;
+  }
+
+  // Step 4: Fisher-Yates shuffle (also seeded — kid can't refresh to
+  // re-roll the layout).
+  const chips = [...chipSet];
+  for (let i = chips.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [chips[i], chips[j]] = [chips[j], chips[i]];
+  }
+
+  return { chips, actual };
 }
 
 /** One-time migration: drop pre-cycle-key records that lived at the bare
