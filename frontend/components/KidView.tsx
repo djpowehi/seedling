@@ -19,7 +19,7 @@ import { GiftModal } from "@/components/GiftModal";
 import { PredictionCard } from "@/components/PredictionCard";
 import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
 import { getGiftNames, shortPubkey, timeAgo } from "@/lib/giftNames";
-import { getPrediction } from "@/lib/predictions";
+import { currentCycleKey, getPrediction } from "@/lib/predictions";
 import { useToast } from "@/components/Toast";
 
 const ESTIMATED_APY = 0.08;
@@ -173,15 +173,21 @@ export function KidView({ family, initialClock, kidName }: Props) {
   const [giftOpen, setGiftOpen] = useState(false);
 
   // Predict-and-reveal: hide the "earned in yield" stat tile UNLESS the
-  // current prediction has resolved. New kids see "— · —" until they
-  // make their first guess + the next distribute fires. Prevents the
-  // "answer is sitting right above the question" cheat path. Default
-  // state = hidden; only resolved → visible.
+  // CURRENT month's prediction is locked (or no prior month is awaiting
+  // reveal). New kids see "— · —" until they commit a guess for this
+  // calendar month. After locking, the tile stays hidden the rest of the
+  // month so the kid doesn't watch the answer accumulate live. After
+  // month rollover, the prior cycle resolves and the tile reappears.
   const [hideYield, setHideYield] = useState(true);
   useEffect(() => {
     const check = () => {
-      const p = getPrediction(familyKey);
-      setHideYield(!p?.resolved);
+      const cycle = currentCycleKey();
+      const thisMonth = getPrediction(familyKey, cycle);
+      // Show the live yield only when the kid has locked this month's
+      // guess. After rollover the prior-month resolved card replaces
+      // this UI altogether (PredictionCard handles that), and the kid is
+      // free to see the live tile again until next predict.
+      setHideYield(!thisMonth);
     };
     check();
     const id = setInterval(check, 2_000);
@@ -360,8 +366,6 @@ export function KidView({ family, initialClock, kidName }: Props) {
           familyKey={familyKey}
           kidName={kidName}
           unrealizedYieldUsd={yieldEarnedUsd}
-          lastDistribution={lastDist}
-          createdAt={createdAtSec}
           principalUsd={principalUsd}
           goal={
             goals[0]

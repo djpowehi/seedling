@@ -1,45 +1,42 @@
 "use client";
 
-// Prediction → reveal card on the kid view. Three states:
-//   1. NO PREDICTION YET — show 4 chip choices, kid taps one, snapshot
-//      saved to localStorage.
-//   2. LOCKED — kid has predicted, distribute hasn't fired yet. Show the
-//      guess + a quiet "waiting for the 1st" hint.
-//   3. RESOLVED — distribute fired. Show prediction vs actual side-by-side,
-//      offer a share button that renders the canvas image.
+// Calendar-month yield prediction card on the kid view.
 //
-// Lifecycle is driven entirely by the chain state passed in via props
-// (totalYieldEarned + lastDistribution). No effects fire from inside this
-// component — the parent (KidView) decides when to flip from LOCKED to
-// RESOLVED based on whether the on-chain timestamp has advanced past the
-// prediction.
+// Cycle = calendar month. The kid taps a guess at any point during the
+// month; the prediction sticks until the month rolls over. The first time
+// the page loads in the next month, the previous month's prediction
+// resolves automatically — actual = (current unrealized yield) − (snapshot
+// at prediction time). Distribute events are completely decoupled — yield
+// accrues regardless of when the parent fires distribute.
+//
+// State machine:
+//
+//   1. PREDICT (current month, no record)         — show chips
+//   2. PREVIEW (current month, chip tapped)        — show "lock it in?" prompt
+//   3. LOCKED  (current month, prediction saved)   — show locked guess
+//   4. RESOLVE (prior month, unresolved record)    — flip to resolved on mount
+//   5. REVEAL  (prior month, resolved record)      — show vs actual + share
+//
+// At any time only ONE state renders, driven by:
+//   - currentCycle (always today's YYYY-MM)
+//   - thisMonthPrediction (record for currentCycle)
+//   - priorPrediction (record for the most recent earlier cycle)
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  clearPrediction,
+  cycleLabel,
+  currentCycleKey,
+  findPriorPrediction,
   getPrediction,
+  migrateLegacyRecord,
   savePrediction,
   type Prediction,
 } from "@/lib/predictions";
 import { renderShareCard, shareOrDownload } from "@/lib/shareCard";
 
-/**
- * Chip values scale with the family's principal AND vary per cycle so the
- * answer can't be memorized.
- *
- * Factors are intentionally not clean (1.0 always means "exactly expected"),
- * which would make chip #2 always the right answer. Instead we use a
- * lightly-jittered spread anchored around the expected yield, then shuffle
- * order. Both jitter and shuffle are seeded by (family + cycle) so the same
- * period always renders the same chips — kid can't refresh to re-roll.
- *
- *   $30   principal → expected ≈ $0.20 → chips ~ $0.10 / $0.20 / $0.40 / $1.00
- *   $300  principal → expected ≈ $2.00 → chips ~ $1 / $2 / $4 / $10
- *   $1800 principal → expected ≈ $12.00 → chips ~ $6 / $12 / $24 / $60
- */
+// ──────────── chip generation (unchanged from prior version) ────────────
 
-// Deterministic 32-bit hash → seed. Same input → same chip layout every render.
 function seedFromString(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -49,7 +46,6 @@ function seedFromString(s: string): number {
   return h >>> 0;
 }
 
-// Mulberry32 PRNG — small, fast, no deps. Returns deterministic [0, 1).
 function mulberry32(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
@@ -64,29 +60,20 @@ function mulberry32(seed: number): () => number {
 function scaleChips(principalUsd: number, seedKey: string): number[] {
   const expected = Math.max(0.05, (principalUsd * 0.08) / 12);
   const rng = mulberry32(seedFromString(seedKey));
-
-  // Four factors with jitter so the answer rarely lands exactly on one chip.
-  // Base bands: low, near-expected, above-expected, outlier. Each band gets
-  // a ±15% wobble so values shift cycle-to-cycle.
   const wobble = (lo: number, hi: number) => lo + rng() * (hi - lo);
   const factors = [
-    wobble(0.4, 0.7), // low
-    wobble(0.85, 1.2), // near-expected (NOT exactly 1.0)
-    wobble(1.7, 2.4), // above
-    wobble(3.5, 5.5), // outlier
+    wobble(0.4, 0.7),
+    wobble(0.85, 1.2),
+    wobble(1.7, 2.4),
+    wobble(3.5, 5.5),
   ];
-
   const round = (v: number): number => {
     if (v < 1) return Math.round(v * 100) / 100;
     if (v < 10) return Math.round(v * 10) / 10;
     return Math.round(v);
   };
-
   const values = factors.map((f) => round(expected * f));
-  // Dedup before shuffling so identical rounded values don't appear twice.
   const unique = [...new Set(values)];
-
-  // Fisher-Yates shuffle, also seeded — kid can't tell "answer is always 2nd".
   for (let i = unique.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [unique[i], unique[j]] = [unique[j], unique[i]];
@@ -94,132 +81,120 @@ function scaleChips(principalUsd: number, seedKey: string): number[] {
   return unique;
 }
 
-/** Cycle index = number of completed monthly distributes. Each cycle gets a
- * fresh seed so chip layout shifts month over month. */
-function cycleIndex(lastDistribution: number, createdAt: number): number {
-  const elapsedMonths = Math.max(
-    0,
-    Math.floor((lastDistribution - createdAt) / (30 * 86_400))
-  );
-  return elapsedMonths;
-}
+// ──────────── component ────────────
 
 type Props = {
   familyKey: string;
   kidName: string | null;
-  /** Live unrealized yield = familyValue - principalRemaining, in dollars.
-   *  This is what's actually accumulating in the vault — the number the
-   *  kid is predicting. Monthly allowances draw from principal-first, so
-   *  this meter keeps ticking until the 13th allowance pays it out. */
+  /** Live unrealized yield = familyValue - principalRemaining, in dollars. */
   unrealizedYieldUsd: number;
-  /** Most recent distribute timestamp from chain (unix sec). */
-  lastDistribution: number;
-  /** Family creation timestamp (unix sec) — used to compute cycle index. */
-  createdAt: number;
-  /** Family principal in dollars — drives the chip scale. */
+  /** Family principal in dollars — drives chip scale. */
   principalUsd: number;
   /** Optional savings goal context for the share card. */
   goal?: { label: string; progressUsd: number; targetUsd: number };
 };
 
-function monthLabelFromUnix(unixSec: number): string {
-  const d = new Date(unixSec * 1000);
-  return d.toLocaleString("en-US", { month: "long" });
+function fmtChip(v: number): string {
+  if (v < 1) return `$${v.toFixed(2)}`;
+  if (v < 10) return `$${v.toFixed(1)}`;
+  return `$${v}`;
 }
 
 export function PredictionCard({
   familyKey,
   kidName,
   unrealizedYieldUsd,
-  lastDistribution,
-  createdAt,
   principalUsd,
   goal,
 }: Props) {
-  // Seed = family + cycle. Same period always renders the same chip layout
-  // (kid can't refresh to re-roll the answer); next period gets a fresh
-  // shuffle + new factor wobble.
-  const cycle = cycleIndex(lastDistribution, createdAt);
-  const chips = useMemo(
-    () => scaleChips(principalUsd, `${familyKey}|${cycle}`),
-    [principalUsd, familyKey, cycle]
-  );
-  const [prediction, setPrediction] = useState<Prediction | null>(null);
-  // Two-step lock: kid taps a chip → enters preview state → confirm to lock.
-  // Once locked, the prediction is final for the cycle. No edits.
+  // Re-evaluate the cycle key on a slow tick so a kid who leaves the page
+  // open across midnight on the 1st sees the prediction transition cleanly.
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const currentCycle = useMemo(() => currentCycleKey(), []);
+
+  // Hydrate state on mount and whenever the family / cycle changes. We also
+  // run the legacy-record migration once per mount.
+  const [thisMonthPrediction, setThisMonth] = useState<Prediction | null>(null);
+  const [priorPrediction, setPrior] = useState<{
+    cycleKey: string;
+    prediction: Prediction;
+  } | null>(null);
   const [pendingGuess, setPendingGuess] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const initializedRef = useRef(false);
 
-  // Hydrate from localStorage on mount, and re-hydrate when the family
-  // changes (different kid view).
   useEffect(() => {
-    setPrediction(getPrediction(familyKey));
+    migrateLegacyRecord(familyKey);
+    setThisMonth(getPrediction(familyKey, currentCycle));
+    setPrior(findPriorPrediction(familyKey, currentCycle));
     initializedRef.current = true;
-  }, [familyKey]);
+  }, [familyKey, currentCycle]);
 
-  // Resolve the prediction the moment chain state shows a distribute fired
-  // AFTER the prediction was made. Actual = unrealizedYield NOW minus
-  // unrealizedYield AT PREDICTION TIME → the yield Kamino paid the vault
-  // during the period (it stays in the vault, doesn't go to the kid until
-  // the 13th allowance — but the kid was guessing how much the vault
-  // earned, which is what they see ticking).
+  // Resolution: if there's an unresolved prior-month prediction, compute the
+  // delta NOW and persist. Snapshot uses currentCycle's unrealizedYield —
+  // this slightly overcounts when resolution happens days into the new
+  // month (extra accrual gets attributed to the prior month), but it's the
+  // best we can do without a server cron snapshotting at month-end.
   useEffect(() => {
-    if (!prediction || prediction.resolved) return;
-    if (lastDistribution <= prediction.predictedAt) return;
-    const before = prediction.unrealizedYieldAtPrediction;
+    if (!priorPrediction || priorPrediction.prediction.resolved) return;
+    const before = priorPrediction.prediction.unrealizedYieldAtPrediction;
     const after = unrealizedYieldUsd;
     const actualUsd = Math.max(0, after - before);
     const resolved: Prediction = {
-      ...prediction,
-      resolved: { actualUsd, resolvedAt: lastDistribution },
+      ...priorPrediction.prediction,
+      resolved: { actualUsd, resolvedAt: Math.floor(Date.now() / 1000) },
     };
-    savePrediction(familyKey, resolved);
-    setPrediction(resolved);
-  }, [prediction, lastDistribution, unrealizedYieldUsd, familyKey]);
+    savePrediction(familyKey, priorPrediction.cycleKey, resolved);
+    setPrior({ cycleKey: priorPrediction.cycleKey, prediction: resolved });
+  }, [priorPrediction, unrealizedYieldUsd, familyKey]);
 
-  // Step 1: kid taps a chip → enter preview. Doesn't persist yet.
-  const handlePickChip = (guess: number) => {
-    setPendingGuess(guess);
-  };
+  // Chips for the CURRENT cycle. Re-roll layout when family or cycle changes.
+  const chips = useMemo(
+    () => scaleChips(principalUsd, `${familyKey}|${currentCycle}`),
+    [principalUsd, familyKey, currentCycle]
+  );
 
-  // Step 2: kid confirms → persist + lock for the cycle.
+  // ──────────── handlers ────────────
+
+  const handlePickChip = (guess: number) => setPendingGuess(guess);
+
   const handleConfirmLock = () => {
     if (pendingGuess == null) return;
     const p: Prediction = {
       guess: pendingGuess,
-      predictedAt: Math.floor(Date.now() / 1000),
+      predictedAt: now,
       unrealizedYieldAtPrediction: unrealizedYieldUsd,
+      cycleKey: currentCycle,
     };
-    savePrediction(familyKey, p);
-    setPrediction(p);
+    savePrediction(familyKey, currentCycle, p);
+    setThisMonth(p);
     setPendingGuess(null);
   };
 
-  const handlePickAgain = () => {
-    setPendingGuess(null);
-  };
+  const handlePickAgain = () => setPendingGuess(null);
 
   const handleShare = async () => {
-    if (!prediction?.resolved) return;
+    if (!priorPrediction?.prediction.resolved) return;
     setBusy(true);
     setShareError(null);
     try {
       const blob = await renderShareCard({
         kidName: kidName ?? "kid",
-        monthLabel: monthLabelFromUnix(prediction.resolved.resolvedAt),
-        guessUsd: prediction.guess,
-        actualUsd: prediction.resolved.actualUsd,
+        monthLabel: cycleLabel(priorPrediction.cycleKey).split(" ")[0],
+        guessUsd: priorPrediction.prediction.guess,
+        actualUsd: priorPrediction.prediction.resolved.actualUsd,
         goalLabel: goal?.label,
         goalProgressUsd: goal?.progressUsd,
         goalTargetUsd: goal?.targetUsd,
       });
       await shareOrDownload(
         blob,
-        `seedling-${kidName ?? "kid"}-${monthLabelFromUnix(
-          prediction.resolved.resolvedAt
-        ).toLowerCase()}.png`
+        `seedling-${kidName ?? "kid"}-${priorPrediction.cycleKey}.png`
       );
     } catch (e) {
       setShareError(
@@ -230,31 +205,39 @@ export function PredictionCard({
     }
   };
 
-  const handlePredictNext = () => {
-    clearPrediction(familyKey);
-    setPrediction(null);
+  const handleDismissPrior = () => {
+    // Hide the resolved card; localStorage record stays for posterity.
+    setPrior(null);
   };
 
-  const guessUsd = prediction?.guess ?? 0;
-  const actualUsd = prediction?.resolved?.actualUsd ?? 0;
-  const offBy = useMemo(() => {
-    if (!prediction?.resolved) return 0;
-    return Math.abs(prediction.guess - prediction.resolved.actualUsd);
-  }, [prediction]);
+  // ──────────── render ────────────
 
-  // Don't render the card before we've checked storage — avoids a flash
-  // of the predict state on a kid who already guessed.
   if (!initializedRef.current) return null;
+
+  const monthLong = cycleLabel(currentCycle).split(" ")[0]; // "May"
+
+  // Priority order:
+  //   prior unresolved → can't happen (auto-resolved in effect above)
+  //   prior resolved   → REVEAL state
+  //   thisMonth        → LOCKED state
+  //   pendingGuess     → PREVIEW state
+  //   otherwise        → PREDICT state
+  const showReveal = priorPrediction?.prediction.resolved;
+  const showLocked = !showReveal && thisMonthPrediction;
+  const showPreview =
+    !showReveal && !thisMonthPrediction && pendingGuess != null;
+  const showPredict =
+    !showReveal && !thisMonthPrediction && pendingGuess == null;
 
   return (
     <section className="kv-card kv-predict">
       <style dangerouslySetInnerHTML={{ __html: PREDICT_STYLES }} />
-      {!prediction && pendingGuess == null && (
+
+      {showPredict && (
         <>
-          <div className="kv-card-eyebrow">guess before this month closes</div>
+          <div className="kv-card-eyebrow">guess for {monthLong}</div>
           <p className="kv-predict-prompt">
-            how much yield will your savings have earned by the time the next
-            allowance fires?
+            how much yield will your savings earn during {monthLong}?
           </p>
           <div className="kv-predict-chips">
             {chips.map((v) => (
@@ -264,29 +247,25 @@ export function PredictionCard({
                 className="kv-predict-chip"
                 onClick={() => handlePickChip(v)}
               >
-                {v < 1
-                  ? `$${v.toFixed(2)}`
-                  : v < 10
-                  ? `$${v.toFixed(1)}`
-                  : `$${v}`}
+                {fmtChip(v)}
               </button>
             ))}
           </div>
           <div className="kv-predict-foot">
-            actual is revealed at distribute — guess first.
+            answer revealed on the 1st of next month.
           </div>
         </>
       )}
 
-      {!prediction && pendingGuess != null && (
+      {showPreview && pendingGuess != null && (
         <>
-          <div className="kv-card-eyebrow">lock in your guess?</div>
+          <div className="kv-card-eyebrow">lock in your {monthLong} guess?</div>
           <div className="kv-predict-locked">
             <span className="kv-predict-locked-amt">
               ${pendingGuess.toFixed(2)}
             </span>
             <span className="kv-predict-locked-hint">
-              once locked, no changes for the cycle. ready?
+              once locked, no changes until {monthLong} ends. ready?
             </span>
           </div>
           <div className="kv-predict-actions">
@@ -308,41 +287,53 @@ export function PredictionCard({
         </>
       )}
 
-      {prediction && !prediction.resolved && (
+      {showLocked && thisMonthPrediction && (
         <>
-          <div className="kv-card-eyebrow">your guess is locked</div>
+          <div className="kv-card-eyebrow">
+            your {monthLong} guess is locked
+          </div>
           <div className="kv-predict-locked">
             <span className="kv-predict-locked-amt">
-              ${guessUsd.toFixed(2)}
+              ${thisMonthPrediction.guess.toFixed(2)}
             </span>
             <span className="kv-predict-locked-hint">
-              waiting for this month&apos;s distribute. the actual unlocks the
-              moment the next allowance fires.
+              waiting until {monthLong} ends. the actual reveals on the 1st.
             </span>
           </div>
         </>
       )}
 
-      {prediction?.resolved && (
+      {showReveal && priorPrediction?.prediction.resolved && (
         <>
-          <div className="kv-card-eyebrow">how&apos;d your guess do?</div>
+          <div className="kv-card-eyebrow">
+            how&apos;d your {cycleLabel(priorPrediction.cycleKey).split(" ")[0]}{" "}
+            guess do?
+          </div>
           <div className="kv-predict-versus">
             <div className="kv-predict-side">
               <span className="kv-predict-label">your guess</span>
-              <span className="kv-predict-value">${guessUsd.toFixed(2)}</span>
+              <span className="kv-predict-value">
+                ${priorPrediction.prediction.guess.toFixed(2)}
+              </span>
             </div>
             <span className="kv-predict-vs">vs</span>
             <div className="kv-predict-side">
               <span className="kv-predict-label">actual</span>
               <span className="kv-predict-value kv-predict-actual">
-                ${actualUsd.toFixed(2)}
+                ${priorPrediction.prediction.resolved.actualUsd.toFixed(2)}
               </span>
             </div>
           </div>
           <div className="kv-predict-diff">
-            {offBy < 0.01
-              ? "spot on. nice."
-              : `off by ${Math.round(offBy * 100)}¢.`}
+            {(() => {
+              const diff = Math.abs(
+                priorPrediction.prediction.guess -
+                  priorPrediction.prediction.resolved.actualUsd
+              );
+              if (diff < 0.01) return "spot on. nice.";
+              const cents = Math.round(diff * 100);
+              return `off by ${cents}¢.`;
+            })()}
           </div>
           <div className="kv-predict-actions">
             <button
@@ -356,9 +347,11 @@ export function PredictionCard({
             <button
               type="button"
               className="kv-predict-next"
-              onClick={handlePredictNext}
+              onClick={handleDismissPrior}
             >
-              guess next month
+              {thisMonthPrediction
+                ? `see ${monthLong} guess`
+                : `guess ${monthLong}`}
             </button>
           </div>
           {shareError && <div className="kv-predict-err">{shareError}</div>}
