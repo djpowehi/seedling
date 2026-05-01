@@ -265,8 +265,15 @@ export function PredictionCard({
               ${guessUsd.toFixed(2)}
             </span>
             <span className="kv-predict-locked-hint">
-              we&apos;ll reveal the actual when allowance #{1} lands.
+              we&apos;ll reveal the actual when next allowance lands.
             </span>
+            <button
+              type="button"
+              className="kv-predict-reset"
+              onClick={handlePredictNext}
+            >
+              changed your mind? guess again
+            </button>
           </div>
         </>
       )}
@@ -368,6 +375,15 @@ const PREDICT_STYLES = `
     font-family: var(--mono); font-size: 11px;
     color: var(--ink-muted); letter-spacing: 0.04em;
   }
+  .kv-predict-reset {
+    margin-top: 6px; align-self: flex-start;
+    background: none; border: none; padding: 0;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--green-700); cursor: pointer;
+    text-decoration: underline;
+    letter-spacing: 0.04em;
+  }
+  .kv-predict-reset:hover { color: var(--green-900); }
 
   .kv-predict-versus {
     display: flex; align-items: flex-end;
