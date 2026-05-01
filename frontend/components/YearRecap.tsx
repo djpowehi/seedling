@@ -122,6 +122,23 @@ export function YearRecap({
     setSlideIdx((i) => Math.max(0, i - 1));
   };
 
+  // Tap anywhere on the slide to advance/go-back. Earlier we used
+  // dedicated tap-zone <button>s positioned at z-index 1, but the slide
+  // itself sits at z-index 2 and fills the stage — so the tap zones were
+  // covered by the slide and never received touch events on mobile (and
+  // mouse clicks on desktop). Putting the handler on the stage itself
+  // works regardless of inner stacking; interactive children short-
+  // circuit via the closest('button, a, input') check below so the
+  // share / close / chip buttons keep working.
+  const handleStageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, label")) return;
+    if (previewUrl) return; // preview modal is open — its own UI handles it
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (e.clientX < rect.left + rect.width / 2) handlePrev();
+    else handleNext();
+  };
+
   const handleShare = async () => {
     setBusy(true);
     try {
@@ -173,7 +190,10 @@ export function YearRecap({
         <div className="yr-overlay" onClick={handleClose}>
           <div
             className={`yr-stage ${previewUrl ? "yr-stage-preview-open" : ""}`}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStageClick(e);
+            }}
           >
             <div className="yr-progress">
               {slides.map((_, i) => (
@@ -193,20 +213,6 @@ export function YearRecap({
             >
               ×
             </button>
-
-            {/* tap zones for prev/next */}
-            <button
-              type="button"
-              className="yr-tap-zone yr-tap-prev"
-              aria-label="previous"
-              onClick={handlePrev}
-            />
-            <button
-              type="button"
-              className="yr-tap-zone yr-tap-next"
-              aria-label="next"
-              onClick={handleNext}
-            />
 
             <SlideView
               slide={slides[slideIdx]}
@@ -532,6 +538,10 @@ const YEAR_STYLES = `
     height: 100%;
     background: var(--stone-50);
     overflow: hidden;
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
   }
   @media (min-width: 540px) {
     .yr-stage { height: 86vh; max-height: 880px; border-radius: 16px; }
@@ -558,16 +568,6 @@ const YEAR_STYLES = `
     cursor: pointer; z-index: 5;
   }
   .yr-close:hover { background: rgba(36, 74, 51, 0.18); }
-
-  /* Tap zones (prev / next) — invisible buttons covering left + right halves */
-  .yr-tap-zone {
-    position: absolute; top: 0; bottom: 0;
-    width: 50%;
-    background: transparent; border: none;
-    cursor: pointer; z-index: 1;
-  }
-  .yr-tap-prev { left: 0; }
-  .yr-tap-next { right: 0; }
 
   /* Slide content */
   .yr-slide {
