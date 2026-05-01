@@ -1,16 +1,25 @@
 // Year recap data. Synthesizes 12 months of yield using the same seeded
 // jitter approach as the monthly prediction card — but with a wider band
-// per month (70%-130% of base APY), so the chart shows real-feeling
+// per month (5%-11% effective APY), so the chart shows real-feeling
 // month-over-month variation instead of a perfectly flat 8% line.
 //
-// Total deposited is reconstructed from the family's principal trajectory
-// (assume monthly stream contributions across the year — same shape as
-// what create_family + monthly distribute would produce in a steady-state
-// healthy family). For the demo we don't have a full year of on-chain
-// history, so we simulate; the share card explicitly frames it as the
-// year-in-numbers.
+// Real deposit model on chain:
+//   - parent deposits the year's principal UP FRONT (typically ~12×
+//     stream_rate, can be adjusted via top-ups or close)
+//   - each month, distribute_monthly_allowance pays stream_rate to the
+//     kid wallet, drawing from principal_remaining first
+//   - yield accrues on whatever principal sits in the vault that month
+//   - 13th = sum of accrued yield (paid out at year end)
 //
-// Determinism: same family + same year → same recap on every render.
+// So the principal trajectory is DECREASING across the year, and the
+// monthly yield drops with it. This is the reverse of what an "every
+// month parent adds money" model would suggest.
+//
+// Calendar anchoring: the 12-month window starts from the family's
+// creation month (not always Jan). A family created in August recaps
+// Aug → next-year Jul.
+//
+// Determinism: same family + same start month → same recap on every render.
 
 import { cycleLabel, daysInCycle } from "@/lib/predictions";
 
@@ -20,16 +29,18 @@ export type MonthRecap = {
   monthShort: string; // "Apr"
   yieldUsd: number; // earnings during this month
   cumulativeYieldUsd: number;
-  cumulativeBalanceUsd: number; // principal + yield to date
+  principalAtMonthStartUsd: number; // pre-distribute snapshot
+  principalAtMonthEndUsd: number; // post-distribute (= start - stream_rate)
   apyEffectiveBps: number; // for display ("8.4% APY this month")
 };
 
 export type YearRecap = {
   family: string;
-  year: number;
+  startCycleKey: string; // first month in the recap
+  endCycleKey: string; // last month
   months: MonthRecap[]; // exactly 12, oldest → newest
-  totalDepositedUsd: number;
-  totalYieldedUsd: number;
+  totalDepositedUsd: number; // principal deposited at year start
+  totalYieldedUsd: number; // 13th — sum of monthly yields
   percentGrowth: number; // yield / deposited × 100
   bestMonth: MonthRecap;
   worstMonth: MonthRecap;
@@ -56,52 +67,80 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+/** Walk the calendar 12 months forward starting from the given (year, month1Indexed). */
+function nextTwelveCycleKeys(startYear: number, startMonth: number): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < 12; i++) {
+    const total = startYear * 12 + (startMonth - 1) + i;
+    const y = Math.floor(total / 12);
+    const m = (total % 12) + 1;
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+  }
+  return out;
+}
+
 /**
- * Build the year recap for a given family + year.
+ * Build the year recap for a given family + 12-month window starting at
+ * the family's creation month.
  *
- * @param familyPda                base58 string keyed for seeded jitter
- * @param year                     the calendar year being recapped
- * @param monthlyStreamRateUsd     the family's stream_rate, in dollars
- *                                 (parent allowance contribution per month)
- * @param principalAtYearStartUsd  optional principal kicked off at year start
- *                                 (default 0 — assumes no head-start)
+ * @param familyPda             base58 string keyed for seeded jitter
+ * @param createdAtUnixSec      family creation timestamp (drives the start month)
+ * @param monthlyStreamRateUsd  the family's stream_rate, in dollars
+ *                              (kid's monthly allowance)
+ * @param initialPrincipalUsd   principal deposited up front; defaults to
+ *                              12 × stream_rate (the steady-state model)
  */
 export function buildYearRecap(
   familyPda: string,
-  year: number,
+  createdAtUnixSec: number,
   monthlyStreamRateUsd: number,
-  principalAtYearStartUsd: number = 0
+  initialPrincipalUsd?: number
 ): YearRecap {
-  const rng = mulberry32(seedFromString(`recap|${familyPda}|${year}`));
+  const created = new Date(createdAtUnixSec * 1000);
+  const startYear = created.getFullYear();
+  const startMonth = created.getMonth() + 1;
+  const cycleKeys = nextTwelveCycleKeys(startYear, startMonth);
+  const startCycleKey = cycleKeys[0];
+  const endCycleKey = cycleKeys[cycleKeys.length - 1];
 
-  let runningPrincipal = principalAtYearStartUsd;
-  let cumulativeYield = 0;
+  const stream = Math.max(0, monthlyStreamRateUsd);
+  const initialPrincipal =
+    typeof initialPrincipalUsd === "number" && initialPrincipalUsd > 0
+      ? initialPrincipalUsd
+      : stream * 12;
+
+  // Seed by start cycle so the same 12-month window always renders the
+  // same numbers (refresh-stable).
+  const rng = mulberry32(seedFromString(`recap|${familyPda}|${startCycleKey}`));
 
   const months: MonthRecap[] = [];
+  let principal = initialPrincipal; // before this month's distribute
+  let cumulativeYield = 0;
 
-  for (let m = 1; m <= 12; m++) {
-    const cycleKey = `${year}-${String(m).padStart(2, "0")}`;
+  const round = (v: number): number =>
+    v < 1
+      ? Math.round(v * 100) / 100
+      : v < 10
+      ? Math.round(v * 10) / 10
+      : Math.round(v);
+
+  for (const cycleKey of cycleKeys) {
     const days = daysInCycle(cycleKey);
 
-    // Each month, the parent contributes the monthly stream → principal grows
-    // BEFORE that month's interest is computed. Healthy family: principal
-    // accumulates monthly because monthly distribute uses principal-first.
-    runningPrincipal += monthlyStreamRateUsd;
-
-    // Per-month APY jitter: 5%-11% effective (Kamino USDC has historically
-    // moved in roughly that band). Seeded so a given (family, year, month)
-    // always shows the same number.
+    // Per-month APY jitter: 5%-11% effective. Seeded so a given (family,
+    // window, monthIndex) always shows the same number.
     const apyEffective = 0.05 + rng() * 0.06;
-    const monthYield = (runningPrincipal * apyEffective * days) / 365;
+
+    // Yield is computed on the principal that's IN the vault during the
+    // month. We use the average of (start, end) principal as a simple
+    // approximation; in reality interest compounds continuously but
+    // monthly distribute carves out stream_rate at month end.
+    const principalAtMonthStart = principal;
+    const principalAtMonthEnd = Math.max(0, principal - stream);
+    const avgPrincipal = (principalAtMonthStart + principalAtMonthEnd) / 2;
+    const monthYield = (avgPrincipal * apyEffective * days) / 365;
 
     cumulativeYield += monthYield;
-
-    const round = (v: number): number =>
-      v < 1
-        ? Math.round(v * 100) / 100
-        : v < 10
-        ? Math.round(v * 10) / 10
-        : Math.round(v);
 
     months.push({
       cycleKey,
@@ -109,17 +148,19 @@ export function buildYearRecap(
       monthShort: cycleLabel(cycleKey).split(" ")[0].slice(0, 3),
       yieldUsd: round(monthYield),
       cumulativeYieldUsd: round(cumulativeYield),
-      cumulativeBalanceUsd: round(runningPrincipal + cumulativeYield),
+      principalAtMonthStartUsd: round(principalAtMonthStart),
+      principalAtMonthEndUsd: round(principalAtMonthEnd),
       apyEffectiveBps: Math.round(apyEffective * 10000),
     });
+
+    principal = principalAtMonthEnd;
   }
 
-  const totalDeposited = monthlyStreamRateUsd * 12 + principalAtYearStartUsd;
+  const totalDeposited = round(initialPrincipal);
   const totalYielded = months[months.length - 1].cumulativeYieldUsd;
   const percentGrowth =
     totalDeposited > 0 ? (totalYielded / totalDeposited) * 100 : 0;
 
-  // Best / worst / average — for highlight slides.
   let bestMonth = months[0];
   let worstMonth = months[0];
   let yieldSum = 0;
@@ -133,7 +174,8 @@ export function buildYearRecap(
 
   return {
     family: familyPda,
-    year,
+    startCycleKey,
+    endCycleKey,
     months,
     totalDepositedUsd: totalDeposited,
     totalYieldedUsd: totalYielded,

@@ -23,13 +23,15 @@ import {
 } from "@/lib/yearRecap";
 import { renderYearShareCard } from "@/lib/yearShareCard";
 import { shareOrDownload } from "@/lib/shareCard";
+import { Tree, type Stage } from "@/components/Tree";
 
 type Props = {
   familyKey: string;
   kidName: string | null;
-  /** Family principal in dollars right now — used as the year-end snapshot
-   *  for the recap calculation. */
-  principalUsd: number;
+  /** Family creation timestamp in seconds. Anchors the recap window to the
+   *  family's actual start month — a family created in August recaps
+   *  Aug → next-year Jul, not Jan → Dec. */
+  createdAtSec: number;
   /** Monthly stream rate in dollars. */
   monthlyStreamRateUsd: number;
   /** True when the on-chain bonus period has ended and the 13th allowance
@@ -40,28 +42,29 @@ type Props = {
 export function YearRecap({
   familyKey,
   kidName,
-  principalUsd,
+  createdAtSec,
   monthlyStreamRateUsd,
   bonusReady,
 }: Props) {
-  const year = new Date().getFullYear();
-
-  // Recap data — deterministic per (family, year). Re-computed if the
-  // family or year changes.
+  // Recap data — deterministic per (family, start cycle).
   const recap = useMemo<YearRecap>(
     () =>
       buildYearRecap(
         familyKey,
-        year,
-        monthlyStreamRateUsd > 0 ? monthlyStreamRateUsd : 50,
-        Math.max(0, principalUsd - monthlyStreamRateUsd * 12)
+        createdAtSec,
+        monthlyStreamRateUsd > 0 ? monthlyStreamRateUsd : 50
       ),
-    [familyKey, year, monthlyStreamRateUsd, principalUsd]
+    [familyKey, createdAtSec, monthlyStreamRateUsd]
   );
 
+  const startYear = recap.startCycleKey.slice(0, 4);
+  const endYear = recap.endCycleKey.slice(0, 4);
+  const yearLabel =
+    startYear === endYear ? startYear : `${startYear}–${endYear}`;
+
   const slides = useMemo<Slide[]>(
-    () => buildSlides(recap, kidName ?? "friend", bonusReady),
-    [recap, kidName, bonusReady]
+    () => buildSlides(recap, kidName ?? "friend", bonusReady, yearLabel),
+    [recap, kidName, bonusReady, yearLabel]
   );
 
   const [open, setOpen] = useState(false);
@@ -140,14 +143,14 @@ export function YearRecap({
     if (!previewBlob) return;
     await shareOrDownload(
       previewBlob,
-      `seedling-${kidName ?? "kid"}-${year}-year.png`
+      `seedling-${kidName ?? "kid"}-${yearLabel}-year.png`
     );
   };
 
   // ──────────── render ────────────
 
   const ctaLabel = bonusReady
-    ? `your ${year} just landed — relive it`
+    ? `your ${yearLabel} just landed — relive it`
     : `your year so far · tap to relive it`;
 
   return (
@@ -205,7 +208,6 @@ export function YearRecap({
             <SlideView
               slide={slides[slideIdx]}
               recap={recap}
-              kidName={kidName}
               onShare={handleShare}
               onClose={handleClose}
               busy={busy}
@@ -227,9 +229,18 @@ export function YearRecap({
 // ──────────── slide model ────────────
 
 type Slide =
-  | { kind: "hero"; year: number; kidName: string; bonusReady: boolean }
-  | { kind: "month"; month: MonthRecap; cumulativeMax: number }
-  | { kind: "best"; best: MonthRecap }
+  | { kind: "hero"; yearLabel: string; kidName: string; bonusReady: boolean }
+  | {
+      kind: "month";
+      month: MonthRecap;
+      cumulativeYieldMax: number;
+      /** 1..12 — matches the kid's actual tree at that point in their year.
+       *  Recap months are ordered oldest-first from creation, so index+1
+       *  IS the months-since-creation stage. Slide for month #1 shows
+       *  Stage1 (seed only), month #12 shows Stage12 (mature with acorns). */
+      stage: Stage;
+    }
+  | { kind: "best"; best: MonthRecap; stage: Stage }
   | { kind: "deposited"; total: number }
   | { kind: "yielded"; total: number; bonusReady: boolean }
   | { kind: "growth"; pct: number }
@@ -238,18 +249,33 @@ type Slide =
 function buildSlides(
   recap: YearRecap,
   kidName: string,
-  bonusReady: boolean
+  bonusReady: boolean,
+  yearLabel: string
 ): Slide[] {
-  const cumulativeMax = Math.max(
-    ...recap.months.map((m) => m.cumulativeBalanceUsd),
+  // Cumulative yield grows monotonically across the year — gives a satisfying
+  // bar that fills toward 100% on the December slide. Principal alone would
+  // shrink (it's drawn down each month), and total balance is roughly flat.
+  const cumulativeYieldMax = Math.max(
+    ...recap.months.map((m) => m.cumulativeYieldUsd),
     0.01
   );
+  // Best-month stage = the tree size at THAT month — calendar-aligned with
+  // the moment the kid actually saw their best yield.
+  const bestIdx = recap.months.findIndex(
+    (m) => m.cycleKey === recap.bestMonth.cycleKey
+  );
+  const bestStage = (Math.max(0, bestIdx) + 1) as Stage;
   const slides: Slide[] = [
-    { kind: "hero", year: recap.year, kidName, bonusReady },
+    { kind: "hero", yearLabel, kidName, bonusReady },
     ...recap.months.map(
-      (m): Slide => ({ kind: "month", month: m, cumulativeMax })
+      (m, i): Slide => ({
+        kind: "month",
+        month: m,
+        cumulativeYieldMax,
+        stage: (i + 1) as Stage,
+      })
     ),
-    { kind: "best", best: recap.bestMonth },
+    { kind: "best", best: recap.bestMonth, stage: bestStage },
     { kind: "deposited", total: recap.totalDepositedUsd },
     { kind: "yielded", total: recap.totalYieldedUsd, bonusReady },
     { kind: "growth", pct: recap.percentGrowth },
@@ -263,7 +289,6 @@ function buildSlides(
 function SlideView({
   slide,
   recap,
-  kidName,
   onShare,
   onClose,
   busy,
@@ -273,7 +298,6 @@ function SlideView({
 }: {
   slide: Slide;
   recap: YearRecap;
-  kidName: string | null;
   onShare: () => void;
   onClose: () => void;
   busy: boolean;
@@ -281,10 +305,14 @@ function SlideView({
   onDownload: () => void;
   onClosePreview: () => void;
 }) {
+  const startYear = recap.startCycleKey.slice(0, 4);
+  const endYear = recap.endCycleKey.slice(0, 4);
+  const yearLabel =
+    startYear === endYear ? startYear : `${startYear}–${endYear}`;
   if (slide.kind === "hero") {
     return (
       <div className="yr-slide yr-slide-hero">
-        <div className="yr-eyebrow">{slide.year} · seedling</div>
+        <div className="yr-eyebrow">{slide.yearLabel} · seedling</div>
         <h2 className="yr-headline">
           {slide.bonusReady ? "your year." : "your year so far."}
         </h2>
@@ -299,9 +327,12 @@ function SlideView({
   }
 
   if (slide.kind === "month") {
-    const pct = slide.month.cumulativeBalanceUsd / slide.cumulativeMax;
+    const pct = slide.month.cumulativeYieldUsd / slide.cumulativeYieldMax;
     return (
-      <div className="yr-slide">
+      <div className="yr-slide yr-slide-month">
+        <div className="yr-month-tree">
+          <Tree stage={slide.stage} />
+        </div>
         <div className="yr-eyebrow">{slide.month.monthLabel.toLowerCase()}</div>
         <div className="yr-month-line">your savings earned</div>
         <h2 className="yr-headline-big">${slide.month.yieldUsd.toFixed(2)}</h2>
@@ -312,7 +343,7 @@ function SlideView({
           <span style={{ width: `${pct * 100}%` }} />
         </div>
         <div className="yr-month-balance">
-          ending balance: ${slide.month.cumulativeBalanceUsd.toFixed(2)}
+          yield so far: ${slide.month.cumulativeYieldUsd.toFixed(2)}
         </div>
       </div>
     );
@@ -320,7 +351,10 @@ function SlideView({
 
   if (slide.kind === "best") {
     return (
-      <div className="yr-slide">
+      <div className="yr-slide yr-slide-best">
+        <div className="yr-month-tree">
+          <Tree stage={slide.stage} />
+        </div>
         <div className="yr-eyebrow">your best month</div>
         <h2 className="yr-headline">{slide.best.monthLabel}.</h2>
         <p className="yr-sub">
@@ -410,7 +444,7 @@ function SlideView({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={previewUrl}
-              alt={`seedling ${recap.year} year recap`}
+              alt={`seedling ${yearLabel} year recap`}
               className="yr-preview-img"
             />
             <div className="yr-actions">
@@ -592,6 +626,23 @@ const YEAR_STYLES = `
     color: var(--ink-muted); letter-spacing: 0.06em;
     text-align: center;
   }
+
+  /* Per-month tree visual — same SVG vocabulary as the kid view's hero,
+     scaled down to share airtime with the data below it. Stage matches
+     the family's actual growth at that point in their year (month 1 →
+     seed; month 12 → mature with acorns). */
+  .yr-slide-month, .yr-slide-best {
+    justify-content: flex-start;
+    padding-top: 56px;
+    gap: 12px;
+  }
+  .yr-month-tree {
+    width: 200px;
+    align-self: center;
+    margin-bottom: 8px;
+    pointer-events: none;
+  }
+  .yr-month-tree svg { width: 100%; height: auto; display: block; }
 
   .yr-month-line {
     font-family: var(--serif); font-size: 22px;
