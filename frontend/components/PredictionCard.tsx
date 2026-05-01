@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  computeActualYield,
+  buildChipsAndActual,
   currentCycleKey,
   cycleLabel,
   getPrediction,
@@ -31,52 +31,6 @@ import {
   type Prediction,
 } from "@/lib/predictions";
 import { renderShareCard, shareOrDownload } from "@/lib/shareCard";
-
-// ──────────── chip generation ────────────
-
-function seedFromString(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function mulberry32(seed: number): () => number {
-  let s = seed >>> 0;
-  return () => {
-    s |= 0;
-    s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function scaleChips(principalUsd: number, seedKey: string): number[] {
-  const expected = Math.max(0.05, (principalUsd * 0.08) / 12);
-  const rng = mulberry32(seedFromString(seedKey));
-  const wobble = (lo: number, hi: number) => lo + rng() * (hi - lo);
-  const factors = [
-    wobble(0.4, 0.7),
-    wobble(0.85, 1.2),
-    wobble(1.7, 2.4),
-    wobble(3.5, 5.5),
-  ];
-  const round = (v: number): number => {
-    if (v < 1) return Math.round(v * 100) / 100;
-    if (v < 10) return Math.round(v * 10) / 10;
-    return Math.round(v);
-  };
-  const values = factors.map((f) => round(expected * f));
-  const unique = [...new Set(values)];
-  for (let i = unique.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [unique[i], unique[j]] = [unique[j], unique[i]];
-  }
-  return unique;
-}
 
 function fmtChip(v: number): string {
   if (v < 1) return `$${v.toFixed(2)}`;
@@ -130,14 +84,12 @@ export function PredictionCard({
     initializedRef.current = true;
   }, [familyKey, currentCycle]);
 
-  const chips = useMemo(
-    () => scaleChips(principalUsd, `${familyKey}|${currentCycle}`),
-    [principalUsd, familyKey, currentCycle]
-  );
-
-  // The "actual" — deterministic given (principal, target cycle, family).
-  const actualUsd = useMemo(
-    () => computeActualYield(principalUsd, targetCycle, familyKey),
+  // Single-source-of-truth: chips and actual are computed together so the
+  // actual is GUARANTEED to be one of the chips (after rounding). Decoys
+  // sit on both sides of the actual at unpredictable magnitudes — the kid
+  // can't game by always picking the second-smallest or middle chip.
+  const { chips, actual: actualUsd } = useMemo(
+    () => buildChipsAndActual(principalUsd, targetCycle, familyKey),
     [principalUsd, targetCycle, familyKey]
   );
 
