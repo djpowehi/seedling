@@ -365,7 +365,6 @@ export function KidView({ family, initialClock, kidName }: Props) {
         <PredictionCard
           familyKey={familyKey}
           kidName={kidName}
-          unrealizedYieldUsd={yieldEarnedUsd}
           principalUsd={principalUsd}
           goal={
             goals[0]
