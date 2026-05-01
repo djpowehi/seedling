@@ -17,7 +17,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  baseUnitsToUsd,
   clearPrediction,
   getPrediction,
   savePrediction,
@@ -108,8 +107,11 @@ function cycleIndex(lastDistribution: number, createdAt: number): number {
 type Props = {
   familyKey: string;
   kidName: string | null;
-  /** Current totalYieldEarned from chain (BN-as-string, base units). */
-  totalYieldEarnedBaseUnits: string;
+  /** Live unrealized yield = familyValue - principalRemaining, in dollars.
+   *  This is what's actually accumulating in the vault — the number the
+   *  kid is predicting. Monthly allowances draw from principal-first, so
+   *  this meter keeps ticking until the 13th allowance pays it out. */
+  unrealizedYieldUsd: number;
   /** Most recent distribute timestamp from chain (unix sec). */
   lastDistribution: number;
   /** Family creation timestamp (unix sec) — used to compute cycle index. */
@@ -128,7 +130,7 @@ function monthLabelFromUnix(unixSec: number): string {
 export function PredictionCard({
   familyKey,
   kidName,
-  totalYieldEarnedBaseUnits,
+  unrealizedYieldUsd,
   lastDistribution,
   createdAt,
   principalUsd,
@@ -143,6 +145,9 @@ export function PredictionCard({
     [principalUsd, familyKey, cycle]
   );
   const [prediction, setPrediction] = useState<Prediction | null>(null);
+  // Two-step lock: kid taps a chip → enters preview state → confirm to lock.
+  // Once locked, the prediction is final for the cycle. No edits.
+  const [pendingGuess, setPendingGuess] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const initializedRef = useRef(false);
@@ -155,13 +160,16 @@ export function PredictionCard({
   }, [familyKey]);
 
   // Resolve the prediction the moment chain state shows a distribute fired
-  // AFTER the prediction was made. Snapshot delta: yield NOW minus yield AT
-  // PREDICTION TIME → that's what the kid actually earned during the period.
+  // AFTER the prediction was made. Actual = unrealizedYield NOW minus
+  // unrealizedYield AT PREDICTION TIME → the yield Kamino paid the vault
+  // during the period (it stays in the vault, doesn't go to the kid until
+  // the 13th allowance — but the kid was guessing how much the vault
+  // earned, which is what they see ticking).
   useEffect(() => {
     if (!prediction || prediction.resolved) return;
     if (lastDistribution <= prediction.predictedAt) return;
-    const before = baseUnitsToUsd(prediction.totalYieldAtPrediction);
-    const after = baseUnitsToUsd(totalYieldEarnedBaseUnits);
+    const before = prediction.unrealizedYieldAtPrediction;
+    const after = unrealizedYieldUsd;
     const actualUsd = Math.max(0, after - before);
     const resolved: Prediction = {
       ...prediction,
@@ -169,16 +177,28 @@ export function PredictionCard({
     };
     savePrediction(familyKey, resolved);
     setPrediction(resolved);
-  }, [prediction, lastDistribution, totalYieldEarnedBaseUnits, familyKey]);
+  }, [prediction, lastDistribution, unrealizedYieldUsd, familyKey]);
 
-  const handleGuess = (guess: number) => {
+  // Step 1: kid taps a chip → enter preview. Doesn't persist yet.
+  const handlePickChip = (guess: number) => {
+    setPendingGuess(guess);
+  };
+
+  // Step 2: kid confirms → persist + lock for the cycle.
+  const handleConfirmLock = () => {
+    if (pendingGuess == null) return;
     const p: Prediction = {
-      guess,
+      guess: pendingGuess,
       predictedAt: Math.floor(Date.now() / 1000),
-      totalYieldAtPrediction: totalYieldEarnedBaseUnits,
+      unrealizedYieldAtPrediction: unrealizedYieldUsd,
     };
     savePrediction(familyKey, p);
     setPrediction(p);
+    setPendingGuess(null);
+  };
+
+  const handlePickAgain = () => {
+    setPendingGuess(null);
   };
 
   const handleShare = async () => {
@@ -229,7 +249,7 @@ export function PredictionCard({
   return (
     <section className="kv-card kv-predict">
       <style dangerouslySetInnerHTML={{ __html: PREDICT_STYLES }} />
-      {!prediction && (
+      {!prediction && pendingGuess == null && (
         <>
           <div className="kv-card-eyebrow">guess this month</div>
           <p className="kv-predict-prompt">
@@ -241,7 +261,7 @@ export function PredictionCard({
                 key={v}
                 type="button"
                 className="kv-predict-chip"
-                onClick={() => handleGuess(v)}
+                onClick={() => handlePickChip(v)}
               >
                 {v < 1
                   ? `$${v.toFixed(2)}`
@@ -257,6 +277,36 @@ export function PredictionCard({
         </>
       )}
 
+      {!prediction && pendingGuess != null && (
+        <>
+          <div className="kv-card-eyebrow">lock in your guess?</div>
+          <div className="kv-predict-locked">
+            <span className="kv-predict-locked-amt">
+              ${pendingGuess.toFixed(2)}
+            </span>
+            <span className="kv-predict-locked-hint">
+              once locked, no changes for the cycle. ready?
+            </span>
+          </div>
+          <div className="kv-predict-actions">
+            <button
+              type="button"
+              className="kv-predict-share"
+              onClick={handleConfirmLock}
+            >
+              lock it in
+            </button>
+            <button
+              type="button"
+              className="kv-predict-next"
+              onClick={handlePickAgain}
+            >
+              pick again
+            </button>
+          </div>
+        </>
+      )}
+
       {prediction && !prediction.resolved && (
         <>
           <div className="kv-card-eyebrow">your guess is locked</div>
@@ -267,13 +317,6 @@ export function PredictionCard({
             <span className="kv-predict-locked-hint">
               we&apos;ll reveal the actual when next allowance lands.
             </span>
-            <button
-              type="button"
-              className="kv-predict-reset"
-              onClick={handlePredictNext}
-            >
-              changed your mind? guess again
-            </button>
           </div>
         </>
       )}
@@ -375,15 +418,6 @@ const PREDICT_STYLES = `
     font-family: var(--mono); font-size: 11px;
     color: var(--ink-muted); letter-spacing: 0.04em;
   }
-  .kv-predict-reset {
-    margin-top: 6px; align-self: flex-start;
-    background: none; border: none; padding: 0;
-    font-family: var(--mono); font-size: 11px;
-    color: var(--green-700); cursor: pointer;
-    text-decoration: underline;
-    letter-spacing: 0.04em;
-  }
-  .kv-predict-reset:hover { color: var(--green-900); }
 
   .kv-predict-versus {
     display: flex; align-items: flex-end;
