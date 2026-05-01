@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   buildChipsAndActual,
+  clearPrediction,
   currentCycleKey,
   cycleLabel,
   getPrediction,
@@ -110,6 +111,12 @@ export function PredictionCard({
   };
 
   const handlePickAgain = () => setPendingGuess(null);
+
+  const handlePlayAgain = () => {
+    clearPrediction(familyKey, currentCycle);
+    setPrediction(null);
+    setPendingGuess(null);
+  };
 
   const handleShare = async () => {
     if (!prediction) return;
@@ -245,6 +252,13 @@ export function PredictionCard({
               disabled={busy}
             >
               {busy ? "making card…" : "share my month"}
+            </button>
+            <button
+              type="button"
+              className="kv-predict-next"
+              onClick={handlePlayAgain}
+            >
+              play again
             </button>
           </div>
           {shareError && <div className="kv-predict-err">{shareError}</div>}
