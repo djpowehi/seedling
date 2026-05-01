@@ -40,7 +40,22 @@ export function getPrediction(familyPda: string): Prediction | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(KEY_PREFIX + familyPda);
-    return raw ? (JSON.parse(raw) as Prediction) : null;
+    if (!raw) return null;
+    const p = JSON.parse(raw) as Partial<Prediction> & {
+      // Old shape — we used to snapshot totalYieldEarned (base units, BN-string).
+      // If we see that key, the record predates the unrealized-yield rewrite
+      // and can never resolve correctly. Drop it so the kid gets a fresh
+      // prompt instead of being stranded.
+      totalYieldAtPrediction?: string;
+    };
+    if (
+      typeof p.unrealizedYieldAtPrediction !== "number" ||
+      p.totalYieldAtPrediction !== undefined
+    ) {
+      window.localStorage.removeItem(KEY_PREFIX + familyPda);
+      return null;
+    }
+    return p as Prediction;
   } catch {
     return null;
   }
