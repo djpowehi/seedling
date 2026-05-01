@@ -46,6 +46,10 @@ type Props = {
   kidName: string | null;
   /** Family principal in dollars — drives chip scale + actual computation. */
   principalUsd: number;
+  /** Family creation timestamp in seconds. Prevents asking the kid to
+   *  predict yield for a month BEFORE their family existed (e.g. family
+   *  created mid-May, prompt would otherwise ask about April). */
+  createdAtSec: number;
   /** Optional savings goal context for the share card. */
   goal?: { label: string; progressUsd: number; targetUsd: number };
 };
@@ -54,6 +58,7 @@ export function PredictionCard({
   familyKey,
   kidName,
   principalUsd,
+  createdAtSec,
   goal,
 }: Props) {
   // currentCycle is "today's month" → the prompt asks about the PREVIOUS
@@ -70,6 +75,16 @@ export function PredictionCard({
     [currentCycle]
   );
   const targetMonthLabel = cycleLabel(targetCycle).split(" ")[0]; // "April"
+
+  // Calendar guard: don't ask about a month before the family existed.
+  // Compare YYYY-MM strings — lexicographic order matches calendar order.
+  const familyCycle = useMemo(() => {
+    const d = new Date(createdAtSec * 1000);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }, [createdAtSec]);
+  const targetTooEarly = targetCycle < familyCycle;
 
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [pendingGuess, setPendingGuess] = useState<number | null>(null);
@@ -176,6 +191,24 @@ export function PredictionCard({
   // ──────────── render ────────────
 
   if (!initializedRef.current) return null;
+
+  // Family newer than the target month → nothing to predict yet. Show a
+  // calm "first prompt opens next month" placeholder instead of asking the
+  // kid about a month their savings didn't exist for.
+  if (targetTooEarly) {
+    return (
+      <section className="kv-card kv-predict">
+        <style dangerouslySetInnerHTML={{ __html: PREDICT_STYLES }} />
+        <div className="kv-card-eyebrow">guess your yield</div>
+        <p className="kv-predict-prompt">
+          your first guessing round opens on the 1st of next month.
+        </p>
+        <div className="kv-predict-foot">
+          come back then to guess how much your savings earned.
+        </div>
+      </section>
+    );
+  }
 
   // State priority:
   //   prediction exists → REVEAL

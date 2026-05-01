@@ -1,9 +1,8 @@
 // Year-recap share card. Single tall PNG that summarizes the year:
-// 12 month rows on a sparkline, totals + percentage at the bottom,
-// seedling wordmark + URL footer. Same canvas API as shareCard.ts.
-//
-// Format: 1080 × 1920 (Instagram story shape — fits all phone share
-// sheets cleanly + reads as a vertical scroll on desktop).
+// hero headline, 12-bar sparkline of monthly yields, best-month
+// callout, totals + percentage, footer. 1080 × 1920 (Instagram story
+// shape — fits all phone share sheets cleanly + reads as a vertical
+// scroll on desktop).
 
 import type { YearRecap } from "@/lib/yearRecap";
 
@@ -20,7 +19,6 @@ const C = {
   green800: "#244A33",
   green700: "#2E5C40",
   green600: "#3A7050",
-  green300: "#9CB8A4",
   stone200: "#ECE4D2",
   stone300: "#D9CFB8",
   amber: "#C5944A",
@@ -30,12 +28,6 @@ function fmtUsd(v: number): string {
   if (v < 1) return "$" + v.toFixed(2);
   if (v < 100) return "$" + v.toFixed(2);
   return "$" + Math.round(v).toLocaleString();
-}
-
-function fmtUsdShort(v: number): string {
-  if (v < 1) return "$" + v.toFixed(2);
-  if (v < 10) return "$" + v.toFixed(1);
-  return "$" + Math.round(v);
 }
 
 type ShareData = {
@@ -66,43 +58,47 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  // ── eyebrow ──
-  ctx.fillStyle = C.inkMuted;
-  ctx.font = "500 26px ui-monospace, JetBrains Mono, monospace";
   ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+
+  // Header band — eyebrow chip + dot
+  let y = PAD;
   ctx.beginPath();
-  ctx.arc(PAD + 8, PAD + 16, 7, 0, Math.PI * 2);
+  ctx.arc(PAD + 8, y + 16, 7, 0, Math.PI * 2);
   ctx.fillStyle = C.green600;
   ctx.fill();
   ctx.fillStyle = C.inkMuted;
-  ctx.fillText(
-    `${data.recap.year} · ${data.kidName.toUpperCase()}'S SEEDLING YEAR`,
-    PAD + 30,
-    PAD
-  );
+  ctx.font = "500 24px ui-monospace, JetBrains Mono, monospace";
+  // Compose header from the actual recap window so a family that started
+  // mid-year reads as e.g. "AUG 2025 → JUL 2026 · MARIA'S YEAR".
+  const startYr = data.recap.startCycleKey.slice(0, 4);
+  const endYr = data.recap.endCycleKey.slice(0, 4);
+  const header =
+    startYr === endYr
+      ? `${startYr} · ${data.kidName.toUpperCase()}'S SEEDLING YEAR`
+      : `${startYr}–${endYr} · ${data.kidName.toUpperCase()}'S SEEDLING YEAR`;
+  ctx.fillText(header, PAD + 30, y);
 
-  // ── headline ──
-  let y = PAD + 78;
+  // ── headline (two-line serif) ──
+  y = PAD + 78;
   ctx.fillStyle = C.green900;
   ctx.font = "400 132px Iowan Old Style, Georgia, serif";
   ctx.fillText("a year of", PAD, y);
-  y += 138;
+  y += 132;
+
   ctx.fillStyle = C.green700;
   ctx.font = "italic 400 132px Iowan Old Style, Georgia, serif";
   ctx.fillText("growing.", PAD, y);
-  y += 60;
+  y += 132 + 40; // headline + breathing room
 
   // ── monthly sparkline ──
-  // Layout: 12 vertical bars, each height ∝ that month's yield. Above each
-  // bar: month abbreviation. Below: amount (compact).
-  y += 36;
   ctx.fillStyle = C.inkMuted;
   ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
   ctx.fillText("MONTH BY MONTH", PAD, y);
-  y += 44;
+  y += 36;
 
   const chartTop = y;
-  const chartH = 360;
+  const chartH = 320;
   const chartBottom = chartTop + chartH;
   const chartLeft = PAD;
   const chartRight = W - PAD;
@@ -112,7 +108,7 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
   const barGap = 8;
   const barW = (chartW - barGap * 11) / 12;
 
-  // Draw a faint baseline
+  // baseline
   ctx.strokeStyle = C.stone300;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
@@ -122,10 +118,10 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
 
   data.recap.months.forEach((m, i) => {
     const x = chartLeft + i * (barW + barGap);
-    const barH = Math.max(6, (m.yieldUsd / maxYield) * (chartH - 60));
+    const barH = Math.max(6, (m.yieldUsd / maxYield) * (chartH - 50));
     const top = chartBottom - barH;
 
-    // Bar (rounded top)
+    // bar with rounded top
     ctx.fillStyle = C.green700;
     ctx.beginPath();
     const r = Math.min(8, barW / 2);
@@ -138,7 +134,7 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
     ctx.closePath();
     ctx.fill();
 
-    // Month abbrev under
+    // month abbrev underneath
     ctx.fillStyle = C.inkMuted;
     ctx.font = "500 16px ui-monospace, JetBrains Mono, monospace";
     ctx.textAlign = "center";
@@ -146,49 +142,74 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
     ctx.textAlign = "left";
   });
 
-  y = chartBottom + 60;
+  y = chartBottom + 56;
+
+  // ── best month callout ──
+  ctx.fillStyle = C.inkMuted;
+  ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
+  ctx.fillText("BEST MONTH", PAD, y);
+  y += 36;
+
+  ctx.fillStyle = C.green900;
+  ctx.font = "400 56px Iowan Old Style, Georgia, serif";
+  ctx.fillText(
+    `${data.recap.bestMonth.monthLabel} · ${fmtUsd(
+      data.recap.bestMonth.yieldUsd
+    )}`,
+    PAD,
+    y
+  );
+  y += 56 + 8;
+  ctx.fillStyle = C.inkSoft;
+  ctx.font = "400 26px Iowan Old Style, Georgia, serif";
+  ctx.fillText(
+    `at ${(data.recap.bestMonth.apyEffectiveBps / 100).toFixed(1)}% APY`,
+    PAD,
+    y
+  );
+  y += 26 + 56;
 
   // ── totals stack ──
-  y += 40;
   ctx.fillStyle = C.inkMuted;
   ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
   ctx.fillText("YOU PUT IN", PAD, y);
-  y += 36;
+  y += 30;
   ctx.fillStyle = C.ink;
-  ctx.font = "400 84px Iowan Old Style, Georgia, serif";
+  ctx.font = "400 80px Iowan Old Style, Georgia, serif";
   ctx.fillText(fmtUsd(data.recap.totalDepositedUsd), PAD, y);
-  y += 110;
+  y += 80 + 36;
 
   ctx.fillStyle = C.inkMuted;
   ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
   ctx.fillText("YOUR SAVINGS EARNED", PAD, y);
-  y += 36;
+  y += 30;
   ctx.fillStyle = C.green700;
-  ctx.font = "italic 400 132px Iowan Old Style, Georgia, serif";
+  ctx.font = "italic 400 116px Iowan Old Style, Georgia, serif";
   ctx.fillText(fmtUsd(data.recap.totalYieldedUsd), PAD, y);
-  y += 156;
+  y += 116 + 36;
 
   ctx.fillStyle = C.inkMuted;
   ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
   ctx.fillText("THAT'S", PAD, y);
-  y += 36;
+  y += 30;
   ctx.fillStyle = C.amber;
-  ctx.font = "400 96px Iowan Old Style, Georgia, serif";
+  ctx.font = "400 88px Iowan Old Style, Georgia, serif";
   ctx.fillText(`+${data.recap.percentGrowth.toFixed(2)}%`, PAD, y);
-  y += 28;
+  y += 88 + 8;
   ctx.fillStyle = C.inkSoft;
-  ctx.font = "400 32px Iowan Old Style, Georgia, serif";
+  ctx.font = "400 28px Iowan Old Style, Georgia, serif";
   ctx.fillText("growth, just by waiting.", PAD, y);
 
-  // ── footer wordmark ──
+  // ── footer wordmark (positioned absolutely from bottom) ──
+  const footerY = H - PAD;
   ctx.fillStyle = C.green900;
   ctx.font = "400 38px Iowan Old Style, Georgia, serif";
-  ctx.fillText("seedling", PAD, H - PAD - 4);
+  ctx.fillText("seedling", PAD, footerY);
 
   ctx.fillStyle = C.inkMuted;
   ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
   ctx.textAlign = "right";
-  ctx.fillText("seedlingsol.xyz", W - PAD, H - PAD + 8);
+  ctx.fillText("seedlingsol.xyz", W - PAD, footerY + 8);
   ctx.textAlign = "left";
 
   return new Promise<Blob>((resolve, reject) => {
@@ -198,5 +219,3 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
     );
   });
 }
-
-void fmtUsdShort; // exported helper; kept for symmetry with shareCard

@@ -278,7 +278,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
           <YearRecap
             familyKey={familyKey}
             kidName={kidName}
-            principalUsd={principalUsd}
+            createdAtSec={createdAtSec}
             monthlyStreamRateUsd={monthlyAllowanceUsd}
             bonusReady={bonusReady}
           />
@@ -377,6 +377,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
           familyKey={familyKey}
           kidName={kidName}
           principalUsd={principalUsd}
+          createdAtSec={createdAtSec}
           goal={
             goals[0]
               ? {
@@ -467,7 +468,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
           <YearRecap
             familyKey={familyKey}
             kidName={kidName}
-            principalUsd={principalUsd}
+            createdAtSec={createdAtSec}
             monthlyStreamRateUsd={monthlyAllowanceUsd}
             bonusReady={bonusReady}
           />
