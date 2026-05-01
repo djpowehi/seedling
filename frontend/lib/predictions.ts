@@ -1,41 +1,28 @@
-// Prediction & resolve loop for the kid view's "guess this month's yield" card.
+// Yield prediction loop on the kid view — synchronous, calendar-month based.
 //
-// Mental model: each calendar month is a discrete cycle. During the current
-// month the kid can tap a guess; once the month rolls over, the previous
-// month's prediction resolves automatically on next page load. Distribute
-// events are completely decoupled — yield accrues regardless of when (or if)
-// the parent fires a monthly distribute, and the unrealized-yield meter is
-// what we predict against.
+// Today is May → question is "how much did your savings earn in April?"
+// Kid guesses → answer reveals immediately. No async waiting on distributes,
+// no chain reads, no "lock and resolve later." Each calendar month is a
+// self-contained mini-game.
 //
-// Storage key includes the cycle so each month gets its own slot:
+// Storage: just the kid's GUESS for the current cycle, so a refresh doesn't
+// reset back to the prompt. The "actual" is recomputed every render from
+// principal × 8% APY × days-in-last-month, with seeded jitter so it varies
+// month to month and family to family without being predictable.
 //
-//   seedling-prediction-<familyPda>-<YYYY-MM>
+// Storage key:  seedling-prediction-<familyPda>-<YYYY-MM>
 //
-// New cycle = new key = predict prompt shows again automatically. The
-// previous cycle's record sticks around just long enough to render the
-// resolved-state card with the share button, then can be archived.
+// New cycle = new key = predict prompt shows again.
 
 const KEY_PREFIX = "seedling-prediction-";
-// One-time cleanup target: pre-cycle-key records lived at this exact key.
-const LEGACY_KEY_PREFIX = "seedling-prediction-";
 
 export type Prediction = {
-  /** Guess in dollars. */
+  /** Kid's guess in dollars. */
   guess: number;
   /** Unix seconds the kid tapped. */
   predictedAt: number;
-  /** Live unrealized yield at prediction time (familyValue - principal),
-   *  in dollars. Resolution = (currentUnrealizedYield − this) when the
-   *  month rolls over. */
-  unrealizedYieldAtPrediction: number;
   /** Calendar-month key the prediction was made FOR (YYYY-MM). */
   cycleKey: string;
-  /** Filled in once the cycle ends and we compute the actual delta. */
-  resolved?: {
-    actualUsd: number;
-    /** Unix seconds we resolved (= first page load after the cycle ended). */
-    resolvedAt: number;
-  };
 };
 
 /** Calendar-month cycle key — `YYYY-MM` from a unix timestamp. */
@@ -51,11 +38,30 @@ export function currentCycleKey(): string {
   return cycleKeyFromUnix(Math.floor(Date.now() / 1000));
 }
 
+/** Cycle key for the month BEFORE the current one — that's the month the
+ *  kid is being asked to predict. */
+export function previousCycleKey(currentCycle: string): string {
+  const [cy, cm] = currentCycle.split("-").map(Number);
+  const prevTotal = cy * 12 + (cm - 1) - 1;
+  const py = Math.floor(prevTotal / 12);
+  const pm = (prevTotal % 12) + 1;
+  return `${py}-${String(pm).padStart(2, "0")}`;
+}
+
 /** Human label for a cycle key — "May 2026" / "June 2026". */
 export function cycleLabel(cycleKey: string): string {
   const [yy, mm] = cycleKey.split("-");
   const d = new Date(Number(yy), Number(mm) - 1, 1);
   return d.toLocaleString("en-US", { month: "long", year: "numeric" });
+}
+
+/** Days in the calendar month identified by cycleKey. */
+export function daysInCycle(cycleKey: string): number {
+  const [yy, mm] = cycleKey.split("-").map(Number);
+  // new Date(year, month, 0) gives the last day of the previous month, which
+  // happens to equal the number of days in `mm` (since mm here is 1-indexed
+  // and the Date ctor wants 0-indexed).
+  return new Date(yy, mm, 0).getDate();
 }
 
 function fullKey(familyPda: string, cycleKey: string): string {
@@ -72,7 +78,6 @@ export function getPrediction(
     if (!raw) return null;
     const p = JSON.parse(raw) as Partial<Prediction>;
     if (
-      typeof p.unrealizedYieldAtPrediction !== "number" ||
       typeof p.guess !== "number" ||
       typeof p.predictedAt !== "number" ||
       typeof p.cycleKey !== "string"
@@ -111,52 +116,93 @@ export function clearPrediction(familyPda: string, cycleKey: string): void {
   }
 }
 
-/** Find the most recent prior cycle's prediction (last 6 months). Used to
- *  resolve the previous cycle when it has rolled over. Returns the cycle
- *  key alongside so callers can update the same record. */
-export function findPriorPrediction(
-  familyPda: string,
-  currentCycle: string
-): { cycleKey: string; prediction: Prediction } | null {
-  if (typeof window === "undefined") return null;
-  // Walk back month by month, up to 6 months — enough to handle a kid who
-  // skipped a couple months and now opens the page.
-  const [cy, cm] = currentCycle.split("-").map(Number);
-  for (let back = 1; back <= 6; back++) {
-    const total = cy * 12 + (cm - 1) - back;
-    const py = Math.floor(total / 12);
-    const pm = (total % 12) + 1;
-    const key = `${py}-${String(pm).padStart(2, "0")}`;
-    const p = getPrediction(familyPda, key);
-    if (p) return { cycleKey: key, prediction: p };
+// ──────────── seeded RNG for the deterministic "actual" computation ────────
+
+function seedFromString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
-  return null;
+  return h >>> 0;
 }
 
-/** One-time migration: pre-cycle-key shape lived at the bare key
- *  `seedling-prediction-<familyPda>` (no cycle suffix). Drop those — they
- *  can't be resolved correctly under the new model. Safe to call on every
- *  mount; it's a no-op once the legacy record is gone. */
+function mulberry32(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s |= 0;
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Compute the simulated "actual yield" for a given calendar month, given
+ * the family's principal. Honest framing: this is what the savings WOULD
+ * have earned at Kamino's ~8% APY for the days in that month, with a
+ * small seeded jitter so the answer feels real rather than perfectly clean.
+ *
+ *   $30 principal, April (30 days):  base $0.20 → jittered $0.18 - $0.22
+ *   $300 principal, March (31 days): base $2.04 → jittered $1.83 - $2.24
+ *
+ * Deterministic given (principal, cycleKey, familyPda) — no need to store
+ * the result. Refresh shows the same answer.
+ */
+export function computeActualYield(
+  principalUsd: number,
+  cycleKey: string,
+  familyPda: string
+): number {
+  const days = daysInCycle(cycleKey);
+  const base = (principalUsd * 0.08 * days) / 365;
+  const rng = mulberry32(seedFromString(`actual|${familyPda}|${cycleKey}`));
+  // ±15% jitter — feels organic without being absurd.
+  const jitter = 0.85 + rng() * 0.3;
+  const jittered = base * jitter;
+  // Round to 2 decimals for sub-dollar amounts, 1 decimal for sub-$10,
+  // integer otherwise. Same magnitude rules as the chip set.
+  if (jittered < 1) return Math.max(0, Math.round(jittered * 100) / 100);
+  if (jittered < 10) return Math.max(0, Math.round(jittered * 10) / 10);
+  return Math.max(0, Math.round(jittered));
+}
+
+/** One-time migration: drop pre-cycle-key records that lived at the bare
+ *  key `seedling-prediction-<familyPda>` and any cycle-keyed records from
+ *  the old "wait for distribute" model that included the
+ *  `unrealizedYieldAtPrediction` field. Safe to call on every mount. */
 export function migrateLegacyRecord(familyPda: string): void {
   if (typeof window === "undefined") return;
   try {
-    const legacy = window.localStorage.getItem(
-      `${LEGACY_KEY_PREFIX}${familyPda}`
-    );
-    if (!legacy) return;
-    // The legacy key is identical to the cycle-keyed prefix without the
-    // `-YYYY-MM` suffix. Distinguish by checking whether the value is the
-    // legacy shape (no cycleKey field) versus a current cycle's record.
-    const parsed = JSON.parse(legacy) as Partial<Prediction>;
-    if (typeof parsed.cycleKey !== "string") {
-      window.localStorage.removeItem(`${LEGACY_KEY_PREFIX}${familyPda}`);
+    const bare = `${KEY_PREFIX}${familyPda}`;
+    const legacy = window.localStorage.getItem(bare);
+    if (legacy) {
+      const parsed = JSON.parse(legacy) as Partial<Prediction>;
+      if (typeof parsed.cycleKey !== "string") {
+        window.localStorage.removeItem(bare);
+      }
+    }
+    // Sweep cycle-keyed records that have the old shape (with
+    // unrealizedYieldAtPrediction). They're indistinguishable from current
+    // shape at parse time except for that extra field.
+    for (let i = window.localStorage.length - 1; i >= 0; i--) {
+      const key = window.localStorage.key(i);
+      if (!key || !key.startsWith(`${KEY_PREFIX}${familyPda}-`)) continue;
+      try {
+        const v = window.localStorage.getItem(key);
+        if (!v) continue;
+        const parsed = JSON.parse(v) as Partial<Prediction> & {
+          unrealizedYieldAtPrediction?: number;
+        };
+        if (typeof parsed.unrealizedYieldAtPrediction === "number") {
+          window.localStorage.removeItem(key);
+        }
+      } catch {
+        window.localStorage.removeItem(key);
+      }
     }
   } catch {
-    // Bad JSON — purge.
-    try {
-      window.localStorage.removeItem(`${LEGACY_KEY_PREFIX}${familyPda}`);
-    } catch {
-      /* noop */
-    }
+    // ignore
   }
 }
