@@ -148,8 +148,14 @@ export function KidView({ family, initialClock, kidName }: Props) {
   }, [familyKey]);
 
   const principalUsd = Number(family.principalRemaining.toString()) / 1_000_000;
-  const yieldEarnedUsd = Number(family.totalYieldEarned.toString()) / 1_000_000;
-  const combinedBalanceUsd = principalUsd + yieldEarnedUsd;
+  // "Earned in yield" reads as the LIVE unrealized yield — same number that's
+  // ticking in the hero ($familyValue - principal). The chain field
+  // `totalYieldEarned` only updates at monthly distribute events, so reading
+  // it here would show $0 forever until the first distribute fires. Using
+  // the live delta keeps the stat tile in sync with what the kid sees ticking.
+  const yieldEarnedUsd = Math.max(0, displayUsd - principalUsd);
+  // Combined balance = the live ticker value (already principal + yield).
+  const combinedBalanceUsd = displayUsd;
   // Time-based stage: rewards loyalty regardless of allowance size. Every
   // family hits stage 12 (mature, flowering) by month 11 — egalitarian.
   const createdAtSec = Number(family.createdAt.toString());
@@ -166,15 +172,16 @@ export function KidView({ family, initialClock, kidName }: Props) {
 
   const [giftOpen, setGiftOpen] = useState(false);
 
-  // Predict-and-reveal: hide the "earned in yield" stat while there's an
-  // unresolved prediction in localStorage, so the kid commits blind. Tile
-  // becomes visible again after the prediction resolves (distribute fires).
-  // Re-checked on the same `now` cadence already used elsewhere.
-  const [hideYield, setHideYield] = useState(false);
+  // Predict-and-reveal: hide the "earned in yield" stat tile UNLESS the
+  // current prediction has resolved. New kids see "— · —" until they
+  // make their first guess + the next distribute fires. Prevents the
+  // "answer is sitting right above the question" cheat path. Default
+  // state = hidden; only resolved → visible.
+  const [hideYield, setHideYield] = useState(true);
   useEffect(() => {
     const check = () => {
       const p = getPrediction(familyKey);
-      setHideYield(Boolean(p && !p.resolved));
+      setHideYield(!p?.resolved);
     };
     check();
     const id = setInterval(check, 2_000);
