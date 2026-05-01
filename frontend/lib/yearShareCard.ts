@@ -89,7 +89,9 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
   ctx.fillStyle = C.green700;
   ctx.font = "italic 400 132px Iowan Old Style, Georgia, serif";
   ctx.fillText("growing.", PAD, y);
-  y += 132 + 40; // headline + breathing room
+  y += 132 + 100; // headline + generous breathing room (the "growing."
+  // descender + the "MONTH BY MONTH" eyebrow were crowding each other on
+  // mobile renders; we have ~280px of slack at the bottom anyway).
 
   // ── monthly sparkline ──
   ctx.fillStyle = C.inkMuted;
