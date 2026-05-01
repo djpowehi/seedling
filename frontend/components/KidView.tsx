@@ -19,6 +19,7 @@ import { GiftModal } from "@/components/GiftModal";
 import { PredictionCard } from "@/components/PredictionCard";
 import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
 import { getGiftNames, shortPubkey, timeAgo } from "@/lib/giftNames";
+import { getPrediction } from "@/lib/predictions";
 import { useToast } from "@/components/Toast";
 
 const ESTIMATED_APY = 0.08;
@@ -165,6 +166,21 @@ export function KidView({ family, initialClock, kidName }: Props) {
 
   const [giftOpen, setGiftOpen] = useState(false);
 
+  // Predict-and-reveal: hide the "earned in yield" stat while there's an
+  // unresolved prediction in localStorage, so the kid commits blind. Tile
+  // becomes visible again after the prediction resolves (distribute fires).
+  // Re-checked on the same `now` cadence already used elsewhere.
+  const [hideYield, setHideYield] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const p = getPrediction(familyKey);
+      setHideYield(Boolean(p && !p.resolved));
+    };
+    check();
+    const id = setInterval(check, 2_000);
+    return () => clearInterval(id);
+  }, [familyKey]);
+
   // ───── gift wall (gifts only — top-ups by parent are filtered out) ─────
   const [gifts, setGifts] = useState<GiftEntry[]>([]);
   const [giftsLoading, setGiftsLoading] = useState(true);
@@ -268,8 +284,16 @@ export function KidView({ family, initialClock, kidName }: Props) {
           </div>
           <div className="kv-stat">
             <div className="kv-stat-label">earned in yield</div>
-            <div className="kv-stat-value">{fmt2(yieldEarnedUsd)}</div>
-            <div className="kv-stat-foot">since you started</div>
+            <div className="kv-stat-value">
+              {hideYield ? (
+                <span className="kv-stat-hidden">— · —</span>
+              ) : (
+                fmt2(yieldEarnedUsd)
+              )}
+            </div>
+            <div className="kv-stat-foot">
+              {hideYield ? "make your guess first" : "since you started"}
+            </div>
           </div>
         </section>
 
@@ -324,6 +348,8 @@ export function KidView({ family, initialClock, kidName }: Props) {
           kidName={kidName}
           totalYieldEarnedBaseUnits={family.totalYieldEarned.toString()}
           lastDistribution={lastDist}
+          createdAt={createdAtSec}
+          principalUsd={principalUsd}
           goal={
             goals[0]
               ? {

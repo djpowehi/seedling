@@ -25,7 +25,85 @@ import {
 } from "@/lib/predictions";
 import { renderShareCard, shareOrDownload } from "@/lib/shareCard";
 
-const CHIPS_USD = [0.1, 0.2, 0.5, 1.0] as const;
+/**
+ * Chip values scale with the family's principal AND vary per cycle so the
+ * answer can't be memorized.
+ *
+ * Factors are intentionally not clean (1.0 always means "exactly expected"),
+ * which would make chip #2 always the right answer. Instead we use a
+ * lightly-jittered spread anchored around the expected yield, then shuffle
+ * order. Both jitter and shuffle are seeded by (family + cycle) so the same
+ * period always renders the same chips — kid can't refresh to re-roll.
+ *
+ *   $30   principal → expected ≈ $0.20 → chips ~ $0.10 / $0.20 / $0.40 / $1.00
+ *   $300  principal → expected ≈ $2.00 → chips ~ $1 / $2 / $4 / $10
+ *   $1800 principal → expected ≈ $12.00 → chips ~ $6 / $12 / $24 / $60
+ */
+
+// Deterministic 32-bit hash → seed. Same input → same chip layout every render.
+function seedFromString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+// Mulberry32 PRNG — small, fast, no deps. Returns deterministic [0, 1).
+function mulberry32(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s |= 0;
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function scaleChips(principalUsd: number, seedKey: string): number[] {
+  const expected = Math.max(0.05, (principalUsd * 0.08) / 12);
+  const rng = mulberry32(seedFromString(seedKey));
+
+  // Four factors with jitter so the answer rarely lands exactly on one chip.
+  // Base bands: low, near-expected, above-expected, outlier. Each band gets
+  // a ±15% wobble so values shift cycle-to-cycle.
+  const wobble = (lo: number, hi: number) => lo + rng() * (hi - lo);
+  const factors = [
+    wobble(0.4, 0.7), // low
+    wobble(0.85, 1.2), // near-expected (NOT exactly 1.0)
+    wobble(1.7, 2.4), // above
+    wobble(3.5, 5.5), // outlier
+  ];
+
+  const round = (v: number): number => {
+    if (v < 1) return Math.round(v * 100) / 100;
+    if (v < 10) return Math.round(v * 10) / 10;
+    return Math.round(v);
+  };
+
+  const values = factors.map((f) => round(expected * f));
+  // Dedup before shuffling so identical rounded values don't appear twice.
+  const unique = [...new Set(values)];
+
+  // Fisher-Yates shuffle, also seeded — kid can't tell "answer is always 2nd".
+  for (let i = unique.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [unique[i], unique[j]] = [unique[j], unique[i]];
+  }
+  return unique;
+}
+
+/** Cycle index = number of completed monthly distributes. Each cycle gets a
+ * fresh seed so chip layout shifts month over month. */
+function cycleIndex(lastDistribution: number, createdAt: number): number {
+  const elapsedMonths = Math.max(
+    0,
+    Math.floor((lastDistribution - createdAt) / (30 * 86_400))
+  );
+  return elapsedMonths;
+}
 
 type Props = {
   familyKey: string;
@@ -34,6 +112,10 @@ type Props = {
   totalYieldEarnedBaseUnits: string;
   /** Most recent distribute timestamp from chain (unix sec). */
   lastDistribution: number;
+  /** Family creation timestamp (unix sec) — used to compute cycle index. */
+  createdAt: number;
+  /** Family principal in dollars — drives the chip scale. */
+  principalUsd: number;
   /** Optional savings goal context for the share card. */
   goal?: { label: string; progressUsd: number; targetUsd: number };
 };
@@ -48,8 +130,18 @@ export function PredictionCard({
   kidName,
   totalYieldEarnedBaseUnits,
   lastDistribution,
+  createdAt,
+  principalUsd,
   goal,
 }: Props) {
+  // Seed = family + cycle. Same period always renders the same chip layout
+  // (kid can't refresh to re-roll the answer); next period gets a fresh
+  // shuffle + new factor wobble.
+  const cycle = cycleIndex(lastDistribution, createdAt);
+  const chips = useMemo(
+    () => scaleChips(principalUsd, `${familyKey}|${cycle}`),
+    [principalUsd, familyKey, cycle]
+  );
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [busy, setBusy] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
@@ -144,14 +236,18 @@ export function PredictionCard({
             how much yield will your savings earn this month?
           </p>
           <div className="kv-predict-chips">
-            {CHIPS_USD.map((v) => (
+            {chips.map((v) => (
               <button
                 key={v}
                 type="button"
                 className="kv-predict-chip"
                 onClick={() => handleGuess(v)}
               >
-                ${v.toFixed(2)}
+                {v < 1
+                  ? `$${v.toFixed(2)}`
+                  : v < 10
+                  ? `$${v.toFixed(1)}`
+                  : `$${v}`}
               </button>
             ))}
           </div>
