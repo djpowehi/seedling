@@ -275,11 +275,17 @@ export function KidView({ family, initialClock, kidName }: Props) {
           <div className="kv-ticker-label">your money, right now</div>
           <div className="kv-ticker-num">
             <span className="kv-ticker-whole">{ticker.whole}</span>
-            <span className="kv-ticker-dec">{ticker.dec}</span>
+            {hideYield ? (
+              <span className="kv-ticker-dec kv-ticker-hidden">.••••</span>
+            ) : (
+              <span className="kv-ticker-dec">{ticker.dec}</span>
+            )}
           </div>
           <div className="kv-ticker-sub">
             <span className="kv-tick-dot"></span>
-            estimated 8% APY · ticking on Solana
+            {hideYield
+              ? "make your guess to see the cents"
+              : "estimated 8% APY · ticking on Solana"}
           </div>
         </section>
 
@@ -643,6 +649,10 @@ const KID_VIEW_STYLES = `
   .kv-ticker-dec {
     color: var(--green-600); font-size: 0.55em;
     margin-left: 2px; letter-spacing: -0.01em;
+  }
+  .kv-ticker-hidden {
+    color: var(--stone-500); letter-spacing: 0.05em;
+    font-feature-settings: "tnum";
   }
   .kv-ticker-sub {
     font-family: var(--mono); font-size: 11px;
