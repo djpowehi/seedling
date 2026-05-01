@@ -17,6 +17,7 @@ import { getSavingsGoals, type SavingsGoal } from "@/lib/savingsGoals";
 import { Tree, stageForMonths, monthsSince } from "@/components/Tree";
 import { GiftModal } from "@/components/GiftModal";
 import { PredictionCard } from "@/components/PredictionCard";
+import { YearRecap } from "@/components/YearRecap";
 import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
 import { getGiftNames, shortPubkey, timeAgo } from "@/lib/giftNames";
 import { currentCycleKey, getPrediction } from "@/lib/predictions";
@@ -273,6 +274,16 @@ export function KidView({ family, initialClock, kidName }: Props) {
           </h1>
         </header>
 
+        {bonusReady && (
+          <YearRecap
+            familyKey={familyKey}
+            kidName={kidName}
+            principalUsd={principalUsd}
+            monthlyStreamRateUsd={monthlyAllowanceUsd}
+            bonusReady={bonusReady}
+          />
+        )}
+
         <div className="kv-tree-wrap">
           <Tree stage={stage} bonusReady={bonusReady} />
         </div>
@@ -451,6 +462,16 @@ export function KidView({ family, initialClock, kidName }: Props) {
         {goals.map((goal) => (
           <GoalCard key={goal.id} goal={goal} balanceUsd={combinedBalanceUsd} />
         ))}
+
+        {!bonusReady && (
+          <YearRecap
+            familyKey={familyKey}
+            kidName={kidName}
+            principalUsd={principalUsd}
+            monthlyStreamRateUsd={monthlyAllowanceUsd}
+            bonusReady={bonusReady}
+          />
+        )}
 
         <GiftModal
           familyPda={familyKey}
