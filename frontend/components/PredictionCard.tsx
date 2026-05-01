@@ -31,7 +31,12 @@ import {
   savePrediction,
   type Prediction,
 } from "@/lib/predictions";
-import { renderShareCard, shareOrDownload } from "@/lib/shareCard";
+import {
+  canNativeShare,
+  downloadImage,
+  renderShareCard,
+  shareImage,
+} from "@/lib/shareCard";
 
 function fmtChip(v: number): string {
   if (v < 1) return `$${v.toFixed(2)}`;
@@ -159,9 +164,9 @@ export function PredictionCard({
         goalProgressUsd: goal?.progressUsd,
         goalTargetUsd: goal?.targetUsd,
       });
-      // Stash the blob + URL for the modal; don't trigger download yet.
-      // The modal's Download button will run shareOrDownload when the
-      // kid explicitly chooses to save / share.
+      // Stash the blob + URL for the modal; don't act on it yet. The
+      // modal exposes two distinct actions (share / download) — the kid
+      // picks which one fires.
       const url = URL.createObjectURL(blob);
       setPreviewBlob(blob);
       setPreviewUrl(url);
@@ -174,12 +179,17 @@ export function PredictionCard({
     }
   };
 
-  const handleDownloadFromPreview = async () => {
+  const filename = `seedling-${kidName ?? "kid"}-${targetCycle}.png`;
+  const sharable = previewBlob ? canNativeShare(previewBlob, filename) : false;
+
+  const handleSharePreview = async () => {
     if (!previewBlob) return;
-    await shareOrDownload(
-      previewBlob,
-      `seedling-${kidName ?? "kid"}-${targetCycle}.png`
-    );
+    await shareImage(previewBlob, filename);
+  };
+
+  const handleDownloadPreview = () => {
+    if (!previewBlob) return;
+    downloadImage(previewBlob, filename);
   };
 
   const handleClosePreview = () => {
@@ -348,12 +358,21 @@ export function PredictionCard({
               className="kv-share-img"
             />
             <div className="kv-share-actions">
+              {sharable && (
+                <button
+                  type="button"
+                  className="kv-predict-share"
+                  onClick={handleSharePreview}
+                >
+                  share
+                </button>
+              )}
               <button
                 type="button"
                 className="kv-predict-share"
-                onClick={handleDownloadFromPreview}
+                onClick={handleDownloadPreview}
               >
-                download / share
+                download
               </button>
               <button
                 type="button"
@@ -364,8 +383,9 @@ export function PredictionCard({
               </button>
             </div>
             <div className="kv-share-foot">
-              the card downloads, or opens your phone&apos;s share sheet on
-              mobile.
+              {sharable
+                ? "share opens your phone's share sheet · download saves the image."
+                : "download saves the image to your computer."}
             </div>
           </div>
         </div>
