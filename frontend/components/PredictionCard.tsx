@@ -75,7 +75,19 @@ export function PredictionCard({
   const [pendingGuess, setPendingGuess] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  // Preview state: when the kid clicks "share my month", we render the
+  // PNG and show it in a modal with explicit Download / Share buttons —
+  // never auto-downloading without the kid seeing the card first.
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const initializedRef = useRef(false);
+
+  // Revoke the object URL when the preview closes or component unmounts.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   // Hydrate on mount + cycle change. Run the legacy-record sweep once.
   useEffect(() => {
@@ -132,10 +144,12 @@ export function PredictionCard({
         goalProgressUsd: goal?.progressUsd,
         goalTargetUsd: goal?.targetUsd,
       });
-      await shareOrDownload(
-        blob,
-        `seedling-${kidName ?? "kid"}-${targetCycle}.png`
-      );
+      // Stash the blob + URL for the modal; don't trigger download yet.
+      // The modal's Download button will run shareOrDownload when the
+      // kid explicitly chooses to save / share.
+      const url = URL.createObjectURL(blob);
+      setPreviewBlob(blob);
+      setPreviewUrl(url);
     } catch (e) {
       setShareError(
         e instanceof Error ? e.message : "couldn't generate the card"
@@ -143,6 +157,20 @@ export function PredictionCard({
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleDownloadFromPreview = async () => {
+    if (!previewBlob) return;
+    await shareOrDownload(
+      previewBlob,
+      `seedling-${kidName ?? "kid"}-${targetCycle}.png`
+    );
+  };
+
+  const handleClosePreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewBlob(null);
+    setPreviewUrl(null);
   };
 
   // ──────────── render ────────────
@@ -266,6 +294,48 @@ export function PredictionCard({
             next prompt opens on the 1st of next month.
           </div>
         </>
+      )}
+
+      {previewUrl && (
+        <div className="kv-share-overlay" onClick={handleClosePreview}>
+          <div className="kv-share-sheet" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="kv-share-close"
+              onClick={handleClosePreview}
+              aria-label="close"
+            >
+              ×
+            </button>
+            <div className="kv-share-eyebrow">your card · ready to share</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewUrl}
+              alt="seedling monthly recap"
+              className="kv-share-img"
+            />
+            <div className="kv-share-actions">
+              <button
+                type="button"
+                className="kv-predict-share"
+                onClick={handleDownloadFromPreview}
+              >
+                download / share
+              </button>
+              <button
+                type="button"
+                className="kv-predict-next"
+                onClick={handleClosePreview}
+              >
+                close
+              </button>
+            </div>
+            <div className="kv-share-foot">
+              the card downloads, or opens your phone&apos;s share sheet on
+              mobile.
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );
@@ -392,5 +462,61 @@ const PREDICT_STYLES = `
   .kv-predict-err {
     font-family: var(--mono); font-size: 11px;
     color: #C84A3D;
+  }
+
+  .kv-share-overlay {
+    position: fixed; inset: 0;
+    background: rgba(31, 58, 42, 0.5);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 60;
+    padding: 16px;
+    animation: kv-share-fade 200ms ease-out;
+  }
+  @keyframes kv-share-fade { from { opacity: 0; } to { opacity: 1; } }
+  .kv-share-sheet {
+    position: relative;
+    background: #FBF8F2;
+    width: 100%; max-width: 440px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    border-radius: 24px 24px 0 0;
+    padding: 22px 22px 28px;
+    display: flex; flex-direction: column; gap: 14px;
+    animation: kv-share-slide 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: 0 -20px 60px rgba(31, 58, 42, 0.18);
+  }
+  @keyframes kv-share-slide {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+  @media (min-width: 540px) {
+    .kv-share-overlay { align-items: center; }
+    .kv-share-sheet { border-radius: 24px; }
+  }
+  .kv-share-close {
+    position: absolute; top: 10px; right: 14px;
+    width: 32px; height: 32px;
+    background: transparent; border: none;
+    font-size: 26px; line-height: 1;
+    color: var(--ink-muted);
+    cursor: pointer; border-radius: 50%;
+  }
+  .kv-share-close:hover { background: var(--stone-200); color: var(--ink); }
+  .kv-share-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--ink-muted);
+  }
+  .kv-share-img {
+    display: block; width: 100%; height: auto;
+    border-radius: 12px;
+    border: 1px solid var(--stone-200);
+  }
+  .kv-share-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .kv-share-actions .kv-predict-share { flex: 1; min-width: 140px; }
+  .kv-share-foot {
+    font-family: var(--mono);
+    font-size: 11px; letter-spacing: 0.04em;
+    color: var(--ink-muted); text-align: center;
   }
 `;
