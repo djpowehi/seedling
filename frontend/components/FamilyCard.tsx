@@ -10,7 +10,7 @@ import { RemoveKidButton } from "@/components/RemoveKidButton";
 import { SavingsGoals } from "@/components/SavingsGoals";
 import { WithdrawForm } from "@/components/WithdrawForm";
 import { formatUsdc, relativeTime, shortPubkey } from "@/lib/format";
-import { getKidName, setKidName } from "@/lib/kidNames";
+import { encodeKidNameToUrl, getKidName, setKidName } from "@/lib/kidNames";
 import type { FamilyView } from "@/lib/fetchFamilies";
 import type { Seedling } from "@/lib/types";
 
@@ -35,14 +35,18 @@ export function FamilyCard({
   const familyKey = family.pubkey.toBase58();
 
   const copyKidLink = async () => {
-    const url = `${window.location.origin}/kid/${familyKey}`;
+    // Bake the kid's name into the link so it survives the cross-device
+    // hop (parent's laptop → kid's phone). The kid view strips `?n=`
+    // after persisting the name to localStorage on first load.
+    const base = `${window.location.origin}/kid/${familyKey}`;
+    const url = encodeKidNameToUrl(base, getKidName(familyKey));
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
       // Older browsers / insecure context — fall back to opening the link.
-      window.open(`/kid/${familyKey}`, "_blank");
+      window.open(url.replace(window.location.origin, ""), "_blank");
     }
   };
   // localStorage is browser-only; useEffect avoids SSR/hydration mismatch.

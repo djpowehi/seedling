@@ -17,7 +17,12 @@ import type { Program } from "@coral-xyz/anchor";
 import { DEVNET_ADDRESSES, PROGRAM_ID } from "@/lib/program";
 import { celebrateBonus, celebrateMonthly } from "@/lib/celebrate";
 import { fetchFamilyByPda } from "@/lib/fetchFamilyByPda";
-import { getKidName, setKidName, removeKidName } from "@/lib/kidNames";
+import {
+  encodeKidNameToUrl,
+  getKidName,
+  removeKidName,
+  setKidName,
+} from "@/lib/kidNames";
 import {
   getSavingsGoals,
   removeSavingsGoal,
@@ -165,7 +170,11 @@ export function FamilyCard({
   };
 
   const copyKidPageLink = async () => {
-    const url = `${window.location.origin}/kid/${familyKey}`;
+    // Bake the kid's name into the link so the receiving device sees
+    // "hi Maria" on first load instead of "hi friend". The kid view
+    // strips `?n=` after persisting the name to localStorage.
+    const base = `${window.location.origin}/kid/${familyKey}`;
+    const url = encodeKidNameToUrl(base, getKidName(familyKey));
     await navigator.clipboard?.writeText(url);
     showToast({ title: "kid's page link copied" });
   };
