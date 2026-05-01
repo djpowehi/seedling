@@ -10,7 +10,7 @@ import {
   type VaultClock,
 } from "@/lib/fetchFamilyByPda";
 import type { FamilyView } from "@/lib/fetchFamilies";
-import { getKidName } from "@/lib/kidNames";
+import { decodeKidNameFromUrl, getKidName, setKidName } from "@/lib/kidNames";
 import { KidView } from "@/components/KidView";
 
 type PageProps = {
@@ -45,7 +45,35 @@ export default function KidViewPage({ params }: PageProps) {
         }
         setFamily(fam);
         setClock(clk);
-        setName(getKidName(pda.toBase58()));
+
+        // Resolve kid name. Order:
+        //   1. URL `?n=<base64url>` — name baked in by the parent's
+        //      "share kid view" link. Persisted to localStorage on first
+        //      sight, then stripped from the URL so refreshes look clean.
+        //   2. Existing localStorage entry from a prior visit on this
+        //      device.
+        // localStorage wins on subsequent visits — once a device has the
+        // name, the URL param is redundant.
+        const familyKey = pda.toBase58();
+        const local = getKidName(familyKey);
+        let resolved = local;
+        if (typeof window !== "undefined") {
+          const fromUrl = decodeKidNameFromUrl(
+            new URLSearchParams(window.location.search)
+          );
+          if (fromUrl && !local) {
+            setKidName(familyKey, fromUrl);
+            resolved = fromUrl;
+          }
+          // Always strip `?n=` so the URL stays tidy regardless of whether
+          // the value was new or already known.
+          const url = new URL(window.location.href);
+          if (url.searchParams.has("n")) {
+            url.searchParams.delete("n");
+            window.history.replaceState({}, "", url.toString());
+          }
+        }
+        setName(resolved);
         setLoading(false);
       } catch (e) {
         if (cancelled) return;
