@@ -43,11 +43,11 @@ export const DASHBOARD_STYLES = `
 
   .dash-eyebrow {
     font-family: var(--font-jetbrains-mono), monospace;
-    font-size: 11px; letter-spacing: 0.16em;
+    font-size: 13px; letter-spacing: 0.18em;
     text-transform: uppercase; color: var(--ink-3);
-    display: inline-flex; align-items: center; gap: 10px;
+    display: inline-flex; align-items: center; gap: 11px;
   }
-  .dash-eyebrow .rule { width: 28px; height: 1px; background: var(--ink-3); display: inline-block; }
+  .dash-eyebrow .rule { width: 32px; height: 1px; background: var(--ink-3); display: inline-block; }
 
   .dash-pulse-dot { position: relative; width: 8px; height: 8px; display: inline-block; }
   .dash-pulse-dot::before, .dash-pulse-dot::after {
@@ -61,7 +61,11 @@ export const DASHBOARD_STYLES = `
   }
 
   .dash-card {
-    background: #FFFDF7;
+    /* Was #FFFDF7 — too white against the now-darker (#F4EFE3) canvas;
+       cards looked like they were floating in another colorway. Pulled
+       toward the canvas family while staying lighter than it so depth
+       still reads. */
+    background: #FBF6E9;
     border: 1px solid var(--line-soft);
     border-radius: 4px;
     transition: transform 280ms cubic-bezier(.2,.7,.2,1),

@@ -725,20 +725,20 @@ const KID_VIEW_STYLES = `
     padding: 18px 18px 20px;
     display: flex; flex-direction: column; gap: 14px;
   }
-  /* Per-section tints so each card reads as a different "world" instead
-     of a wall of identical cream rectangles. Subtle — stays in the warm
-     palette, doesn't fight the brand. STBR feedback Apr 28. */
+  /* Per-section tints — refined to whisper-soft (one shade off cream)
+     so each card has its own "world" without screaming for attention.
+     Borders pick up the same hue at slightly higher saturation. */
   .kv-card.kv-countdowns {
-    background: linear-gradient(135deg, #FBF8F2 0%, #E5EFE3 100%);
-    border-color: #C5D9C2;
+    background: linear-gradient(135deg, #FBF8F2 0%, #ECF2EA 100%);
+    border-color: #D2DFCE;
   }
   .kv-card.kv-predict {
-    background: linear-gradient(135deg, #FBF8F2 0%, #F5E8C0 100%);
-    border-color: #D9C088;
+    background: linear-gradient(135deg, #FBF8F2 0%, #F2EBD7 100%);
+    border-color: #DAD0AE;
   }
   .kv-card.kv-gift-wall {
-    background: linear-gradient(135deg, #FBF8F2 0%, #F0E0CB 100%);
-    border-color: #D6BB97;
+    background: linear-gradient(135deg, #FBF8F2 0%, #F0E5D5 100%);
+    border-color: #D8C7AE;
   }
   .kv-card.kv-goal {
     background: linear-gradient(135deg, #FBF8F2 0%, #ECE4D2 100%);
