@@ -171,7 +171,10 @@ export function YearRecap({
 
       {open && (
         <div className="yr-overlay" onClick={handleClose}>
-          <div className="yr-stage" onClick={(e) => e.stopPropagation()}>
+          <div
+            className={`yr-stage ${previewUrl ? "yr-stage-preview-open" : ""}`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="yr-progress">
               {slides.map((_, i) => (
                 <span
@@ -693,10 +696,16 @@ const YEAR_STYLES = `
   }
   .yr-btn-quiet:hover { border-color: var(--green-700); color: var(--green-700); }
 
+  /* When the share preview is open, hide the stories chrome so its progress
+     pips and close button don't bleed through the preview's translucent
+     backdrop and overlap the preview modal's own close button. */
+  .yr-stage-preview-open .yr-progress,
+  .yr-stage-preview-open .yr-close { display: none; }
+
   /* Preview modal (over the stories overlay) */
   .yr-preview-overlay {
     position: fixed; inset: 0;
-    background: rgba(31, 58, 42, 0.5);
+    background: rgba(31, 58, 42, 0.78);
     z-index: 80;
     display: flex; align-items: flex-end; justify-content: center;
     padding: 16px;

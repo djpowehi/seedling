@@ -95,7 +95,11 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
   ctx.fillStyle = C.inkMuted;
   ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
   ctx.fillText("MONTH BY MONTH", PAD, y);
-  y += 36;
+  y += 30;
+  ctx.fillStyle = C.inkSoft;
+  ctx.font = "italic 400 30px Iowan Old Style, Georgia, serif";
+  ctx.fillText("monthly yield", PAD, y);
+  y += 38;
 
   const chartTop = y;
   const chartH = 320;
