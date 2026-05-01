@@ -22,7 +22,7 @@ import {
   type YearRecap,
 } from "@/lib/yearRecap";
 import { renderYearShareCard } from "@/lib/yearShareCard";
-import { shareOrDownload } from "@/lib/shareCard";
+import { canNativeShare, downloadImage, shareImage } from "@/lib/shareCard";
 import { Tree, type Stage } from "@/components/Tree";
 
 type Props = {
@@ -156,12 +156,17 @@ export function YearRecap({
     }
   };
 
-  const handleDownload = async () => {
+  const filename = `seedling-${kidName ?? "kid"}-${yearLabel}-year.png`;
+  const sharable = previewBlob ? canNativeShare(previewBlob, filename) : false;
+
+  const handleSharePreview = async () => {
     if (!previewBlob) return;
-    await shareOrDownload(
-      previewBlob,
-      `seedling-${kidName ?? "kid"}-${yearLabel}-year.png`
-    );
+    await shareImage(previewBlob, filename);
+  };
+
+  const handleDownloadPreview = () => {
+    if (!previewBlob) return;
+    downloadImage(previewBlob, filename);
   };
 
   // ──────────── render ────────────
@@ -221,7 +226,9 @@ export function YearRecap({
               onClose={handleClose}
               busy={busy}
               previewUrl={previewUrl}
-              onDownload={handleDownload}
+              sharable={sharable}
+              onShareCard={handleSharePreview}
+              onDownloadCard={handleDownloadPreview}
               onClosePreview={() => {
                 if (previewUrl) URL.revokeObjectURL(previewUrl);
                 setPreviewBlob(null);
@@ -302,7 +309,9 @@ function SlideView({
   onClose,
   busy,
   previewUrl,
-  onDownload,
+  sharable,
+  onShareCard,
+  onDownloadCard,
   onClosePreview,
 }: {
   slide: Slide;
@@ -311,7 +320,9 @@ function SlideView({
   onClose: () => void;
   busy: boolean;
   previewUrl: string | null;
-  onDownload: () => void;
+  sharable: boolean;
+  onShareCard: () => void;
+  onDownloadCard: () => void;
   onClosePreview: () => void;
 }) {
   const startYear = recap.startCycleKey.slice(0, 4);
@@ -457,12 +468,21 @@ function SlideView({
               className="yr-preview-img"
             />
             <div className="yr-actions">
+              {sharable && (
+                <button
+                  type="button"
+                  className="yr-btn yr-btn-primary"
+                  onClick={onShareCard}
+                >
+                  share
+                </button>
+              )}
               <button
                 type="button"
                 className="yr-btn yr-btn-primary"
-                onClick={onDownload}
+                onClick={onDownloadCard}
               >
-                download / share
+                download
               </button>
               <button
                 type="button"

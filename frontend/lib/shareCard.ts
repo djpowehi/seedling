@@ -191,27 +191,41 @@ export async function renderShareCard(data: ShareCardData): Promise<Blob> {
   });
 }
 
-/** Trigger native share sheet on mobile, fall back to download on desktop. */
-export async function shareOrDownload(
+/** Reports whether the runtime can hand the file to the OS share sheet
+ *  (mobile + some desktop browsers). Use this to decide whether to render
+ *  the "share" button at all — desktop browsers without canShare get a
+ *  download-only experience instead of a share button that silently fails. */
+export function canNativeShare(blob: Blob, filename: string): boolean {
+  if (typeof navigator === "undefined") return false;
+  if (
+    typeof navigator.share !== "function" ||
+    typeof navigator.canShare !== "function"
+  ) {
+    return false;
+  }
+  const file = new File([blob], filename, { type: "image/png" });
+  return navigator.canShare({ files: [file] });
+}
+
+/** Hand the image to the OS share sheet. Returns false if share isn't
+ *  available OR the user cancelled — caller can decide whether to fall
+ *  back. Never triggers a download by itself. */
+export async function shareImage(
   blob: Blob,
   filename: string
-): Promise<void> {
-  const file = new File([blob], filename, { type: "image/png" });
-  // navigator.share with files only works on mobile + some desktop browsers.
-  if (
-    typeof navigator !== "undefined" &&
-    typeof navigator.share === "function" &&
-    typeof navigator.canShare === "function" &&
-    navigator.canShare({ files: [file] })
-  ) {
-    try {
-      await navigator.share({ files: [file] });
-      return;
-    } catch {
-      // user cancelled or share failed — fall through to download
-    }
+): Promise<boolean> {
+  if (!canNativeShare(blob, filename)) return false;
+  try {
+    const file = new File([blob], filename, { type: "image/png" });
+    await navigator.share({ files: [file] });
+    return true;
+  } catch {
+    return false;
   }
-  // Download fallback.
+}
+
+/** Save the image to the user's downloads. Always works; no share sheet. */
+export function downloadImage(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
