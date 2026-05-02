@@ -22,7 +22,10 @@ import type { Seedling } from "@/lib/types";
 import { ArrowR } from "./icons";
 
 const MIN_STREAM_USD = 1;
-const MAX_STREAM_USD = 1000;
+// Practical ceiling — chain-side u64 holds way more, but $100k/mo per kid
+// is the highest realistic family allowance and prevents accidental
+// "I typed 100000 by mistake" disasters.
+const MAX_STREAM_USD = 100_000;
 
 type Props = {
   program: Program<Seedling>;
@@ -301,7 +304,7 @@ export function AddKidForm({
           </div>
           <div className="dash-col">
             <label className="dash-field-label">
-              monthly · ${MIN_STREAM_USD}–${MAX_STREAM_USD}
+              monthly · min ${MIN_STREAM_USD}
             </label>
             <input
               className="dash-mono-input"
@@ -637,25 +640,73 @@ function ModePicker({
             </span>
           </div>
 
-          {hybridShortfall > 0 && (
-            <div
+          {/* Suggest switching out of hybrid when one of the two amounts
+              is zero — that's not a hybrid, that's yearly (monthly=0)
+              or monthly (upfront=0). Cleaner for the parent. */}
+          {liveHybrid.upfrontUsd === 0 && liveHybrid.monthlyUsd > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange("monthly")}
               className="dash-mono"
               style={{
                 fontSize: 11,
-                color: "var(--rose)",
-                background: "rgba(176, 71, 58, 0.08)",
+                color: "var(--forest-deep)",
+                background: "rgba(46, 92, 64, 0.08)",
                 padding: "8px 10px",
                 borderRadius: 6,
-                border: "1px solid rgba(176, 71, 58, 0.25)",
+                border: "1px solid rgba(46, 92, 64, 0.25)",
+                cursor: "pointer",
+                textAlign: "left",
+                lineHeight: 1.5,
               }}
             >
-              your deposits cover ${Math.round(hybridTotal).toLocaleString()},
-              but the kid needs ${minCommitment.toLocaleString()} over the year.
-              the allowance will pause $
-              {Math.round(hybridShortfall).toLocaleString()} short unless you
-              add more.
-            </div>
+              upfront is $0 → that&apos;s monthly, not hybrid. tap to switch to
+              the monthly cadence (cleaner setup).
+            </button>
           )}
+          {liveHybrid.upfrontUsd > 0 && liveHybrid.monthlyUsd === 0 && (
+            <button
+              type="button"
+              onClick={() => onChange("yearly")}
+              className="dash-mono"
+              style={{
+                fontSize: 11,
+                color: "var(--forest-deep)",
+                background: "rgba(46, 92, 64, 0.08)",
+                padding: "8px 10px",
+                borderRadius: 6,
+                border: "1px solid rgba(46, 92, 64, 0.25)",
+                cursor: "pointer",
+                textAlign: "left",
+                lineHeight: 1.5,
+              }}
+            >
+              monthly top-up is $0 → that&apos;s yearly, not hybrid. tap to
+              switch to the yearly cadence (one deposit, max yield).
+            </button>
+          )}
+
+          {hybridShortfall > 0 &&
+            liveHybrid.upfrontUsd > 0 &&
+            liveHybrid.monthlyUsd > 0 && (
+              <div
+                className="dash-mono"
+                style={{
+                  fontSize: 11,
+                  color: "var(--rose)",
+                  background: "rgba(176, 71, 58, 0.08)",
+                  padding: "8px 10px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(176, 71, 58, 0.25)",
+                }}
+              >
+                your deposits cover ${Math.round(hybridTotal).toLocaleString()},
+                but the kid needs ${minCommitment.toLocaleString()} over the
+                year. the allowance will pause $
+                {Math.round(hybridShortfall).toLocaleString()} short unless you
+                add more.
+              </div>
+            )}
         </div>
       )}
 
