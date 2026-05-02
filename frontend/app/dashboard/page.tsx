@@ -14,6 +14,14 @@ import { FamilyCard } from "@/components/dashboard/FamilyCard";
 import { Plus } from "@/components/dashboard/icons";
 import { DASHBOARD_STYLES } from "@/components/dashboard/styles";
 
+// Orda widget brings ~1MB of EVM/wallet-connect machinery we don't want
+// in the initial bundle. ssr:false so Reown's window registration runs
+// only on the client.
+const OrdaWidgetModal = dynamic(
+  async () => (await import("@/components/OrdaWidgetModal")).OrdaWidgetModal,
+  { ssr: false }
+);
+
 const WalletMultiButton = dynamic(
   async () =>
     (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
@@ -30,6 +38,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showFunds, setShowFunds] = useState(false);
 
   const refetch = useCallback(async () => {
     if (!seedling || !publicKey) return;
@@ -64,7 +73,7 @@ export default function Dashboard() {
             seedling
             <span className="dot" />
           </Link>
-          <div className="dash-row" style={{ gap: 28, alignItems: "center" }}>
+          <div className="dash-row" style={{ gap: 18, alignItems: "center" }}>
             <span
               className="dash-mono"
               style={{
@@ -80,6 +89,17 @@ export default function Dashboard() {
               <span className="dash-pulse-dot" />
               live on Solana
             </span>
+            {connected && (
+              <button
+                type="button"
+                className="dash-btn dash-btn-ghost"
+                onClick={() => setShowFunds(true)}
+                style={{ padding: "6px 14px", fontSize: 13 }}
+                title="Convert BRL ⇄ USDC via PIX"
+              >
+                + add funds
+              </button>
+            )}
             <WalletMultiButton />
           </div>
         </div>
@@ -261,6 +281,8 @@ export default function Dashboard() {
           </div>
         </div>
       </footer>
+
+      <OrdaWidgetModal open={showFunds} onClose={() => setShowFunds(false)} />
     </div>
   );
 }
