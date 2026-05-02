@@ -29,9 +29,19 @@
 
 export type DepositMode = "yearly" | "hybrid" | "monthly";
 
+/** Custom hybrid trajectory — parent-chosen upfront + monthly USD amounts.
+ *  When undefined, depositForMonth falls back to the brand default
+ *  (8× stream upfront + 0.4× stream monthly). */
+export type HybridConfig = {
+  upfrontUsd: number;
+  monthlyUsd: number;
+};
+
 const STORAGE_KEY = "seedling.depositModes";
+const HYBRID_KEY = "seedling.hybridConfigs";
 
 type ModeMap = Record<string, DepositMode>;
+type HybridMap = Record<string, HybridConfig>;
 
 function read(): ModeMap {
   if (typeof window === "undefined") return {};
@@ -73,6 +83,62 @@ export function removeDepositMode(familyPubkey: string): void {
   write(map);
 }
 
+// ──────────── hybrid config (per-family customization) ────────────
+
+function readHybrids(): HybridMap {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(HYBRID_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeHybrids(map: HybridMap): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(HYBRID_KEY, JSON.stringify(map));
+  } catch {
+    // silent — falls back to brand-default trajectory
+  }
+}
+
+export function getHybridConfig(familyPubkey: string): HybridConfig | null {
+  const v = readHybrids()[familyPubkey];
+  if (
+    !v ||
+    typeof v.upfrontUsd !== "number" ||
+    typeof v.monthlyUsd !== "number"
+  ) {
+    return null;
+  }
+  return v;
+}
+
+export function setHybridConfig(
+  familyPubkey: string,
+  config: HybridConfig
+): void {
+  const map = readHybrids();
+  map[familyPubkey] = {
+    upfrontUsd: Math.max(0, config.upfrontUsd),
+    monthlyUsd: Math.max(0, config.monthlyUsd),
+  };
+  writeHybrids(map);
+}
+
+/** Brand-default hybrid trajectory: 8× stream upfront + 0.4× monthly.
+ *  Recovers ~70% of yearly's yield at roughly the same total commitment. */
+export function defaultHybridConfig(streamRateUsd: number): HybridConfig {
+  return {
+    upfrontUsd: Math.round(streamRateUsd * 8),
+    monthlyUsd: Math.round(streamRateUsd * 0.4 * 100) / 100,
+  };
+}
+
 // ──────────── deposit trajectory math ────────────
 //
 // Given a stream rate and a mode, returns the deposit amount the parent
@@ -84,7 +150,8 @@ export function removeDepositMode(familyPubkey: string): void {
 export function depositForMonth(
   mode: DepositMode,
   monthIndex: number,
-  streamRateUsd: number
+  streamRateUsd: number,
+  hybridConfig?: HybridConfig | null
 ): number {
   if (monthIndex < 0 || monthIndex > 11) return 0;
   const stream = Math.max(0, streamRateUsd);
@@ -93,12 +160,11 @@ export function depositForMonth(
     return monthIndex === 0 ? stream * 12 : 0;
   }
   if (mode === "hybrid") {
-    // 8× stream up front (covers the kid's first 8 months of allowance
-    // even if the parent forgets to top up), then 0.4× stream monthly
-    // for the remaining 11 months → 12.4× total. Recovers ~70% of
-    // yearly's yield. See file header for the trade-off math.
-    if (monthIndex === 0) return stream * 8;
-    return stream * 0.4;
+    // Parent-customized config takes precedence; default falls back to the
+    // brand sweet-spot (8× upfront + 0.4× monthly).
+    const cfg = hybridConfig ?? defaultHybridConfig(stream);
+    if (monthIndex === 0) return cfg.upfrontUsd;
+    return cfg.monthlyUsd;
   }
   // monthly: parent matches the kid's allowance dollar-for-dollar each
   // month. Honest about being the lowest-yield mode.
@@ -108,11 +174,12 @@ export function depositForMonth(
 /** Total over the year for budgeting / "you'll commit $X over 12 months". */
 export function totalCommitmentForYear(
   mode: DepositMode,
-  streamRateUsd: number
+  streamRateUsd: number,
+  hybridConfig?: HybridConfig | null
 ): number {
   let total = 0;
   for (let i = 0; i < 12; i++) {
-    total += depositForMonth(mode, i, streamRateUsd);
+    total += depositForMonth(mode, i, streamRateUsd, hybridConfig);
   }
   return total;
 }
@@ -123,7 +190,8 @@ export function totalCommitmentForYear(
 export function estimatedAnnualYield(
   mode: DepositMode,
   streamRateUsd: number,
-  apyPct = 8
+  apyPct = 8,
+  hybridConfig?: HybridConfig | null
 ): number {
   // Walk the trajectory month-by-month, average the principal during
   // each month, multiply by (apy * days/365). Same model as yearRecap
@@ -132,7 +200,7 @@ export function estimatedAnnualYield(
   let yieldUsd = 0;
   const apyEff = apyPct / 100;
   for (let i = 0; i < 12; i++) {
-    const deposit = depositForMonth(mode, i, streamRateUsd);
+    const deposit = depositForMonth(mode, i, streamRateUsd, hybridConfig);
     principal += deposit;
     const startPrincipal = principal;
     const endPrincipal = Math.max(0, principal - streamRateUsd);

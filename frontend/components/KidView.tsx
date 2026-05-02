@@ -15,7 +15,12 @@ import {
 import type { FamilyView } from "@/lib/fetchFamilies";
 import { getSavingsGoals, type SavingsGoal } from "@/lib/savingsGoals";
 import { Tree, stageForMonths, monthsSince } from "@/components/Tree";
-import { getDepositMode, type DepositMode } from "@/lib/depositMode";
+import {
+  getDepositMode,
+  getHybridConfig,
+  type DepositMode,
+  type HybridConfig,
+} from "@/lib/depositMode";
 import { GiftModal } from "@/components/GiftModal";
 import { PredictionCard } from "@/components/PredictionCard";
 import { YearRecap } from "@/components/YearRecap";
@@ -149,9 +154,13 @@ export function KidView({ family, initialClock, kidName }: Props) {
   const familyKey = family.pubkey.toBase58();
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [depositMode, setLocalDepositMode] = useState<DepositMode>("yearly");
+  const [hybridConfig, setLocalHybridConfig] = useState<HybridConfig | null>(
+    null
+  );
   useEffect(() => {
     setGoals(getSavingsGoals(familyKey));
     setLocalDepositMode(getDepositMode(familyKey));
+    setLocalHybridConfig(getHybridConfig(familyKey));
   }, [familyKey]);
 
   const principalUsd = Number(family.principalRemaining.toString()) / 1_000_000;
@@ -287,6 +296,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
             createdAtSec={createdAtSec}
             monthlyStreamRateUsd={monthlyAllowanceUsd}
             depositMode={depositMode}
+            hybridConfig={hybridConfig}
             bonusReady={bonusReady}
           />
         )}
@@ -478,6 +488,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
             createdAtSec={createdAtSec}
             monthlyStreamRateUsd={monthlyAllowanceUsd}
             depositMode={depositMode}
+            hybridConfig={hybridConfig}
             bonusReady={bonusReady}
           />
         )}

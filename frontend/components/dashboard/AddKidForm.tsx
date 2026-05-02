@@ -8,12 +8,15 @@ import type { Program } from "@coral-xyz/anchor";
 import { PROGRAM_ID } from "@/lib/program";
 import { setKidName } from "@/lib/kidNames";
 import {
+  defaultHybridConfig,
   estimatedAnnualYield,
   modeDescription,
   modeLabel,
   setDepositMode,
+  setHybridConfig,
   totalCommitmentForYear,
   type DepositMode,
+  type HybridConfig,
 } from "@/lib/depositMode";
 import type { Seedling } from "@/lib/types";
 import { ArrowR } from "./icons";
@@ -40,9 +43,32 @@ export function AddKidForm({
   const [pubkeyInput, setPubkeyInput] = useState("");
   const [monthlyInput, setMonthlyInput] = useState("50");
   const [mode, setMode] = useState<DepositMode>("yearly");
+  // Hybrid amounts the parent dialed in. Strings so the input fields can
+  // stay editable mid-keystroke; we parse on render. Defaults to the
+  // brand sweet-spot (8× upfront + 0.4× monthly) when hybrid is selected.
+  const [hybridUpfrontInput, setHybridUpfrontInput] = useState("400");
+  const [hybridMonthlyInput, setHybridMonthlyInput] = useState("20");
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Sync the hybrid pre-fills to whatever stream rate the parent's typed —
+  // but only while the parent hasn't manually edited the hybrid fields.
+  // Tracked via a "touched" flag so the typed values survive cross-input
+  // edits.
+  const [hybridTouched, setHybridTouched] = useState(false);
+  const monthlyNumForHybridDefault = parseFloat(monthlyInput);
+  useEffect(() => {
+    if (hybridTouched) return;
+    if (
+      !Number.isFinite(monthlyNumForHybridDefault) ||
+      monthlyNumForHybridDefault <= 0
+    )
+      return;
+    const def = defaultHybridConfig(monthlyNumForHybridDefault);
+    setHybridUpfrontInput(String(def.upfrontUsd));
+    setHybridMonthlyInput(String(def.monthlyUsd));
+  }, [monthlyNumForHybridDefault, hybridTouched]);
 
   let parsedKid: PublicKey | null = null;
   let kidValidationError: string | null = null;
@@ -92,13 +118,25 @@ export function AddKidForm({
     };
   }, [parsedKid?.toBase58(), parent, connection]);
 
+  // For hybrid mode: parent's deposits across the year must at least
+  // cover the kid's allowance. Otherwise the kid's monthly distributes
+  // would fail mid-year. We block submit on this rather than letting
+  // the parent ship a broken setup.
+  const hybridShortfallBlocking =
+    mode === "hybrid" &&
+    Number.isFinite(monthlyNum) &&
+    monthlyNum > 0 &&
+    parseFloat(hybridUpfrontInput) + parseFloat(hybridMonthlyInput) * 11 <
+      monthlyNum * 12;
+
   const submitDisabled =
     submitting ||
     !parsedKid ||
     kidValidationError !== null ||
     rateValidationError !== null ||
     duplicateError !== null ||
-    !monthlyInput.trim();
+    !monthlyInput.trim() ||
+    hybridShortfallBlocking;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +164,16 @@ export function AddKidForm({
       // Persist deposit cadence right after the create succeeds — drives
       // the family card's reminder badge + the kid view's year recap.
       setDepositMode(familyPda.toBase58(), mode);
+      if (mode === "hybrid") {
+        const upfront = parseFloat(hybridUpfrontInput);
+        const monthly = parseFloat(hybridMonthlyInput);
+        if (Number.isFinite(upfront) && Number.isFinite(monthly)) {
+          setHybridConfig(familyPda.toBase58(), {
+            upfrontUsd: upfront,
+            monthlyUsd: monthly,
+          });
+        }
+      }
 
       await connection.confirmTransaction(sig, "finalized");
       console.log(`[create_family] tx ${sig}`);
@@ -140,6 +188,16 @@ export function AddKidForm({
           );
           if (nameInput.trim()) setKidName(familyPda.toBase58(), nameInput);
           setDepositMode(familyPda.toBase58(), mode);
+          if (mode === "hybrid") {
+            const upfront = parseFloat(hybridUpfrontInput);
+            const monthly = parseFloat(hybridMonthlyInput);
+            if (Number.isFinite(upfront) && Number.isFinite(monthly)) {
+              setHybridConfig(familyPda.toBase58(), {
+                upfrontUsd: upfront,
+                monthlyUsd: monthly,
+              });
+            }
+          }
         }
         onCreated();
         return;
@@ -270,6 +328,16 @@ export function AddKidForm({
           streamRateUsd={
             Number.isFinite(monthlyNum) && monthlyNum > 0 ? monthlyNum : 50
           }
+          hybridUpfrontInput={hybridUpfrontInput}
+          hybridMonthlyInput={hybridMonthlyInput}
+          onHybridUpfrontChange={(v) => {
+            setHybridUpfrontInput(v);
+            setHybridTouched(true);
+          }}
+          onHybridMonthlyChange={(v) => {
+            setHybridMonthlyInput(v);
+            setHybridTouched(true);
+          }}
         />
 
         {submitError && (
@@ -354,12 +422,48 @@ function ModePicker({
   mode,
   onChange,
   streamRateUsd,
+  hybridUpfrontInput,
+  hybridMonthlyInput,
+  onHybridUpfrontChange,
+  onHybridMonthlyChange,
 }: {
   mode: DepositMode;
   onChange: (m: DepositMode) => void;
   streamRateUsd: number;
+  hybridUpfrontInput: string;
+  hybridMonthlyInput: string;
+  onHybridUpfrontChange: (v: string) => void;
+  onHybridMonthlyChange: (v: string) => void;
 }) {
   const modes: DepositMode[] = ["yearly", "hybrid", "monthly"];
+
+  // Live hybrid config from the parent's typed values. Falls back to
+  // brand default if either field is empty/invalid so the yield estimate
+  // is always meaningful.
+  const upfrontParsed = parseFloat(hybridUpfrontInput);
+  const monthlyParsed = parseFloat(hybridMonthlyInput);
+  const liveHybrid: HybridConfig = {
+    upfrontUsd:
+      Number.isFinite(upfrontParsed) && upfrontParsed >= 0 ? upfrontParsed : 0,
+    monthlyUsd:
+      Number.isFinite(monthlyParsed) && monthlyParsed >= 0 ? monthlyParsed : 0,
+  };
+
+  // Total kid will need over the year — used to validate that the
+  // parent's chosen hybrid commitment actually covers the allowance.
+  const minCommitment = streamRateUsd * 12;
+  const hybridTotal = liveHybrid.upfrontUsd + liveHybrid.monthlyUsd * 11;
+  const hybridYield = estimatedAnnualYield(
+    "hybrid",
+    streamRateUsd,
+    8,
+    liveHybrid
+  );
+  const yearlyYield = estimatedAnnualYield("yearly", streamRateUsd);
+  const hybridRecovery =
+    yearlyYield > 0 ? Math.round((hybridYield / yearlyYield) * 100) : 0;
+  const hybridShortfall = Math.max(0, minCommitment - hybridTotal);
+
   return (
     <div
       className="dash-col"
@@ -387,8 +491,14 @@ function ModePicker({
         }}
       >
         {modes.map((m) => {
-          const total = totalCommitmentForYear(m, streamRateUsd);
-          const yearly = estimatedAnnualYield(m, streamRateUsd);
+          const total =
+            m === "hybrid"
+              ? hybridTotal
+              : totalCommitmentForYear(m, streamRateUsd);
+          const yearly =
+            m === "hybrid"
+              ? hybridYield
+              : estimatedAnnualYield(m, streamRateUsd);
           const isActive = m === mode;
           return (
             <button
@@ -437,7 +547,9 @@ function ModePicker({
                   gap: 2,
                 }}
               >
-                <span>≈ ${total.toLocaleString()} / year you put in</span>
+                <span>
+                  ≈ ${Math.round(total).toLocaleString()} / year you put in
+                </span>
                 <span style={{ opacity: 0.85 }}>
                   ≈ ${yearly.toFixed(2)} bonus at year-end
                 </span>
@@ -445,6 +557,129 @@ function ModePicker({
             </button>
           );
         })}
+      </div>
+
+      {/* Expandable hybrid customization — appears only when hybrid is
+          the active mode. Two inputs (upfront / monthly) + live yield calc. */}
+      {mode === "hybrid" && (
+        <div
+          style={{
+            marginTop: 4,
+            padding: "16px 18px",
+            borderRadius: 10,
+            background: "var(--stone)",
+            border: "1px solid var(--line)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 14,
+            }}
+          >
+            <div className="dash-col">
+              <label
+                className="dash-field-label"
+                style={{ fontSize: 10, marginBottom: 6 }}
+              >
+                upfront deposit
+              </label>
+              <input
+                className="dash-mono-input"
+                type="number"
+                min={0}
+                step={1}
+                value={hybridUpfrontInput}
+                onChange={(e) => onHybridUpfrontChange(e.target.value)}
+              />
+            </div>
+            <div className="dash-col">
+              <label
+                className="dash-field-label"
+                style={{ fontSize: 10, marginBottom: 6 }}
+              >
+                monthly top-up · for 11 months
+              </label>
+              <input
+                className="dash-mono-input"
+                type="number"
+                min={0}
+                step={1}
+                value={hybridMonthlyInput}
+                onChange={(e) => onHybridMonthlyChange(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div
+            style={{
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 11,
+              color: "var(--ink-2)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              paddingTop: 6,
+              borderTop: "1px dashed var(--line)",
+            }}
+          >
+            <span>
+              total over the year: ≈ ${Math.round(hybridTotal).toLocaleString()}{" "}
+              · kid receives ${(streamRateUsd * 12).toLocaleString()}
+            </span>
+            <span>
+              estimated bonus: ≈ ${hybridYield.toFixed(2)} ({hybridRecovery}% of
+              yearly&apos;s ${yearlyYield.toFixed(2)})
+            </span>
+          </div>
+
+          {hybridShortfall > 0 && (
+            <div
+              className="dash-mono"
+              style={{
+                fontSize: 11,
+                color: "var(--rose)",
+                background: "rgba(176, 71, 58, 0.08)",
+                padding: "8px 10px",
+                borderRadius: 6,
+                border: "1px solid rgba(176, 71, 58, 0.25)",
+              }}
+            >
+              your deposits cover ${Math.round(hybridTotal).toLocaleString()},
+              but the kid needs ${minCommitment.toLocaleString()} over the year.
+              the allowance will pause $
+              {Math.round(hybridShortfall).toLocaleString()} short unless you
+              add more.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Honest enforcement disclosure — protocol does NOT lock the parent
+          into monthly deposits. Funds already deposited stay safe; if a
+          top-up is missed, the kid's allowance simply pauses until the
+          parent tops up. Same disclosure on every mode for consistency. */}
+      <div
+        className="dash-mono"
+        style={{
+          fontSize: 11,
+          color: "var(--ink-3)",
+          padding: "10px 12px",
+          background: "rgba(46, 92, 64, 0.04)",
+          border: "1px dashed var(--line)",
+          borderRadius: 6,
+          letterSpacing: 0,
+          textTransform: "none",
+          lineHeight: 1.5,
+        }}
+      >
+        we don&apos;t auto-debit your wallet. you commit to depositing on your
+        chosen cadence; missed top-ups pause the kid&apos;s allowance until you
+        catch up. funds you&apos;ve deposited are always safe in the vault.
       </div>
     </div>
   );
