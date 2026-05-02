@@ -140,10 +140,15 @@ export function OrdaWidgetModal({ open, onClose }: Props) {
 }
 
 const ORDA_STYLES = `
+  /* Orda's asset/recipient dropdowns and Reown AppKit's wallet selector are
+     portaled to <body> at their own z-indexes (typically 100–1000). Our
+     overlay needs to sit BELOW that range so those popovers float above
+     the modal naturally. We use 60 (above standard page chrome, below any
+     reasonable popover/toast/wallet-modal value). */
   .orda-overlay {
     position: fixed; inset: 0;
     background: rgba(31, 27, 20, 0.55);
-    z-index: 9000;
+    z-index: 60;
     display: flex; align-items: center; justify-content: center;
     padding: 24px;
     opacity: 0; pointer-events: none;
@@ -220,14 +225,6 @@ const ORDA_STYLES = `
     padding: 4px 0 2px;
     /* Let Orda's portaled popovers float above the sheet. Anything Orda
        renders inside should be visually breathable. */
-  }
-  /* Orda widget z-index hardening — their internal popovers use position:fixed
-     with their own z-index. We bump our overlay above any reasonable z-stack
-     they might use (their default appears to be ~50). */
-  .orda-sheet-body [data-radix-popper-content-wrapper],
-  .orda-sheet-body [role="dialog"],
-  .orda-sheet-body [role="listbox"] {
-    z-index: 10000 !important;
   }
   .orda-sheet-foot {
     font-family: var(--font-jetbrains-mono), monospace;
