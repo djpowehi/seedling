@@ -20,4 +20,5 @@ pub enum SeedlingError {
     FamilyNotEmpty,
     InvalidKaminoAccount,
     InvalidOracle,
+    BelowDustThreshold,
 }

@@ -34,3 +34,15 @@ pub struct Deposited {
     pub fee_to_treasury: u64,
     pub ts: i64,
 }
+
+#[event(discriminator = 3)]
+pub struct Withdrawn {
+    pub family: Address,
+    pub parent: Address,
+    pub shares_burned: u64,
+    pub assets_out: u64,
+    pub principal_drawdown: u64,
+    pub yield_drawdown: u64,
+    pub fee_to_treasury: u64,
+    pub ts: i64,
+}
