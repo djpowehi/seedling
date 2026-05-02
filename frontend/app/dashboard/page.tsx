@@ -14,11 +14,11 @@ import { FamilyCard } from "@/components/dashboard/FamilyCard";
 import { Plus } from "@/components/dashboard/icons";
 import { DASHBOARD_STYLES } from "@/components/dashboard/styles";
 
-// Orda widget brings ~1MB of EVM/wallet-connect machinery we don't want
-// in the initial bundle. ssr:false so Reown's window registration runs
-// only on the client.
-const OrdaWidgetModal = dynamic(
-  async () => (await import("@/components/OrdaWidgetModal")).OrdaWidgetModal,
+// Custom add/withdraw modal on top of Orda's REST API. Lazy-loaded so the
+// initial dashboard bundle stays light (qrcode + spl-token only fetched
+// when the user actually opens the funds drawer).
+const AddFundsModal = dynamic(
+  async () => (await import("@/components/AddFundsModal")).AddFundsModal,
   { ssr: false }
 );
 
@@ -89,7 +89,12 @@ export default function Dashboard() {
               <span className="dash-pulse-dot" />
               live on Solana
             </span>
-            {connected && (
+            {/* + add funds button hidden until Orda confirms Solana on-ramp.
+                Their BRL on-ramp currently outputs BRZ on Polygon/Base only;
+                Solana support pending (Kauê pinging Orda team 2026-05-02).
+                Restore by uncommenting this block — modal + API routes below
+                are intact and ready. */}
+            {/* {connected && (
               <button
                 type="button"
                 className="dash-btn dash-btn-ghost"
@@ -99,7 +104,7 @@ export default function Dashboard() {
               >
                 + add funds
               </button>
-            )}
+            )} */}
             <WalletMultiButton />
           </div>
         </div>
@@ -282,7 +287,7 @@ export default function Dashboard() {
         </div>
       </footer>
 
-      <OrdaWidgetModal open={showFunds} onClose={() => setShowFunds(false)} />
+      <AddFundsModal open={showFunds} onClose={() => setShowFunds(false)} />
     </div>
   );
 }
