@@ -15,6 +15,7 @@ import {
 import type { FamilyView } from "@/lib/fetchFamilies";
 import { getSavingsGoals, type SavingsGoal } from "@/lib/savingsGoals";
 import { Tree, stageForMonths, monthsSince } from "@/components/Tree";
+import { getDepositMode, type DepositMode } from "@/lib/depositMode";
 import { GiftModal } from "@/components/GiftModal";
 import { PredictionCard } from "@/components/PredictionCard";
 import { YearRecap } from "@/components/YearRecap";
@@ -147,8 +148,10 @@ export function KidView({ family, initialClock, kidName }: Props) {
   // ───── goals + balances ─────
   const familyKey = family.pubkey.toBase58();
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
+  const [depositMode, setLocalDepositMode] = useState<DepositMode>("yearly");
   useEffect(() => {
     setGoals(getSavingsGoals(familyKey));
+    setLocalDepositMode(getDepositMode(familyKey));
   }, [familyKey]);
 
   const principalUsd = Number(family.principalRemaining.toString()) / 1_000_000;
@@ -283,6 +286,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
             kidName={kidName}
             createdAtSec={createdAtSec}
             monthlyStreamRateUsd={monthlyAllowanceUsd}
+            depositMode={depositMode}
             bonusReady={bonusReady}
           />
         )}
@@ -473,6 +477,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
             kidName={kidName}
             createdAtSec={createdAtSec}
             monthlyStreamRateUsd={monthlyAllowanceUsd}
+            depositMode={depositMode}
             bonusReady={bonusReady}
           />
         )}

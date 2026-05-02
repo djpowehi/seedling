@@ -23,6 +23,7 @@ import {
 } from "@/lib/yearRecap";
 import { renderYearShareCard } from "@/lib/yearShareCard";
 import { canNativeShare, downloadImage, shareImage } from "@/lib/shareCard";
+import type { DepositMode } from "@/lib/depositMode";
 import { Tree, type Stage } from "@/components/Tree";
 
 type Props = {
@@ -34,6 +35,10 @@ type Props = {
   createdAtSec: number;
   /** Monthly stream rate in dollars. */
   monthlyStreamRateUsd: number;
+  /** Deposit cadence the parent picked at family creation. Drives the
+   *  principal trajectory in the recap. Defaults to yearly for backward
+   *  compatibility with families created before this option existed. */
+  depositMode?: DepositMode;
   /** True when the on-chain bonus period has ended and the 13th allowance
    *  is claimable / claimed. Drives the "your year is here" framing. */
   bonusReady: boolean;
@@ -44,17 +49,19 @@ export function YearRecap({
   kidName,
   createdAtSec,
   monthlyStreamRateUsd,
+  depositMode = "yearly",
   bonusReady,
 }: Props) {
-  // Recap data — deterministic per (family, start cycle).
+  // Recap data — deterministic per (family, start cycle, mode).
   const recap = useMemo<YearRecap>(
     () =>
       buildYearRecap(
         familyKey,
         createdAtSec,
-        monthlyStreamRateUsd > 0 ? monthlyStreamRateUsd : 50
+        monthlyStreamRateUsd > 0 ? monthlyStreamRateUsd : 50,
+        depositMode
       ),
-    [familyKey, createdAtSec, monthlyStreamRateUsd]
+    [familyKey, createdAtSec, monthlyStreamRateUsd, depositMode]
   );
 
   const startYear = recap.startCycleKey.slice(0, 4);

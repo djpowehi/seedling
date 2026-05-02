@@ -22,6 +22,7 @@
 // Determinism: same family + same start month → same recap on every render.
 
 import { cycleLabel, daysInCycle } from "@/lib/predictions";
+import { depositForMonth, type DepositMode } from "@/lib/depositMode";
 
 export type MonthRecap = {
   cycleKey: string; // "2026-04"
@@ -87,14 +88,16 @@ function nextTwelveCycleKeys(startYear: number, startMonth: number): string[] {
  * @param createdAtUnixSec      family creation timestamp (drives the start month)
  * @param monthlyStreamRateUsd  the family's stream_rate, in dollars
  *                              (kid's monthly allowance)
- * @param initialPrincipalUsd   principal deposited up front; defaults to
- *                              12 × stream_rate (the steady-state model)
+ * @param mode                  deposit cadence — drives the principal
+ *                              trajectory (yearly = upfront, hybrid =
+ *                              half-and-monthly, monthly = matched). See
+ *                              depositMode.ts for the math.
  */
 export function buildYearRecap(
   familyPda: string,
   createdAtUnixSec: number,
   monthlyStreamRateUsd: number,
-  initialPrincipalUsd?: number
+  mode: DepositMode = "yearly"
 ): YearRecap {
   const created = new Date(createdAtUnixSec * 1000);
   const startYear = created.getFullYear();
@@ -104,18 +107,17 @@ export function buildYearRecap(
   const endCycleKey = cycleKeys[cycleKeys.length - 1];
 
   const stream = Math.max(0, monthlyStreamRateUsd);
-  const initialPrincipal =
-    typeof initialPrincipalUsd === "number" && initialPrincipalUsd > 0
-      ? initialPrincipalUsd
-      : stream * 12;
 
   // Seed by start cycle so the same 12-month window always renders the
   // same numbers (refresh-stable).
-  const rng = mulberry32(seedFromString(`recap|${familyPda}|${startCycleKey}`));
+  const rng = mulberry32(
+    seedFromString(`recap|${familyPda}|${startCycleKey}|${mode}`)
+  );
 
   const months: MonthRecap[] = [];
-  let principal = initialPrincipal; // before this month's distribute
+  let principal = 0;
   let cumulativeYield = 0;
+  let totalDeposited = 0;
 
   const round = (v: number): number =>
     v < 1
@@ -124,19 +126,23 @@ export function buildYearRecap(
       ? Math.round(v * 10) / 10
       : Math.round(v);
 
-  for (const cycleKey of cycleKeys) {
+  cycleKeys.forEach((cycleKey, monthIndex) => {
     const days = daysInCycle(cycleKey);
 
     // Per-month APY jitter: 5%-11% effective. Seeded so a given (family,
-    // window, monthIndex) always shows the same number.
+    // window, mode, monthIndex) always shows the same number.
     const apyEffective = 0.05 + rng() * 0.06;
 
-    // Yield is computed on the principal that's IN the vault during the
-    // month. We use the average of (start, end) principal as a simple
-    // approximation; in reality interest compounds continuously but
-    // monthly distribute carves out stream_rate at month end.
-    const principalAtMonthStart = principal;
-    const principalAtMonthEnd = Math.max(0, principal - stream);
+    // Each mode's deposit-trajectory function tells us what the parent
+    // adds at the START of this month. The kid's allowance is then
+    // drawn at month-end. Yield is computed on the average principal
+    // across the month (post-deposit, pre-distribute average with
+    // post-distribute end).
+    const deposit = depositForMonth(mode, monthIndex, stream);
+    totalDeposited += deposit;
+
+    const principalAtMonthStart = principal + deposit;
+    const principalAtMonthEnd = Math.max(0, principalAtMonthStart - stream);
     const avgPrincipal = (principalAtMonthStart + principalAtMonthEnd) / 2;
     const monthYield = (avgPrincipal * apyEffective * days) / 365;
 
@@ -154,12 +160,14 @@ export function buildYearRecap(
     });
 
     principal = principalAtMonthEnd;
-  }
+  });
 
-  const totalDeposited = round(initialPrincipal);
+  const roundedTotalDeposited = round(totalDeposited);
   const totalYielded = months[months.length - 1].cumulativeYieldUsd;
   const percentGrowth =
-    totalDeposited > 0 ? (totalYielded / totalDeposited) * 100 : 0;
+    roundedTotalDeposited > 0
+      ? (totalYielded / roundedTotalDeposited) * 100
+      : 0;
 
   let bestMonth = months[0];
   let worstMonth = months[0];
@@ -177,7 +185,7 @@ export function buildYearRecap(
     startCycleKey,
     endCycleKey,
     months,
-    totalDepositedUsd: totalDeposited,
+    totalDepositedUsd: roundedTotalDeposited,
     totalYieldedUsd: totalYielded,
     percentGrowth,
     bestMonth,
