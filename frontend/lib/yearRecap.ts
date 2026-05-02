@@ -22,7 +22,11 @@
 // Determinism: same family + same start month → same recap on every render.
 
 import { cycleLabel, daysInCycle } from "@/lib/predictions";
-import { depositForMonth, type DepositMode } from "@/lib/depositMode";
+import {
+  depositForMonth,
+  type DepositMode,
+  type HybridConfig,
+} from "@/lib/depositMode";
 
 export type MonthRecap = {
   cycleKey: string; // "2026-04"
@@ -97,7 +101,8 @@ export function buildYearRecap(
   familyPda: string,
   createdAtUnixSec: number,
   monthlyStreamRateUsd: number,
-  mode: DepositMode = "yearly"
+  mode: DepositMode = "yearly",
+  hybridConfig?: HybridConfig | null
 ): YearRecap {
   const created = new Date(createdAtUnixSec * 1000);
   const startYear = created.getFullYear();
@@ -138,7 +143,7 @@ export function buildYearRecap(
     // drawn at month-end. Yield is computed on the average principal
     // across the month (post-deposit, pre-distribute average with
     // post-distribute end).
-    const deposit = depositForMonth(mode, monthIndex, stream);
+    const deposit = depositForMonth(mode, monthIndex, stream, hybridConfig);
     totalDeposited += deposit;
 
     const principalAtMonthStart = principal + deposit;
