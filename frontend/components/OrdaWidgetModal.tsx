@@ -176,6 +176,11 @@ const ORDA_STYLES = `
     padding: 30px 32px 24px;
     max-height: calc(100vh - 48px);
     overflow-y: auto;
+    /* overflow-x must be 'visible' to let popovers escape sideways, but if
+       overflow-y is 'auto' the browser forces overflow-x to 'auto' too —
+       that creates a clip context. The only way to keep popovers visible
+       while scrolling is to give them explicit positioning above this
+       scroll context, which we do with the !important rules below. */
     overflow-x: visible;
     /* inner scroll keeps the modal scrollable while letting absolute-positioned
        descendants (Orda popovers) bubble up via the parent's overflow:visible.
@@ -235,6 +240,29 @@ const ORDA_STYLES = `
     margin-top: 4px;
   }
   .orda-sheet-foot span { color: #2E5C40; font-weight: 500; }
+
+  /* Aggressive global overrides for any popover/web-component the Orda
+     widget mounts. We don't know which library it uses internally so we
+     cover the common ones: Radix popper, headless UI floating, native
+     dialog, listbox roles, and Reown AppKit web components. All sit at
+     z-index 12000 (above our 60 overlay) regardless of where they mount. */
+  body > [data-radix-popper-content-wrapper],
+  body > [data-floating-ui-portal],
+  body > [data-headlessui-portal],
+  body > [role="dialog"],
+  body > [role="listbox"],
+  body > [role="menu"],
+  body > [data-orda-portal],
+  body > [data-state="open"],
+  w3m-modal,
+  wcm-modal,
+  appkit-modal {
+    z-index: 12000 !important;
+  }
+  /* Reown AppKit shadow-DOM web components honor this CSS variable */
+  :root, body {
+    --w3m-z-index: 12000;
+  }
 
   @media (max-width: 540px) {
     .orda-overlay { padding: 12px; }
