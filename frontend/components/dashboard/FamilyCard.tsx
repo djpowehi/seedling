@@ -24,6 +24,12 @@ import {
   setKidName,
 } from "@/lib/kidNames";
 import {
+  depositForMonth,
+  getDepositMode,
+  modeLabel,
+  type DepositMode,
+} from "@/lib/depositMode";
+import {
   getSavingsGoals,
   removeSavingsGoal,
   type SavingsGoal,
@@ -117,9 +123,11 @@ export function FamilyCard({
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
 
+  const [depositMode, setLocalDepositMode] = useState<DepositMode>("yearly");
   useEffect(() => {
     setName(getKidName(familyKey));
     setGoals(getSavingsGoals(familyKey));
+    setLocalDepositMode(getDepositMode(familyKey));
   }, [familyKey]);
 
   useEffect(() => {
@@ -508,16 +516,34 @@ export function FamilyCard({
             </button>
           </div>
         </div>
-        <span
-          className="dash-mono"
-          style={{
-            fontSize: 11,
-            color: "var(--ink-3)",
-            whiteSpace: "nowrap",
-          }}
-        >
-          created {fmtAgo(now - createdAtSec)}
-        </span>
+        <div className="dash-col" style={{ alignItems: "flex-end", gap: 6 }}>
+          <span
+            className="dash-mono"
+            style={{
+              fontSize: 10,
+              color: "var(--forest)",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              padding: "4px 8px",
+              border: "1px solid var(--forest-soft)",
+              borderRadius: 99,
+              background: "var(--forest-soft)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {modeLabel(depositMode)} cadence
+          </span>
+          <span
+            className="dash-mono"
+            style={{
+              fontSize: 11,
+              color: "var(--ink-3)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            created {fmtAgo(now - createdAtSec)}
+          </span>
+        </div>
       </div>
 
       {/* Stat row */}
@@ -723,6 +749,75 @@ export function FamilyCard({
           />
         </div>
       )}
+
+      {/* Deposit cadence reminder — only for hybrid + monthly families.
+          Shows the recommended top-up for THIS month based on the chosen
+          mode + the family's current "month index" (months since the
+          family was created). Click → opens the deposit form. */}
+      {depositMode !== "yearly" &&
+        (() => {
+          const monthsSinceCreated = Math.max(
+            0,
+            Math.floor((now - createdAtSec) / MONTH_SECONDS)
+          );
+          const monthIndex = Math.min(11, monthsSinceCreated);
+          const expectedDeposit = depositForMonth(
+            depositMode,
+            monthIndex,
+            streamUsd
+          );
+          if (expectedDeposit <= 0) return null;
+          return (
+            <div
+              style={{
+                marginTop: 24,
+                padding: "14px 18px",
+                borderRadius: 10,
+                border: "1px solid var(--forest-soft)",
+                background: "var(--forest-soft)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div className="dash-col" style={{ gap: 2 }}>
+                <span
+                  className="dash-mono"
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: "var(--forest-deep)",
+                  }}
+                >
+                  {modeLabel(depositMode)} cadence · this month
+                </span>
+                <span
+                  className="dash-serif"
+                  style={{
+                    fontSize: 22,
+                    color: "var(--forest-deep)",
+                    letterSpacing: "-0.005em",
+                  }}
+                >
+                  deposit ${expectedDeposit.toFixed(2)} to keep yield growing
+                </span>
+              </div>
+              <button
+                type="button"
+                className="dash-btn dash-btn-primary"
+                onClick={() => {
+                  setShowWithdraw(false);
+                  setShowDeposit(true);
+                }}
+              >
+                + top up
+              </button>
+            </div>
+          );
+        })()}
 
       {/* Goals */}
       <div className="dash-col" style={{ marginTop: 32 }}>
