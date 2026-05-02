@@ -241,23 +241,29 @@ const ORDA_STYLES = `
   }
   .orda-sheet-foot span { color: #2E5C40; font-weight: 500; }
 
-  /* Aggressive global overrides for any popover/web-component the Orda
-     widget mounts. We don't know which library it uses internally so we
-     cover the common ones: Radix popper, headless UI floating, native
-     dialog, listbox roles, and Reown AppKit web components. All sit at
-     z-index 12000 (above our 60 overlay) regardless of where they mount. */
-  body > [data-radix-popper-content-wrapper],
-  body > [data-floating-ui-portal],
-  body > [data-headlessui-portal],
-  body > [role="dialog"],
-  body > [role="listbox"],
-  body > [role="menu"],
-  body > [data-orda-portal],
-  body > [data-state="open"],
+  /* Orda widget uses shadcn/ui = Radix UI under the hood (confirmed via
+     element inspection — shadcn-style class strings on triggers). Radix
+     portals popover/select/dialog content into [data-radix-popper-content-wrapper]
+     and [data-radix-portal] elements, usually as direct children of <body>
+     but not always (could be nested under a theme/root provider).
+     We match at ANY depth so wherever the portal mounts, we win. */
+  [data-radix-popper-content-wrapper],
+  [data-radix-portal],
+  [data-floating-ui-portal],
+  [data-headlessui-portal],
+  [data-orda-portal],
   w3m-modal,
   wcm-modal,
   appkit-modal {
     z-index: 12000 !important;
+  }
+  /* Radix Select/Popover/DropdownMenu Content elements (in case wrapper
+     doesn't get the z-index, the content itself sometimes does) */
+  [data-radix-select-content],
+  [data-radix-popover-content],
+  [data-radix-dropdown-menu-content],
+  [data-radix-dialog-content] {
+    z-index: 12001 !important;
   }
   /* Reown AppKit shadow-DOM web components honor this CSS variable */
   :root, body {
