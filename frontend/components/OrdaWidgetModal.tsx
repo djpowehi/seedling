@@ -106,27 +106,33 @@ export function OrdaWidgetModal({ open, onClose }: Props) {
         aria-modal="true"
         aria-label="Add or withdraw funds"
       >
-        <div className="orda-sheet-head">
-          <div className="orda-sheet-title-wrap">
-            <span className="orda-sheet-eyebrow">funds · brl ⇄ usdc</span>
-            <h2 className="orda-sheet-title">add or withdraw money</h2>
+        <div className="orda-scroll">
+          <div className="orda-sheet-head">
+            <div className="orda-sheet-title-wrap">
+              <span className="orda-sheet-eyebrow">funds · brl ⇄ usdc</span>
+              <h2 className="orda-sheet-title">add or withdraw money</h2>
+              <p className="orda-sheet-subtitle">
+                convert reais to usdc with pix — funds land in your connected
+                wallet, then deposit into any kid&apos;s vault.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="orda-close"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              ×
+            </button>
           </div>
-          <button
-            type="button"
-            className="orda-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
-        <div className="orda-sheet-body">
-          <OrdaProvider config={providerConfig}>
-            <Widget />
-          </OrdaProvider>
-        </div>
-        <div className="orda-sheet-foot">
-          powered by <span>orda</span> · pix → usdc · usdc → pix
+          <div className="orda-sheet-body">
+            <OrdaProvider config={providerConfig}>
+              <Widget />
+            </OrdaProvider>
+          </div>
+          <div className="orda-sheet-foot">
+            powered by <span>orda</span> · pix → usdc · usdc → pix
+          </div>
         </div>
       </div>
     </div>
@@ -137,7 +143,7 @@ const ORDA_STYLES = `
   .orda-overlay {
     position: fixed; inset: 0;
     background: rgba(31, 27, 20, 0.55);
-    z-index: 90;
+    z-index: 9000;
     display: flex; align-items: center; justify-content: center;
     padding: 24px;
     opacity: 0; pointer-events: none;
@@ -146,53 +152,96 @@ const ORDA_STYLES = `
   .orda-overlay-open { opacity: 1; pointer-events: auto; }
   .orda-sheet {
     position: relative;
-    width: 100%; max-width: 480px;
+    width: 100%; max-width: 540px;
     max-height: calc(100vh - 48px);
-    overflow-y: auto;
     background: #FBF6E9;
     border: 1px solid var(--line, #DCD3BD);
-    border-radius: 12px;
-    padding: 20px 22px 18px;
+    border-radius: 16px;
+    box-shadow: 0 32px 80px -36px rgba(31, 27, 20, 0.55),
+                0 4px 12px -6px rgba(31, 27, 20, 0.15);
+    /* overflow:visible so the Orda widget's internal dropdowns/popovers
+       (asset selector, recipient picker) can escape the sheet. The inner
+       .orda-scroll handles vertical scrolling. */
+    overflow: visible;
     display: flex; flex-direction: column;
-    gap: 14px;
-    box-shadow: 0 26px 60px -32px rgba(31, 27, 20, 0.5);
+  }
+  .orda-scroll {
+    display: flex; flex-direction: column;
+    gap: 22px;
+    padding: 30px 32px 24px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    overflow-x: visible;
+    /* inner scroll keeps the modal scrollable while letting absolute-positioned
+       descendants (Orda popovers) bubble up via the parent's overflow:visible.
+       Note: overflow-y:auto creates a clip context — Orda renders dropdowns via
+       portals to body, which is why bumping overlay z-index to 9000 fixes
+       them appearing behind the sheet. */
   }
   .orda-sheet-head {
     display: flex; align-items: flex-start; justify-content: space-between;
-    gap: 14px;
+    gap: 16px;
   }
   .orda-sheet-title-wrap {
-    display: flex; flex-direction: column; gap: 4px;
+    display: flex; flex-direction: column; gap: 8px;
+    flex: 1; min-width: 0;
   }
   .orda-sheet-eyebrow {
     font-family: var(--font-jetbrains-mono), monospace;
-    font-size: 10.5px; letter-spacing: 0.18em;
+    font-size: 10.5px; letter-spacing: 0.2em;
     color: #7A7461; text-transform: uppercase;
   }
   .orda-sheet-title {
     font-family: var(--font-instrument-serif), Georgia, serif;
-    font-size: 26px; line-height: 1; letter-spacing: -0.01em;
+    font-size: 32px; line-height: 1.05; letter-spacing: -0.015em;
     color: #1F1B14; margin: 0;
   }
+  .orda-sheet-subtitle {
+    font-size: 13px; line-height: 1.5;
+    color: #5A5444; margin: 4px 0 0;
+    max-width: 38ch;
+  }
   .orda-close {
-    width: 32px; height: 32px;
-    background: transparent; border: none;
-    font-size: 24px; line-height: 1; color: #7A7461;
+    width: 36px; height: 36px;
+    background: transparent; border: 1px solid transparent;
+    font-size: 22px; line-height: 1; color: #7A7461;
     cursor: pointer; border-radius: 50%;
     display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
   }
-  .orda-close:hover { background: rgba(31, 27, 20, 0.05); color: #1F1B14; }
+  .orda-close:hover {
+    background: rgba(31, 27, 20, 0.06);
+    border-color: rgba(31, 27, 20, 0.08);
+    color: #1F1B14;
+  }
   .orda-sheet-body {
-    /* Orda widget brings its own theme + chrome; we just give it a
-       container that respects the modal's edges. */
     margin: 0;
+    padding: 4px 0 2px;
+    /* Let Orda's portaled popovers float above the sheet. Anything Orda
+       renders inside should be visually breathable. */
+  }
+  /* Orda widget z-index hardening — their internal popovers use position:fixed
+     with their own z-index. We bump our overlay above any reasonable z-stack
+     they might use (their default appears to be ~50). */
+  .orda-sheet-body [data-radix-popper-content-wrapper],
+  .orda-sheet-body [role="dialog"],
+  .orda-sheet-body [role="listbox"] {
+    z-index: 10000 !important;
   }
   .orda-sheet-foot {
     font-family: var(--font-jetbrains-mono), monospace;
-    font-size: 10.5px; letter-spacing: 0.06em;
+    font-size: 10.5px; letter-spacing: 0.08em;
     color: #7A7461; text-align: center;
     border-top: 1px dashed #DCD3BD;
-    padding-top: 12px;
+    padding-top: 16px;
+    margin-top: 4px;
   }
   .orda-sheet-foot span { color: #2E5C40; font-weight: 500; }
+
+  @media (max-width: 540px) {
+    .orda-overlay { padding: 12px; }
+    .orda-scroll { padding: 24px 20px 20px; gap: 18px; }
+    .orda-sheet-title { font-size: 26px; }
+  }
 `;
