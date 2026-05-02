@@ -34,6 +34,15 @@ mod seedling_quasar {
         ctx.accounts.handler(kid, stream_rate, &ctx.bumps)
     }
 
+    #[instruction(discriminator = 2)]
+    pub fn deposit(
+        ctx: Ctx<Deposit>,
+        amount: u64,
+        min_shares_out: u64,
+    ) -> Result<(), ProgramError> {
+        ctx.accounts.handler(amount, min_shares_out)
+    }
+
     #[instruction(discriminator = 7)]
     pub fn set_family_last_distribution(
         ctx: Ctx<SetFamilyLastDistribution>,
