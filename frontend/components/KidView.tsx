@@ -623,7 +623,7 @@ const KID_VIEW_STYLES = `
   }
   .kv-greeting em { font-style: italic; color: var(--green-700); }
 
-  .kv-tree-wrap { position: relative; margin: -8px -12px 0; padding: 0; }
+  .kv-tree-wrap { position: relative; margin: 24px -12px 0; padding: 0; }
   .kv-tree-wrap svg { display: block; width: 100%; height: auto; }
   .kv-sway {
     transform-origin: 230px 300px;
