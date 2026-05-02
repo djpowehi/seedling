@@ -304,8 +304,16 @@ const STYLES = `
     box-shadow: 0 22px 48px -28px rgba(31, 58, 42, 0.4);
   }
   .landing-shot--filled::before { display: none; }
-  .landing-shot--filled .landing-shot-tag {
-    position: absolute; top: 14px; left: 14px; z-index: 2;
+  /* Tag-above-the-photo wrapper: badge sits in its own row, the figure
+     fills the rest. The earlier absolute positioning is overridden so
+     the tag flows naturally above the image. */
+  .landing-shot-wrap {
+    display: flex; flex-direction: column;
+    gap: 14px;
+  }
+  .landing-shot-wrap .landing-shot-tag {
+    align-self: flex-start;
+    position: static;
   }
   .landing-shot-img {
     display: block;
@@ -679,32 +687,36 @@ export default function Home() {
         </div>
 
         <div className="landing-shots landing-shots--two">
-          <figure className="landing-shot landing-shot--filled">
+          <div className="landing-shot-wrap">
             <span className="landing-shot-tag">screen 01 · parent</span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/parent-dashboard.png"
-              alt="Seedling parent dashboard with two kids saving"
-              className="landing-shot-img"
-            />
-            <figcaption className="landing-shot-caption">
-              Parent dashboard
-              <span>deposit · withdraw · monthly · bonus</span>
-            </figcaption>
-          </figure>
-          <figure className="landing-shot landing-shot--filled">
+            <figure className="landing-shot landing-shot--filled">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/parent-dashboard.png"
+                alt="Seedling parent dashboard with two kids saving"
+                className="landing-shot-img"
+              />
+              <figcaption className="landing-shot-caption">
+                Parent dashboard
+                <span>deposit · withdraw · monthly · bonus</span>
+              </figcaption>
+            </figure>
+          </div>
+          <div className="landing-shot-wrap">
             <span className="landing-shot-tag">screen 02 · kid</span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/kid-view.png"
-              alt="Seedling kid view with a growing tree and live yield ticker"
-              className="landing-shot-img"
-            />
-            <figcaption className="landing-shot-caption">
-              Kid view
-              <span>a tree, growing — no wallet needed</span>
-            </figcaption>
-          </figure>
+            <figure className="landing-shot landing-shot--filled">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/kid-view.png"
+                alt="Seedling kid view with a growing tree and live yield ticker"
+                className="landing-shot-img"
+              />
+              <figcaption className="landing-shot-caption">
+                Kid view
+                <span>a tree, growing — no wallet needed</span>
+              </figcaption>
+            </figure>
+          </div>
         </div>
       </section>
 
