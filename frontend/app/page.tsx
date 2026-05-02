@@ -274,6 +274,7 @@ const STYLES = `
     position: relative; overflow: hidden;
     display: flex; flex-direction: column; justify-content: space-between;
     padding: 18px;
+    margin: 0;
   }
   .landing-shot::before {
     content: '';
@@ -286,6 +287,51 @@ const STYLES = `
       rgba(138, 129, 105, 0.06) 15px
     );
     pointer-events: none;
+  }
+  /* Real-screenshot variant: landscape aspect, image fills the card,
+     hatching is suppressed, caption sits below the image as a chrome
+     band rather than overlapping it. */
+  .landing-shot--filled {
+    aspect-ratio: auto;
+    padding: 0;
+    background: var(--stone-50);
+    box-shadow: 0 18px 40px -28px rgba(31, 58, 42, 0.32);
+    transition: transform 240ms cubic-bezier(0.2, 0.7, 0.2, 1),
+                box-shadow 240ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .landing-shot--filled:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 48px -28px rgba(31, 58, 42, 0.4);
+  }
+  .landing-shot--filled::before { display: none; }
+  .landing-shot--filled .landing-shot-tag {
+    position: absolute; top: 14px; left: 14px; z-index: 2;
+  }
+  .landing-shot-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1520 / 1080;
+    object-fit: cover;
+    object-position: top center;
+  }
+  .landing-shot-caption {
+    padding: 16px 20px 18px;
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1.15;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--stone-200);
+    background: var(--stone-50);
+  }
+  .landing-shot-caption span {
+    display: block;
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-muted);
   }
   .landing-shot-tag {
     font-family: var(--mono);
@@ -370,6 +416,7 @@ const STYLES = `
     .landing-steps { grid-template-columns: 1fr; }
     .landing-shots { grid-template-columns: 1fr; }
     .landing-shot { aspect-ratio: 16 / 11; }
+    .landing-shot--filled { aspect-ratio: auto; }
     .landing-foot-mark { font-size: 64px; }
     .landing-section { padding: 64px 24px; }
   }
@@ -632,20 +679,32 @@ export default function Home() {
         </div>
 
         <div className="landing-shots landing-shots--two">
-          <div className="landing-shot">
+          <figure className="landing-shot landing-shot--filled">
             <span className="landing-shot-tag">screen 01 · parent</span>
-            <div className="landing-shot-name">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/parent-dashboard.png"
+              alt="Seedling parent dashboard with two kids saving"
+              className="landing-shot-img"
+            />
+            <figcaption className="landing-shot-caption">
               Parent dashboard
               <span>deposit · withdraw · monthly · bonus</span>
-            </div>
-          </div>
-          <div className="landing-shot">
+            </figcaption>
+          </figure>
+          <figure className="landing-shot landing-shot--filled">
             <span className="landing-shot-tag">screen 02 · kid</span>
-            <div className="landing-shot-name">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/kid-view.png"
+              alt="Seedling kid view with a growing tree and live yield ticker"
+              className="landing-shot-img"
+            />
+            <figcaption className="landing-shot-caption">
               Kid view
               <span>a tree, growing — no wallet needed</span>
-            </div>
-          </div>
+            </figcaption>
+          </figure>
         </div>
       </section>
 
