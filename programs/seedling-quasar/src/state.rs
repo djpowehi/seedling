@@ -7,7 +7,8 @@ use quasar_lang::prelude::*;
 /// the last harvest. Mutated ONLY through `utils::harvest::harvest_and_fee` and
 /// `mint_family_shares` / `burn_family_shares` to keep the invariant
 /// `total_shares == sum(family_position.shares)` enforceable at the API boundary.
-#[account(discriminator = 1)]
+#[account(discriminator = 1, set_inner)]
+#[seeds(b"vault_config")]
 pub struct VaultConfig {
     pub authority: Address,
     pub treasury: Address,
@@ -35,16 +36,13 @@ pub struct VaultConfig {
     pub bump: u8,
 }
 
-impl VaultConfig {
-    pub const SEED: &'static [u8] = b"vault_config";
-}
-
 /// Per parent-kid pair. PDA at ["family", parent, kid].
 ///
 /// `shares` is mutated ONLY through utils::harvest::mint_family_shares /
 /// burn_family_shares which atomically update VaultConfig.total_shares by
 /// the same delta. Direct mutation is a footgun — use the helpers.
-#[account(discriminator = 2)]
+#[account(discriminator = 2, set_inner)]
+#[seeds(b"family", parent: Address, kid: Address)]
 pub struct FamilyPosition {
     pub parent: Address,
     pub kid: Address,
@@ -64,18 +62,11 @@ pub struct FamilyPosition {
     pub bump: u8,
 }
 
-impl FamilyPosition {
-    pub const SEED_PREFIX: &'static [u8] = b"family";
-}
-
 /// Read-only PDA derived for the kid so the kid-facing URL has a canonical,
 /// shareable address. Kid never signs in v1.
-#[account(discriminator = 3)]
+#[account(discriminator = 3, set_inner)]
+#[seeds(b"kid", parent: Address, kid: Address)]
 pub struct KidView {
     pub family_position: Address,
     pub bump: u8,
-}
-
-impl KidView {
-    pub const SEED_PREFIX: &'static [u8] = b"kid";
 }

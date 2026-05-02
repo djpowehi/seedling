@@ -7,6 +7,7 @@ pub enum SeedlingError {
     DivisionByZero,
     InvalidAmount,
     InvalidAuthority,
+    InvalidStreamRate,
     MintMismatch,
     ReserveMismatch,
     VaultPaused,
