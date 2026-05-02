@@ -44,6 +44,15 @@ mod seedling_quasar {
         ctx.accounts.handler(amount, min_shares_out)
     }
 
+    #[instruction(discriminator = 3)]
+    pub fn withdraw(
+        ctx: Ctx<Withdraw>,
+        shares_to_burn: u64,
+        min_assets_out: u64,
+    ) -> Result<(), ProgramError> {
+        ctx.accounts.handler(shares_to_burn, min_assets_out)
+    }
+
     #[instruction(discriminator = 7)]
     pub fn set_family_last_distribution(
         ctx: Ctx<SetFamilyLastDistribution>,
