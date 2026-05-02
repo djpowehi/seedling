@@ -540,10 +540,40 @@ function ModePicker({
               }}
             >
               <div
-                className="dash-serif"
-                style={{ fontSize: 18, lineHeight: 1.05, marginBottom: 4 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 4,
+                }}
               >
-                {modeLabel(m)}
+                <span
+                  className="dash-serif"
+                  style={{ fontSize: 18, lineHeight: 1.05 }}
+                >
+                  {modeLabel(m)}
+                </span>
+                {m === "yearly" && (
+                  <span
+                    style={{
+                      fontFamily: "var(--font-jetbrains-mono), monospace",
+                      fontSize: 9,
+                      letterSpacing: "0.16em",
+                      textTransform: "uppercase",
+                      padding: "2px 7px",
+                      borderRadius: 99,
+                      background: isActive
+                        ? "rgba(247, 242, 227, 0.18)"
+                        : "var(--forest)",
+                      color: isActive ? "#F7F2E3" : "#F7F2E3",
+                      border: isActive
+                        ? "1px solid rgba(247, 242, 227, 0.4)"
+                        : "1px solid var(--forest)",
+                    }}
+                  >
+                    recommended
+                  </span>
+                )}
               </div>
               <div
                 style={{
