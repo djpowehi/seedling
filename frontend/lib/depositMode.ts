@@ -7,25 +7,27 @@
 // Three modes, picked once at family creation. Numbers are for a $50/mo
 // stream rate at 8% APY (scale linearly with stream rate):
 //
-//   Yearly   parent deposits 12 × stream up front
-//             ─→ total commitment $600, yield ≈ $24/yr (100% baseline)
+//   Yearly   parent deposits 24 × stream up front (2x kid's annual)
+//             ─→ kid takes 1× monthly, principal drains 24× → 12×
+//             ─→ avg principal = 18×, yield ≈ $72/yr at 8% APY
+//             ─→ at year-end: parent withdraws leftover 12× ($600),
+//                kid receives the yield as 13th allowance bonus
+//             ─→ parent's net cost = same as paying kid directly
+//                ($600 out, $600 received back), kid wins +$72 free
+//             ─→ this is the recommended path. 2x deposit is honest about
+//                where the bonus comes from (yield needs principal to
+//                EARN on; 1x deposit drains too fast to generate a
+//                meaningful bonus).
 //   Hybrid   parent deposits 8 × stream up front + 0.4 × stream monthly
 //             for 11 months
-//             ─→ total commitment $620 ($20 over yearly), yield ≈ $16.80/yr
-//                (~70% of yearly) ─ honest "more than half" sweet spot
-//             ─→ feels routine: $20 monthly top-up after the upfront chunk
+//             ─→ total commitment $620 over the year, yield ≈ $16.80/yr
+//             ─→ smaller upfront commitment, smaller bonus (sweet-spot
+//                middle path for parents who can't park 24× upfront)
 //   Monthly  parent deposits stream every month
-//             ─→ total commitment $600, yield ≈ $2/yr (8% of yearly)
+//             ─→ total commitment $600, yield ≈ $2/yr
 //             ─→ HONEST trade-off: accessibility over yield. Avg principal
 //                hovers near 0 because each deposit covers that month's
 //                allowance and almost nothing else accumulates.
-//
-// Hybrid is the recommended middle path. Tuned the upfront/monthly mix
-// against the yield curve in /tmp/tune-hybrid.mjs:
-//   6× + 0.6× → 55%, 7× + 0.5× → 63%, 8× + 0.4× → 70%, 9× + 0.3× → 78%
-// Picked 8/0.4 because (a) 70% reads as a clear "more than half" win,
-// (b) total commitment matches yearly's $600 within $20, (c) the monthly
-// chunk is small enough not to feel like a subscription burden.
 
 export type DepositMode = "yearly" | "hybrid" | "monthly";
 
@@ -156,8 +158,11 @@ export function depositForMonth(
   if (monthIndex < 0 || monthIndex > 11) return 0;
   const stream = Math.max(0, streamRateUsd);
   if (mode === "yearly") {
-    // Single deposit at month 0 = 12× stream rate.
-    return monthIndex === 0 ? stream * 12 : 0;
+    // Single deposit at month 0 = 24× stream rate (2x the kid's annual).
+    // Half covers the kid's monthly allowances, half stays parked in
+    // Kamino earning yield. At year end the kid receives the yield as
+    // their 13th allowance and the parent withdraws the unused half.
+    return monthIndex === 0 ? stream * 24 : 0;
   }
   if (mode === "hybrid") {
     // Parent-customized config takes precedence; default falls back to the
@@ -221,7 +226,7 @@ export function modeLabel(mode: DepositMode): string {
 
 /** One-line marketing description per mode. */
 export function modeDescription(mode: DepositMode): string {
-  if (mode === "yearly") return "One deposit. Maximum yield.";
-  if (mode === "hybrid") return "Half upfront, top up monthly.";
-  return "Pay-as-you-go. Small commitment.";
+  if (mode === "yearly") return "Park 2× upfront. Real bonus.";
+  if (mode === "hybrid") return "Smaller upfront. Smaller bonus.";
+  return "Pay-as-you-go. Smallest bonus.";
 }

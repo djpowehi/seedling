@@ -322,6 +322,23 @@ export function AddKidForm({
                 {rateValidationError}
               </span>
             )}
+            {!rateValidationError &&
+              Number.isFinite(monthlyNum) &&
+              monthlyNum > 0 && (
+                <span
+                  className="dash-mono"
+                  style={{
+                    fontSize: 11,
+                    color: "var(--ink-3)",
+                    marginTop: 6,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  recommended deposit · ${(monthlyNum * 24).toLocaleString()}{" "}
+                  upfront → ${(monthlyNum * 12).toLocaleString()} covers the
+                  year, ${(monthlyNum * 12).toLocaleString()} earns the bonus
+                </span>
+              )}
           </div>
         </div>
 
@@ -550,12 +567,24 @@ function ModePicker({
                   gap: 2,
                 }}
               >
-                <span>
-                  ≈ ${Math.round(total).toLocaleString()} / year you put in
-                </span>
-                <span style={{ opacity: 0.85 }}>
-                  ≈ ${yearly.toFixed(2)} bonus at year-end
-                </span>
+                {m === "yearly" ? (
+                  <>
+                    <span>≈ ${Math.round(total).toLocaleString()} upfront</span>
+                    <span style={{ opacity: 0.85 }}>
+                      ≈ ${(streamRateUsd * 12).toLocaleString()} back to you + ≈
+                      ${yearly.toFixed(2)} kid bonus
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      ≈ ${Math.round(total).toLocaleString()} / year you put in
+                    </span>
+                    <span style={{ opacity: 0.85 }}>
+                      ≈ ${yearly.toFixed(2)} kid bonus at year-end
+                    </span>
+                  </>
+                )}
               </div>
             </button>
           );
