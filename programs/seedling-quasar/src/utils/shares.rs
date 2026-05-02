@@ -111,3 +111,66 @@ pub fn burn_family_shares(
     vault_config.total_shares = new_total.into();
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    extern crate std;
+    use super::*;
+
+    // ===== compute_shares_to_mint =====
+
+    #[test]
+    fn first_deposit_is_one_to_one() {
+        assert_eq!(compute_shares_to_mint(1000, 0, 0).unwrap(), 1000);
+    }
+
+    #[test]
+    fn first_deposit_with_existing_assets_is_donation_attack() {
+        // Vault has 100 USDC stuck but no shares — deposit must refuse.
+        assert!(compute_shares_to_mint(1000, 0, 100).is_err());
+    }
+
+    #[test]
+    fn second_deposit_dilutes_correctly_no_yield() {
+        // total_shares=1000, total_assets=1000 → 500 deposit → 500 shares
+        assert_eq!(compute_shares_to_mint(500, 1000, 1000).unwrap(), 500);
+    }
+
+    #[test]
+    fn second_deposit_post_yield_mints_fewer_shares() {
+        // total_shares=1000, total_assets=1080 (8% yield) → 500 deposit
+        // → floor(500 × 1000 / 1080) = 462 shares
+        assert_eq!(compute_shares_to_mint(500, 1000, 1080).unwrap(), 462);
+    }
+
+    #[test]
+    fn deposit_into_lossy_vault_mints_extra_shares() {
+        // Vault somehow has 900 USDC but 1000 shares → user buys discounted pool
+        assert_eq!(compute_shares_to_mint(500, 1000, 900).unwrap(), 555);
+    }
+
+    // ===== compute_assets_for_shares =====
+
+    #[test]
+    fn redeem_floor_favors_vault() {
+        assert_eq!(compute_assets_for_shares(100, 1000, 1080).unwrap(), 108);
+    }
+
+    #[test]
+    fn redeem_with_dust_truncates() {
+        assert_eq!(compute_assets_for_shares(1, 1000, 1080).unwrap(), 1);
+    }
+
+    // ===== compute_shares_for_assets =====
+
+    #[test]
+    fn ceil_for_target_assets_burns_at_least_enough() {
+        // Need 50 USDC, share price 1.08 → ceil(50 × 1000 / 1080) = 47
+        assert_eq!(compute_shares_for_assets(50, 1000, 1080).unwrap(), 47);
+    }
+
+    #[test]
+    fn ceil_exact_division() {
+        assert_eq!(compute_shares_for_assets(100, 1000, 1000).unwrap(), 100);
+    }
+}
