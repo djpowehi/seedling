@@ -20,8 +20,9 @@ debug = []
 [dependencies]
 quasar-lang = { git = "https://github.com/blueshift-gg/quasar" }
 quasar-spl = { git = "https://github.com/blueshift-gg/quasar" }
-# solana-instruction was in the scaffold template but conflicts with the
-# panic_impl from #[program]. quasar-lang re-exports what we need.
+quasar-derive = { git = "https://github.com/blueshift-gg/quasar" }
+zeropod = { version = "0.2.0", features = ["solana-address", "solana-program-error"] }
+solana-program-error = "3.0.0"
 
 [dev-dependencies]
 seedling-quasar-client = { path = "target/client/rust/seedling-quasar-client" }

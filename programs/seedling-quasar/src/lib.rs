@@ -23,4 +23,13 @@ mod seedling_quasar {
     ) -> Result<(), ProgramError> {
         ctx.accounts.handler(args, &ctx.bumps)
     }
+
+    #[instruction(discriminator = 1)]
+    pub fn create_family(
+        ctx: Ctx<CreateFamily>,
+        kid: Address,
+        stream_rate: u64,
+    ) -> Result<(), ProgramError> {
+        ctx.accounts.handler(kid, stream_rate, &ctx.bumps)
+    }
 }
