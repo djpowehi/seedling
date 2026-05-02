@@ -1,5 +1,11 @@
 use quasar_lang::prelude::*;
 
+/// Raw seed bytes for VaultConfig PDA. Quasar's `#[seeds(b"vault_config")]`
+/// bakes this into the auto-generated `VaultConfig::seeds()` helper but
+/// doesn't expose it as a const. We need the literal for PDA-signed CPI
+/// where we hand the bytes to `Seed::from(...)`. Single source of truth.
+pub const VAULT_CONFIG_SEED: &[u8] = b"vault_config";
+
 /// One global config per deployment. PDA at ["vault_config"].
 ///
 /// `total_shares` and `last_known_total_assets` are the ERC-4626 accounting pair:

@@ -3,6 +3,7 @@
 use quasar_lang::prelude::*;
 
 mod errors;
+mod events;
 mod instructions;
 mod state;
 mod utils;
