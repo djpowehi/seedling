@@ -355,10 +355,17 @@ export function FamilyCard({
         onMutated();
         return;
       }
-      if (msg.includes("PeriodNotEnded"))
+      if (msg.includes("BonusPeriodNotEnded") || msg.includes("PeriodNotEnded"))
         setError("Annual bonus not ready yet.");
-      else if (msg.includes("BonusAlreadyClaimed"))
-        setError("Bonus already distributed.");
+      else if (
+        msg.includes("BonusAlreadyPaid") ||
+        msg.includes("BonusAlreadyClaimed")
+      )
+        setError("Bonus already distributed for this period.");
+      else if (msg.includes("BelowDustThreshold"))
+        setError(
+          "No yield to distribute yet — the vault hasn't earned enough on Kamino. Try again next month."
+        );
       else if (msg.includes("VaultPaused"))
         setError("Vault paused. Try again later.");
       else setError(msg);

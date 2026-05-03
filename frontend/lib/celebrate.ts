@@ -13,6 +13,26 @@ const SEEDLING_PALETTE = {
   amber: ["#F5D08A", "#F8DA9A", "#C9A24A"],
 };
 
+/** Leaf-colored burst at the deposit's destination — usually the family
+ *  card itself so the visual ties to the row that just gained money.
+ *  Caller passes a normalized [0..1] origin from getBoundingClientRect();
+ *  defaults to upper-center if no rect supplied. */
+export async function celebrateDeposit(
+  origin: { x: number; y: number } = { x: 0.5, y: 0.4 }
+): Promise<void> {
+  const confetti = (await import("canvas-confetti")).default;
+  confetti({
+    particleCount: 140,
+    spread: 100,
+    startVelocity: 32,
+    origin,
+    colors: SEEDLING_PALETTE.green,
+    scalar: 1.1,
+    gravity: 1.0,
+    ticks: 220,
+  });
+}
+
 export async function celebrateMonthly(): Promise<void> {
   const confetti = (await import("canvas-confetti")).default;
   // Single soft burst from the bottom, mostly green leaves.
