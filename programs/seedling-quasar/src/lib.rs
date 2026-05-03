@@ -9,11 +9,11 @@ mod state;
 mod utils;
 use instructions::*;
 
-// Test deployment address. Different from the Anchor program's
-// 44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN so we don't overwrite the
-// live Anchor program on devnet during validation. Final swap to the
-// canonical address happens after end-to-end devnet verification.
-declare_id!("EQtCpic4xr3N4wmyDcZNPT9oimbaheHykmxJGs7EQyLr");
+// Canonical Seedling program ID — same address used for the original
+// Anchor build. End-to-end devnet validation completed at the test
+// address EQtCpic4xr3N4wmyDcZNPT9oimbaheHykmxJGs7EQyLr; this is the
+// final canonical deploy.
+declare_id!("44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN");
 
 #[program]
 mod seedling_quasar {

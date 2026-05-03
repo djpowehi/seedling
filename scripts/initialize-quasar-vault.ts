@@ -5,8 +5,7 @@
 //   ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
 //   npx tsx scripts/initialize-quasar-vault.ts
 //
-// Uses the deployed program at 975WF6vpccfi5CGoYpuaytqwwoFuZJxY2HLm5r8Dg7Zv
-// (test address — separate from the live Anchor program at 44vix4Jm…).
+// Targets the canonical program at 44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN.
 //
 // Idempotent: if the vault_config PDA already exists, the script logs and
 // exits 0 instead of erroring. Re-run is safe.
@@ -58,7 +57,7 @@ async function main() {
   // to the import-time PROGRAM_ID, but we're using the test address.
   const programId = SeedlingQuasarClient.programId;
   const [vaultConfig] = PublicKey.findProgramAddressSync(
-    [Buffer.from("vault_config")],
+    [Buffer.from("vault_config_v2")],
     programId
   );
   console.log("vault_config:  ", vaultConfig.toBase58());

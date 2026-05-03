@@ -1,12 +1,12 @@
 use quasar_lang::prelude::*;
 
-/// Raw seed bytes for VaultConfig PDA. Quasar's `#[seeds(b"vault_config")]`
+/// Raw seed bytes for VaultConfig PDA. Quasar's `#[seeds(b"vault_config_v2")]`
 /// bakes this into the auto-generated `VaultConfig::seeds()` helper but
 /// doesn't expose it as a const. We need the literal for PDA-signed CPI
 /// where we hand the bytes to `Seed::from(...)`. Single source of truth.
-pub const VAULT_CONFIG_SEED: &[u8] = b"vault_config";
+pub const VAULT_CONFIG_SEED: &[u8] = b"vault_config_v2";
 
-/// One global config per deployment. PDA at ["vault_config"].
+/// One global config per deployment. PDA at ["vault_config_v2"].
 ///
 /// `total_shares` and `last_known_total_assets` are the ERC-4626 accounting pair:
 /// shares × last_known_total_assets gives the pool's USDC-equivalent value at
@@ -14,7 +14,7 @@ pub const VAULT_CONFIG_SEED: &[u8] = b"vault_config";
 /// `mint_family_shares` / `burn_family_shares` to keep the invariant
 /// `total_shares == sum(family_position.shares)` enforceable at the API boundary.
 #[account(discriminator = 1, set_inner)]
-#[seeds(b"vault_config")]
+#[seeds(b"vault_config_v2")]
 pub struct VaultConfig {
     pub authority: Address,
     pub treasury: Address,

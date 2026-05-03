@@ -545,7 +545,7 @@ export type DecodedInstruction =
 /* Client */
 export class SeedlingQuasarClient {
   static readonly programId = new Address(
-    "EQtCpic4xr3N4wmyDcZNPT9oimbaheHykmxJGs7EQyLr"
+    "44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN"
   );
 
   decodeVaultConfig(data: Uint8Array): VaultConfig {
