@@ -1,8 +1,6 @@
 "use client";
 
-import { BN } from "@coral-xyz/anchor";
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
   getAssociatedTokenAddressSync,
@@ -12,23 +10,21 @@ import {
   PublicKey,
   SystemProgram,
 } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { useState } from "react";
 import type { Connection } from "@solana/web3.js";
-import type { Program } from "@coral-xyz/anchor";
 import { DEVNET_ADDRESSES } from "@/lib/program";
+import { SeedlingQuasarClient } from "@/lib/quasar-client";
+import { sendQuasarIx } from "@/lib/sendQuasarIx";
 import type { FamilyView } from "@/lib/fetchFamilies";
-import type { Seedling } from "@/lib/types";
 
 const SYSVAR_INSTRUCTIONS = new PublicKey(
   "Sysvar1nstructions1111111111111111111111111"
 );
 
-// Sanity cap. Program does not enforce; this is just to catch fat-finger
-// "$50000" typos before they hit a wallet popup.
 const MAX_DEPOSIT_USD = 10_000;
 
 type Props = {
-  program: Program<Seedling>;
   connection: Connection;
   parent: PublicKey;
   family: FamilyView;
@@ -37,13 +33,14 @@ type Props = {
 };
 
 export function DepositForm({
-  program,
   connection,
   parent,
   family,
   onDeposited,
   onCancel,
 }: Props) {
+  const wallet = useWallet();
+  const client = new SeedlingQuasarClient();
   const [amountInput, setAmountInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -72,7 +69,6 @@ export function DepositForm({
 
     try {
       const amountBaseUnits = Math.round(amountNum * 1_000_000);
-      const amount = new BN(amountBaseUnits);
 
       const depositorUsdcAta = getAssociatedTokenAddressSync(
         DEVNET_ADDRESSES.usdcMint,
@@ -84,8 +80,6 @@ export function DepositForm({
         DEVNET_ADDRESSES.klendProgram
       );
 
-      // Idempotent ATA create — no-ops if it already exists. Cheap insurance
-      // for first-time wallets that never touched devnet USDC.
       const ataIx = createAssociatedTokenAccountIdempotentInstruction(
         parent,
         depositorUsdcAta,
@@ -93,45 +87,42 @@ export function DepositForm({
         DEVNET_ADDRESSES.usdcMint
       );
 
-      // Account ordering mirrors scripts/devnet-deposit-smoke.ts (verified
-      // working on devnet). KLEND program ID is the sentinel for unused
-      // oracle slots — Anchor's Option<AccountInfo> "None" encoding.
-      const sig = await program.methods
-        .deposit(amount, new BN(0))
-        .accountsPartial({
-          familyPosition: family.pubkey,
-          depositor: parent,
-          depositorUsdcAta,
-          vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
-          vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
-          treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
-          vaultConfig: DEVNET_ADDRESSES.vaultConfig,
-          usdcMint: DEVNET_ADDRESSES.usdcMint,
-          ctokenMint: DEVNET_ADDRESSES.ctokenMint,
-          kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
-          lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
-          lendingMarketAuthority,
-          reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
-          oraclePyth: DEVNET_ADDRESSES.oraclePyth,
-          oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
-          oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
-          oracleScopeConfig: DEVNET_ADDRESSES.klendProgram,
-          kaminoProgram: DEVNET_ADDRESSES.klendProgram,
-          instructionSysvar: SYSVAR_INSTRUCTIONS,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        })
-        .preInstructions([
-          ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
-          ataIx,
-        ])
-        .rpc({ commitment: "confirmed" });
+      const depositIx = client.createDepositInstruction({
+        familyPosition: family.pubkey,
+        depositor: parent,
+        depositorUsdcAta,
+        vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
+        vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
+        treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
+        vaultConfig: DEVNET_ADDRESSES.vaultConfig,
+        usdcMint: DEVNET_ADDRESSES.usdcMint,
+        ctokenMint: DEVNET_ADDRESSES.ctokenMint,
+        kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
+        lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
+        lendingMarketAuthority,
+        reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
+        oraclePyth: DEVNET_ADDRESSES.oraclePyth,
+        oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
+        oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
+        oracleScopeConfig: DEVNET_ADDRESSES.klendProgram,
+        kaminoProgram: DEVNET_ADDRESSES.klendProgram,
+        instructionSysvar: SYSVAR_INSTRUCTIONS,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        amount: BigInt(amountBaseUnits),
+        minSharesOut: BigInt(0),
+      });
 
-      // Wait for finalization so the immediate refetch sees the new
-      // family state, not a stale snapshot. confirmTransaction is
-      // correct under any latency; setTimeout was a known-stale mask.
-      await connection.confirmTransaction(sig, "finalized");
+      const sig = await sendQuasarIx(
+        [
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 }),
+          ataIx,
+          depositIx,
+        ],
+        connection,
+        wallet,
+        { commitment: "finalized" }
+      );
       console.log(`[deposit] tx ${sig}`);
 
       onDeposited();

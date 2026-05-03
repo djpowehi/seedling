@@ -14,17 +14,8 @@
 // most a handful of transactions to walk; 20 is plenty for the wall (which
 // renders 8 max) and stays below the throttle.
 
-import { AnchorProvider, BorshCoder, Idl, Program } from "@coral-xyz/anchor";
-import {
-  Connection,
-  Keypair,
-  PublicKey,
-  type Transaction,
-  type VersionedTransaction,
-} from "@solana/web3.js";
-
-import idl from "@/lib/idl.json";
-import type { Seedling } from "@/lib/types";
+import { Connection, PublicKey } from "@solana/web3.js";
+import { DEPOSITED_DISCRIMINATOR, DepositedCodec } from "@/lib/quasar-client";
 
 export type GiftEntry = {
   depositor: string; // base58
@@ -36,46 +27,10 @@ export type GiftEntry = {
   fromName?: string;
 };
 
-const stubKeypair = Keypair.generate();
-const stubWallet = {
-  publicKey: stubKeypair.publicKey,
-  signTransaction: <T extends Transaction | VersionedTransaction>(
-    _tx: T
-  ): Promise<T> => {
-    throw new Error("read-only wallet — signing is not supported");
-  },
-  signAllTransactions: <T extends Transaction | VersionedTransaction>(
-    _txs: T[]
-  ): Promise<T[]> => {
-    throw new Error("read-only wallet — signing is not supported");
-  },
-};
-
-let cachedProgram: Program<Seedling> | null = null;
-let cachedConnection: Connection | null = null;
-function getProgram(connection: Connection): Program<Seedling> {
-  if (cachedProgram && cachedConnection === connection) return cachedProgram;
-  const provider = new AnchorProvider(connection, stubWallet, {
-    commitment: "confirmed",
-  });
-  cachedProgram = new Program(
-    idl as Idl,
-    provider
-  ) as unknown as Program<Seedling>;
-  cachedConnection = connection;
-  return cachedProgram;
-}
-
+// Quasar event log format: `Program data: <base64>` where the bytes are
+// [1-byte event discriminator, ...struct payload]. We decode by matching
+// the discriminator then handing the rest to the codec.
 const PROGRAM_LOG_PREFIX = "Program data: ";
-
-type DepositedEvent = {
-  family: PublicKey;
-  depositor: PublicKey;
-  amount: { toString(): string };
-  sharesMinted: { toString(): string };
-  feeToTreasury: { toString(): string };
-  ts: { toString(): string };
-};
 
 // Module-level cache: familyPda → Map<sig, GiftEntry>.
 // Survives across re-renders + polls within the same page session.
@@ -102,9 +57,6 @@ export async function fetchGifts(
     return [...cached.values()].sort((a, b) => b.ts - a.ts);
   }
 
-  const program = getProgram(connection);
-  const eventCoder = new BorshCoder(program.idl as Idl).events;
-
   // Parallel via Promise.all — N independent HTTP requests fired at once.
   // On Helius (~50-100ms each) this collapses to ~100ms total instead of
   // N * 100ms serial. Public devnet is slower but still 5-10x faster
@@ -128,14 +80,15 @@ export async function fetchGifts(
       if (!line.startsWith(PROGRAM_LOG_PREFIX)) continue;
       const b64 = line.slice(PROGRAM_LOG_PREFIX.length);
       try {
-        const ev = eventCoder.decode(b64);
-        if (!ev || ev.name !== "deposited") continue;
-        const data = ev.data as DepositedEvent;
+        const bytes = Buffer.from(b64, "base64");
+        // Match Quasar's 1-byte event discriminator for Deposited.
+        if (bytes[0] !== DEPOSITED_DISCRIMINATOR[0]) continue;
+        const data = DepositedCodec.decode(bytes.subarray(1));
         if (data.depositor.equals(parent)) continue;
         cached.set(sig, {
           depositor: data.depositor.toBase58(),
-          amountUsd: Number(data.amount.toString()) / 1_000_000,
-          ts: Number(data.ts.toString()),
+          amountUsd: Number(data.amount) / 1_000_000,
+          ts: Number(data.ts),
           sig,
           fromName,
         });
