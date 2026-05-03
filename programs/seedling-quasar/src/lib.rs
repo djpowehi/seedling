@@ -53,6 +53,23 @@ mod seedling_quasar {
         ctx.accounts.handler(shares_to_burn, min_assets_out)
     }
 
+    #[instruction(discriminator = 4)]
+    pub fn distribute_monthly_allowance(
+        ctx: Ctx<DistributeMonthlyAllowance>,
+    ) -> Result<(), ProgramError> {
+        ctx.accounts.handler()
+    }
+
+    #[instruction(discriminator = 5)]
+    pub fn distribute_bonus(ctx: Ctx<DistributeBonus>) -> Result<(), ProgramError> {
+        ctx.accounts.handler()
+    }
+
+    #[instruction(discriminator = 6)]
+    pub fn close_family(ctx: Ctx<CloseFamily>) -> Result<(), ProgramError> {
+        ctx.accounts.handler()
+    }
+
     #[instruction(discriminator = 7)]
     pub fn set_family_last_distribution(
         ctx: Ctx<SetFamilyLastDistribution>,

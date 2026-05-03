@@ -1,10 +1,16 @@
 mod admin;
+mod close_family;
 mod create_family;
 mod deposit;
+mod distribute_bonus;
+mod distribute_monthly_allowance;
 mod initialize_vault;
 mod withdraw;
 pub use admin::*;
+pub use close_family::*;
 pub use create_family::*;
 pub use deposit::*;
+pub use distribute_bonus::*;
+pub use distribute_monthly_allowance::*;
 pub use initialize_vault::*;
 pub use withdraw::*;
