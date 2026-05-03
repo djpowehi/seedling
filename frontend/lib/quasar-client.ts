@@ -54,15 +54,8 @@ export const ROLL_PERIOD_INSTRUCTION_DISCRIMINATOR = new Uint8Array([8]);
 export const SET_PAUSED_INSTRUCTION_DISCRIMINATOR = new Uint8Array([9]);
 
 /* Manually emitted (Quasar codegen bug — composite arg structs aren't
- * auto-generated). Mirrors the InitializeVaultArgs in
+ * auto-generated). Mirrors InitializeVaultArgs in
  * programs/seedling-quasar/src/instructions/initialize_vault.rs.
- *
- * NOTE: must include `_padding: [u8; 6]` field to match Rust struct
- * layout (Pod-derived structs are #[repr(C)] alignment-1, but the macro
- * may add trailing padding to make total size align to next field). The
- * Rust side doesn't currently have explicit padding on this struct; if
- * tests show mismatch, add `_padding: number[]` here and `pub _padding:
- * [u8; 6]` in Rust.
  */
 export interface InitializeVaultArgs {
   oraclePyth: Address;
@@ -554,7 +547,7 @@ export type DecodedInstruction =
 /* Client */
 export class SeedlingQuasarClient {
   static readonly programId = new Address(
-    "44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN"
+    "975WF6vpccfi5CGoYpuaytqwwoFuZJxY2HLm5r8Dg7Zv"
   );
 
   decodeVaultConfig(data: Uint8Array): VaultConfig {

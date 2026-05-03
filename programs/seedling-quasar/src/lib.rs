@@ -9,10 +9,11 @@ mod state;
 mod utils;
 use instructions::*;
 
-// Same program ID as the Anchor version. We deploy Quasar binary to the same
-// upgradeable address; existing on-chain state will be re-init'd (per the
-// "fresh init" decision on 2026-05-02).
-declare_id!("44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN");
+// Test deployment address. Different from the Anchor program's
+// 44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN so we don't overwrite the
+// live Anchor program on devnet during validation. Final swap to the
+// canonical address happens after end-to-end devnet verification.
+declare_id!("975WF6vpccfi5CGoYpuaytqwwoFuZJxY2HLm5r8Dg7Zv");
 
 #[program]
 mod seedling_quasar {
