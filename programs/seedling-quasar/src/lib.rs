@@ -13,7 +13,7 @@ use instructions::*;
 // 44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN so we don't overwrite the
 // live Anchor program on devnet during validation. Final swap to the
 // canonical address happens after end-to-end devnet verification.
-declare_id!("975WF6vpccfi5CGoYpuaytqwwoFuZJxY2HLm5r8Dg7Zv");
+declare_id!("EQtCpic4xr3N4wmyDcZNPT9oimbaheHykmxJGs7EQyLr");
 
 #[program]
 mod seedling_quasar {
