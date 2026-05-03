@@ -672,7 +672,8 @@ export default function Home() {
             <h3>Kids get paid monthly. Bonus at year-end.</h3>
             <p>
               The 1st of every month, the allowance arrives. Year-end brings the
-              annual bonus — pure yield.
+              annual bonus — pure yield. Seedling rewards time: the longer money
+              stays, the more the kid earns.
             </p>
           </div>
         </div>

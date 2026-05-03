@@ -178,9 +178,11 @@ export async function POST(
     tx.feePayer = depositor;
     tx.recentBlockhash = blockhash;
     tx.add(cuIx, ataIx);
-    if (fromName.length > 0) {
-      tx.add(buildMemoIx(GIFT_MEMO_PREFIX + fromName));
-    }
+    // Always tag gift-API txs with the prefix memo — even for anonymous
+    // gifts (no name supplied). The wall filters on memo presence to
+    // distinguish gifts from plain dashboard top-ups, so the memo must
+    // be present unconditionally for the gift to surface.
+    tx.add(buildMemoIx(GIFT_MEMO_PREFIX + fromName));
     tx.add(depositIx);
 
     // Serialize unsigned. The wallet completes signing client-side.

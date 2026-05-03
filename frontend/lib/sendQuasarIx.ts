@@ -44,7 +44,32 @@ export async function sendQuasarIx(
     throw new Error(translateProgramError(sim.value.err, sim.value.logs ?? []));
   }
 
-  const sig = await wallet.sendTransaction(tx, connection);
+  // Phantom's `sendTransaction` wraps the inner error and surfaces a
+  // generic "Unexpected error". We catch + unwrap so the original cause
+  // (RPC error, blockhash expiry, signing rejection, etc.) reaches the
+  // caller's catch. The full object is also logged for inspection.
+  let sig: string;
+  try {
+    sig = await wallet.sendTransaction(tx, connection);
+  } catch (e) {
+    console.error("[sendQuasarIx] wallet.sendTransaction failed:", e);
+    const inner =
+      e && typeof e === "object" && "error" in e
+        ? (e as { error: unknown }).error
+        : null;
+    const innerMsg =
+      inner instanceof Error
+        ? inner.message
+        : typeof inner === "string"
+        ? inner
+        : inner
+        ? JSON.stringify(inner)
+        : null;
+    if (innerMsg) {
+      throw new Error(`Wallet rejected: ${innerMsg}`);
+    }
+    throw e;
+  }
   await connection.confirmTransaction(sig, opts.commitment ?? "finalized");
   return sig;
 }
