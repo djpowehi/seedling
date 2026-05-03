@@ -1,16 +1,30 @@
-// Helper for instantiating the Seedling Anchor client.
+// Helper for instantiating the Seedling client.
 //
-// CONVENTION (per repo GOTCHAS.md #3): when calling instructions, use
-// `.accountsPartial({...})` not `.accounts({...})`. Anchor 0.32.1's TS client
-// can't auto-resolve PDA-owned ATAs; passing them explicitly via Partial
-// keeps the build deterministic. Documented once here, applies everywhere.
+// CUTOVER NOTE (2026-05-03): PROGRAM_ID now points at the Quasar deployment
+// (EQtCpic4...) instead of the Anchor deployment (44vix4Jm...). Frontend
+// instruction calls have moved from program.methods.foo().rpc() (Anchor)
+// to client.createFooInstruction(...) + sendQuasarIx() (Quasar). Account
+// decoders use FamilyPositionCodec / VaultConfigCodec from quasar-client.
+//
+// Vault PDAs are now derived at runtime via lib/quasarPdas.ts because the
+// program ID change re-derives every PDA. ATAs are derived at runtime via
+// getAssociatedTokenAddress(usdcMint, vaultConfig, allowOwnerOffCurve=true).
 
 import { AnchorProvider, Idl, Program } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
 import idl from "./idl.json";
 import type { Seedling } from "./types";
 
+/** Quasar deployment (test-deploy at EQtCpic4..., redeployed to canonical
+ * 44vix4Jm... before mainnet launch). */
 export const PROGRAM_ID = new PublicKey(
+  "EQtCpic4xr3N4wmyDcZNPT9oimbaheHykmxJGs7EQyLr"
+);
+
+/** Anchor deployment — kept here as a fallback during cutover for any
+ * lingering reads against the old vault. Remove after frontend cutover
+ * verified working. */
+export const LEGACY_ANCHOR_PROGRAM_ID = new PublicKey(
   "44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN"
 );
 
@@ -21,13 +35,19 @@ export const PROGRAM_ID = new PublicKey(
 export const DEVNET_RPC =
   process.env.NEXT_PUBLIC_HELIUS_RPC ?? "https://api.devnet.solana.com";
 
-// Devnet addresses captured at deploy time. Source of truth:
-// ~/refs/seedling-devnet-addresses.json (kept off-repo for safety).
+// Devnet addresses, post Quasar cutover (2026-05-03). Vault PDAs and ATAs
+// re-derived against the new PROGRAM_ID; static USDC/Kamino/oracle pubkeys
+// unchanged (those are upstream protocol addresses).
 export const DEVNET_ADDRESSES = {
-  vaultConfig: new PublicKey("FNPCZh1LLd7u3WG4W9h67V1p22gierebDPAb7PBy1sz7"),
-  treasury: new PublicKey("6KMyigbv4hU7N3cm5mRj4k9npz3hMuxkguCJyKaKrCDJ"),
-  vaultUsdcAta: new PublicKey("5GQBtK4QWHVYXF362hF17T8BfavB2uAmg4E8s538bGb"),
-  vaultCtokenAta: new PublicKey("2MGpBamYwMoaHUMpewsA9GpsjFji5WivKwopPLsXSZfG"),
+  // Quasar PDA — derived from "vault_config" seed + new PROGRAM_ID
+  vaultConfig: new PublicKey("8Y9ufsznBkhQSrQvgKBqLBjXxAfGuZEY9gy5CiX56mY4"),
+  // Treasury keypair-owned ATA (separate from any depositor's ATA — see
+  // treasury_keypair commit comment for rationale)
+  treasury: new PublicKey("6Pbtx9cSo8WtsxMBwMqvt7XbCZFat81NvHz1JoSRrkCW"),
+  // Vault PDA-owned ATAs (re-derived against new vault_config)
+  vaultUsdcAta: new PublicKey("FeLSvm5NejhXcrg3mrjpnqTN8vL3cec19MMDsFQ8MJY9"),
+  vaultCtokenAta: new PublicKey("A3QAWo3T9qgT4TUudookXAffBqVFx5HEfQMXfYJcou8w"),
+  // ↓ unchanged — these are upstream addresses
   usdcMint: new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"),
   ctokenMint: new PublicKey("6FY2rwh5wWrtSveAG9t9ANc2YsrChNasVSEpMQubJcXd"),
   kaminoReserve: new PublicKey("HRwMj8uuoGVWCanKzKvpTWN5ZvXjtjKGxcFbn2qTPKMW"),

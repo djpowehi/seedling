@@ -46,7 +46,7 @@ export default function Dashboard() {
     setError(null);
     try {
       const [result, clk] = await Promise.all([
-        fetchFamiliesForParent(connection, seedling.program, publicKey),
+        fetchFamiliesForParent(connection, publicKey),
         fetchVaultClock(connection, DEVNET_ADDRESSES.vaultConfig),
       ]);
       setFamilies(result);
@@ -173,9 +173,8 @@ export default function Dashboard() {
               </div>
             )}
 
-            {showAddForm && seedling && publicKey && (
+            {showAddForm && publicKey && (
               <AddKidForm
-                program={seedling.program}
                 connection={connection}
                 parent={publicKey}
                 onCancel={() => setShowAddForm(false)}
@@ -222,7 +221,6 @@ export default function Dashboard() {
                       <FamilyCard
                         key={family.pubkey.toBase58()}
                         family={family}
-                        program={seedling.program}
                         connection={connection}
                         parent={publicKey}
                         vaultClock={vaultClock}

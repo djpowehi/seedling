@@ -1,25 +1,29 @@
-import { BN, Program } from "@coral-xyz/anchor";
+import { BN } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
 import bs58 from "bs58";
 import { PROGRAM_ID } from "./program";
-import type { Seedling } from "./types";
+import {
+  FAMILY_POSITION_DISCRIMINATOR,
+  FamilyPositionCodec,
+} from "./quasar-client";
 
 /**
- * Anchor account discriminator for FamilyPosition.
- * Verified against frontend/lib/idl.json — sha256("account:FamilyPosition")[..8].
- */
-const FAMILY_POSITION_DISCRIMINATOR = Buffer.from([
-  36, 165, 172, 151, 135, 133, 205, 110,
-]);
-
-/**
- * FamilyPosition account total size on-chain.
- * 8 disc + 32 parent + 32 kid + 8 shares + 8 principal_deposited
+ * FamilyPosition account total size on-chain (Quasar layout):
+ * 1 disc + 32 parent + 32 kid + 8 shares + 8 principal_deposited
  * + 8 principal_remaining + 8 stream_rate + 8 created_at
- * + 8 last_distribution + 4 last_bonus_period_id + 8 total_yield_earned + 1 bump = 133
+ * + 8 last_distribution + 4 last_bonus_period_id + 8 total_yield_earned
+ * + 1 bump = 126 bytes.
+ *
+ * Anchor v1 was 133 bytes (8-byte discriminator). Quasar's 1-byte
+ * discriminator saves 7 bytes per account.
  */
-const FAMILY_POSITION_SIZE = 133;
+const FAMILY_POSITION_SIZE = 126;
 
+/**
+ * Backward-compat shape — preserved as BN-typed bigints so existing UI code
+ * that does .toString() / .toNumber() / BN math doesn't break. The Quasar
+ * codec produces native bigints; we wrap them at the boundary here.
+ */
 export type FamilyView = {
   pubkey: PublicKey;
   parent: PublicKey;
@@ -38,18 +42,16 @@ export type FamilyView = {
 /**
  * Fetch all FamilyPosition PDAs where parent == owner.
  *
- * Filter strategy (cheap on devnet, tight on mainnet):
- *   1. dataSize 133 — only FamilyPosition accounts
- *   2. memcmp at offset 0  — Anchor account discriminator
- *   3. memcmp at offset 8  — parent pubkey (32 bytes)
+ * Filter strategy:
+ *   1. dataSize 126 — only FamilyPosition accounts under Quasar layout
+ *   2. memcmp at offset 0  — Quasar 1-byte discriminator (= 2)
+ *   3. memcmp at offset 1  — parent pubkey (32 bytes; first field after disc)
  *
- * Verified offset: see programs/seedling/src/state/family_position.rs:19
- *   #[account] FamilyPosition { parent: Pubkey, ... }
- *   8 (discriminator) + 0 (parent is first field) = 8
+ * Note: param signature dropped Program<Seedling> after Quasar cutover.
+ * Callers should pass connection + parent only.
  */
 export async function fetchFamiliesForParent(
   connection: Connection,
-  program: Program<Seedling>,
   parent: PublicKey
 ): Promise<FamilyView[]> {
   const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
@@ -58,19 +60,29 @@ export async function fetchFamiliesForParent(
       {
         memcmp: {
           offset: 0,
-          bytes: bs58.encode(FAMILY_POSITION_DISCRIMINATOR),
+          bytes: bs58.encode(Buffer.from(FAMILY_POSITION_DISCRIMINATOR)),
         },
       },
-      { memcmp: { offset: 8, bytes: parent.toBase58() } },
+      { memcmp: { offset: 1, bytes: parent.toBase58() } },
     ],
     commitment: "confirmed",
   });
 
   return accounts.map(({ pubkey, account }) => {
-    const decoded = program.coder.accounts.decode(
-      "familyPosition",
-      account.data
-    ) as FamilyView;
-    return { ...decoded, pubkey };
+    const decoded = FamilyPositionCodec.decode(account.data.subarray(1));
+    return {
+      pubkey,
+      parent: decoded.parent,
+      kid: decoded.kid,
+      shares: new BN(decoded.shares.toString()),
+      principalDeposited: new BN(decoded.principalDeposited.toString()),
+      principalRemaining: new BN(decoded.principalRemaining.toString()),
+      streamRate: new BN(decoded.streamRate.toString()),
+      createdAt: new BN(decoded.createdAt.toString()),
+      lastDistribution: new BN(decoded.lastDistribution.toString()),
+      lastBonusPeriodId: decoded.lastBonusPeriodId,
+      totalYieldEarned: new BN(decoded.totalYieldEarned.toString()),
+      bump: decoded.bump,
+    };
   });
 }

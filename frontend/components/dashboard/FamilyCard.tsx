@@ -13,8 +13,11 @@ import {
   SystemProgram,
 } from "@solana/web3.js";
 import type { Connection } from "@solana/web3.js";
-import type { Program } from "@coral-xyz/anchor";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { DEVNET_ADDRESSES, PROGRAM_ID } from "@/lib/program";
+import { SeedlingQuasarClient } from "@/lib/quasar-client";
+import { kidViewPda as deriveKidViewPda } from "@/lib/quasarPdas";
+import { sendQuasarIx } from "@/lib/sendQuasarIx";
 import { celebrateBonus, celebrateMonthly } from "@/lib/celebrate";
 import { fetchFamilyByPda } from "@/lib/fetchFamilyByPda";
 import {
@@ -35,7 +38,6 @@ import {
   type SavingsGoal,
 } from "@/lib/savingsGoals";
 import type { FamilyView } from "@/lib/fetchFamilies";
-import type { Seedling } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import { DepositForm } from "@/components/DepositForm";
 import { WithdrawForm } from "@/components/WithdrawForm";
@@ -56,7 +58,6 @@ type VaultClock = {
 
 type Props = {
   family: FamilyView;
-  program: Program<Seedling>;
   connection: Connection;
   parent: PublicKey;
   vaultClock: VaultClock | null;
@@ -100,12 +101,13 @@ function fmtCountdown(seconds: number): string {
 
 export function FamilyCard({
   family,
-  program,
   connection,
   parent,
   vaultClock,
   onMutated,
 }: Props) {
+  const wallet = useWallet();
+  const client = new SeedlingQuasarClient();
   const familyKey = family.pubkey.toBase58();
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   const [renaming, setRenaming] = useState(false);
@@ -236,10 +238,7 @@ export function FamilyCard({
   };
 
   const buildSharedDistributeAccounts = () => {
-    const [kidViewPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("kid"), parent.toBuffer(), family.kid.toBuffer()],
-      PROGRAM_ID
-    );
+    const kidView = deriveKidViewPda(parent, family.kid);
     const kidUsdcAta = getAssociatedTokenAddressSync(
       DEVNET_ADDRESSES.usdcMint,
       family.kid
@@ -247,7 +246,7 @@ export function FamilyCard({
     return {
       keeper: parent,
       familyPosition: family.pubkey,
-      kidView: kidViewPda,
+      kidView,
       kidUsdcAta,
       kidOwner: family.kid,
       vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
@@ -258,7 +257,6 @@ export function FamilyCard({
       ctokenMint: DEVNET_ADDRESSES.ctokenMint,
       ...buildKaminoAccounts(),
       tokenProgram: TOKEN_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     };
   };
@@ -284,13 +282,16 @@ export function FamilyCard({
     setSubmitting("monthly");
     setError(null);
     try {
-      const sig = await program.methods
-        .distributeMonthlyAllowance()
-        .accountsPartial(buildSharedDistributeAccounts())
-        .preInstructions(distributePreIxs())
-        .rpc({ commitment: "confirmed" });
+      const ix = client.createDistributeMonthlyAllowanceInstruction(
+        buildSharedDistributeAccounts()
+      );
+      const sig = await sendQuasarIx(
+        [...distributePreIxs(), ix],
+        connection,
+        wallet,
+        { commitment: "confirmed" }
+      );
       console.log(`[distribute_monthly] tx ${sig}`);
-      await connection.confirmTransaction(sig, "finalized");
       celebrateMonthly();
       showToast({
         variant: "monthly",
@@ -320,13 +321,16 @@ export function FamilyCard({
     setError(null);
     try {
       const yieldBefore = Number(family.totalYieldEarned.toString());
-      const sig = await program.methods
-        .distributeBonus()
-        .accountsPartial(buildSharedDistributeAccounts())
-        .preInstructions(distributePreIxs())
-        .rpc({ commitment: "confirmed" });
+      const ix = client.createDistributeBonusInstruction(
+        buildSharedDistributeAccounts()
+      );
+      const sig = await sendQuasarIx(
+        [...distributePreIxs(), ix],
+        connection,
+        wallet,
+        { commitment: "confirmed" }
+      );
       console.log(`[distribute_bonus] tx ${sig}`);
-      await connection.confirmTransaction(sig, "finalized");
       let bonusUsd = 0;
       try {
         const refetched = await fetchFamilyByPda(connection, family.pubkey);
@@ -381,14 +385,7 @@ export function FamilyCard({
         DEVNET_ADDRESSES.usdcMint,
         parent
       );
-      const [kidViewPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("kid"), parent.toBuffer(), family.kid.toBuffer()],
-        PROGRAM_ID
-      );
-      const [lendingMarketAuthority] = PublicKey.findProgramAddressSync(
-        [Buffer.from("lma"), DEVNET_ADDRESSES.kaminoMarket.toBuffer()],
-        DEVNET_ADDRESSES.klendProgram
-      );
+      const kidView = deriveKidViewPda(parent, family.kid);
       const ataIx = createAssociatedTokenAccountIdempotentInstruction(
         parent,
         parentUsdcAta,
@@ -396,39 +393,31 @@ export function FamilyCard({
         DEVNET_ADDRESSES.usdcMint
       );
 
-      const sig = await program.methods
-        .closeFamily()
-        .accountsPartial({
-          familyPosition: family.pubkey,
-          kidView: kidViewPda,
-          parent,
-          parentUsdcAta,
-          vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
-          vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
-          treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
-          vaultConfig: DEVNET_ADDRESSES.vaultConfig,
-          usdcMint: DEVNET_ADDRESSES.usdcMint,
-          ctokenMint: DEVNET_ADDRESSES.ctokenMint,
-          kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
-          lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
-          lendingMarketAuthority,
-          reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
-          oraclePyth: DEVNET_ADDRESSES.oraclePyth,
-          oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
-          oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
-          oracleScopeConfig: DEVNET_ADDRESSES.klendProgram,
-          kaminoProgram: DEVNET_ADDRESSES.klendProgram,
-          instructionSysvar: SYSVAR_INSTRUCTIONS,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        })
-        .preInstructions([
+      const closeIx = client.createCloseFamilyInstruction({
+        familyPosition: family.pubkey,
+        kidView,
+        parent,
+        parentUsdcAta,
+        vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
+        vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
+        treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
+        vaultConfig: DEVNET_ADDRESSES.vaultConfig,
+        usdcMint: DEVNET_ADDRESSES.usdcMint,
+        ctokenMint: DEVNET_ADDRESSES.ctokenMint,
+        ...buildKaminoAccounts(),
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      });
+      const sig = await sendQuasarIx(
+        [
           ComputeBudgetProgram.setComputeUnitLimit({ units: 350_000 }),
           ataIx,
-        ])
-        .rpc({ commitment: "confirmed" });
-      await connection.confirmTransaction(sig, "finalized");
+          closeIx,
+        ],
+        connection,
+        wallet,
+        { commitment: "confirmed" }
+      );
       removeKidName(familyKey);
       removeSavingsGoal(familyKey);
       onMutated();
@@ -721,7 +710,6 @@ export function FamilyCard({
       {showDeposit && (
         <div style={{ marginTop: 16 }}>
           <DepositForm
-            program={program}
             connection={connection}
             parent={parent}
             family={family}
@@ -737,7 +725,6 @@ export function FamilyCard({
       {showWithdraw && (
         <div style={{ marginTop: 16 }}>
           <WithdrawForm
-            program={program}
             connection={connection}
             parent={parent}
             family={family}

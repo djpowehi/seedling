@@ -1,12 +1,18 @@
 "use client";
 
-import { BN } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { useEffect, useState } from "react";
 import type { Connection } from "@solana/web3.js";
-import type { Program } from "@coral-xyz/anchor";
 import { PROGRAM_ID } from "@/lib/program";
 import { setKidName } from "@/lib/kidNames";
+import { SeedlingQuasarClient } from "@/lib/quasar-client";
+import {
+  familyPositionPda,
+  kidViewPda,
+  vaultConfigPda,
+} from "@/lib/quasarPdas";
+import { sendQuasarIx } from "@/lib/sendQuasarIx";
 import {
   defaultHybridConfig,
   estimatedAnnualYield,
@@ -18,7 +24,6 @@ import {
   type DepositMode,
   type HybridConfig,
 } from "@/lib/depositMode";
-import type { Seedling } from "@/lib/types";
 import { ArrowR } from "./icons";
 
 const MIN_STREAM_USD = 1;
@@ -28,20 +33,14 @@ const MIN_STREAM_USD = 1;
 const MAX_STREAM_USD = 100_000;
 
 type Props = {
-  program: Program<Seedling>;
   connection: Connection;
   parent: PublicKey;
   onCreated: () => void;
   onCancel: () => void;
 };
 
-export function AddKidForm({
-  program,
-  connection,
-  parent,
-  onCreated,
-  onCancel,
-}: Props) {
+export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
+  const wallet = useWallet();
   const [nameInput, setNameInput] = useState("");
   const [pubkeyInput, setPubkeyInput] = useState("");
   const [monthlyInput, setMonthlyInput] = useState("50");
@@ -150,17 +149,22 @@ export function AddKidForm({
 
     try {
       const streamRateBaseUnits = Math.round(monthlyNum * 1_000_000);
-      const streamRate = new BN(streamRateBaseUnits);
+      const client = new SeedlingQuasarClient();
+      const familyPda = familyPositionPda(parent, parsedKid);
+      const kidViewAddr = kidViewPda(parent, parsedKid);
 
-      const sig = await program.methods
-        .createFamily(parsedKid, streamRate)
-        .accounts({ parent })
-        .rpc({ commitment: "confirmed" });
-
-      const [familyPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("family"), parent.toBuffer(), parsedKid.toBuffer()],
-        PROGRAM_ID
-      );
+      const ix = client.createCreateFamilyInstruction({
+        parent,
+        vaultConfig: vaultConfigPda(),
+        familyPosition: familyPda,
+        kidView: kidViewAddr,
+        systemProgram: SystemProgram.programId,
+        kid: parsedKid,
+        streamRate: BigInt(streamRateBaseUnits),
+      });
+      const sig = await sendQuasarIx(ix, connection, wallet, {
+        commitment: "confirmed",
+      });
       if (nameInput.trim()) {
         setKidName(familyPda.toBase58(), nameInput);
       }
