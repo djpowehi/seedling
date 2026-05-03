@@ -26,8 +26,13 @@ import { PredictionCard } from "@/components/PredictionCard";
 import { YearRecap } from "@/components/YearRecap";
 import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
 import { getGiftNames, shortPubkey, timeAgo } from "@/lib/giftNames";
-import { currentCycleKey, getPrediction } from "@/lib/predictions";
+import {
+  currentCycleKey,
+  getPrediction,
+  previousCycleKey,
+} from "@/lib/predictions";
 import { useToast } from "@/components/Toast";
+import { celebrateDeposit } from "@/lib/celebrate";
 
 const ESTIMATED_APY = 0.08;
 const YEAR_SECONDS = 365 * 86_400;
@@ -199,18 +204,26 @@ export function KidView({ family, initialClock, kidName }: Props) {
     const check = () => {
       const cycle = currentCycleKey();
       const thisMonth = getPrediction(familyKey, cycle);
-      // Show the live yield only when the kid has locked this month's
-      // guess. After rollover the prior-month resolved card replaces
-      // this UI altogether (PredictionCard handles that), and the kid is
-      // free to see the live tile again until next predict.
-      setHideYield(!thisMonth);
+      // Calendar guard: a brand-new family (created this month) has no
+      // closed prior cycle to guess about, so PredictionCard renders the
+      // "first round opens on the 1st" placeholder with no input. In that
+      // state we must NOT hide the yield tile — the kid has no way to
+      // satisfy the "make your guess first" prompt, and the tile stays
+      // permanently masked.
+      const targetCycle = previousCycleKey(cycle);
+      const familyDate = new Date(createdAtSec * 1000);
+      const familyCycle = `${familyDate.getFullYear()}-${String(
+        familyDate.getMonth() + 1
+      ).padStart(2, "0")}`;
+      const noRoundYet = targetCycle < familyCycle;
+      setHideYield(!thisMonth && !noRoundYet);
     };
     check();
     const id = setInterval(check, 2_000);
     return () => clearInterval(id);
-  }, [familyKey]);
+  }, [familyKey, createdAtSec]);
 
-  // ───── gift wall (gifts only — top-ups by parent are filtered out) ─────
+  // ───── gift wall (every deposit shows — parent top-ups + outside gifts) ─────
   const [gifts, setGifts] = useState<GiftEntry[]>([]);
   const [giftsLoading, setGiftsLoading] = useState(true);
   const [names, setNames] = useState<Record<string, string>>({});
@@ -255,6 +268,10 @@ export function KidView({ family, initialClock, kidName }: Props) {
               title: `${who} sent you $${g.amountUsd.toFixed(2)}`,
               subtitle: "A GIFT JUST LANDED",
             });
+            // Celebrate from upper-center — the kid is on their own page
+            // looking at the tree, so the burst falls over the page like
+            // confetti dropping on the moment.
+            void celebrateDeposit({ x: 0.5, y: 0.3 });
           }
         } else {
           for (const g of list) seenGiftSigs.current.add(g.sig);

@@ -1,12 +1,20 @@
 "use client";
 
-import { BN } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
-import { useEffect, useState } from "react";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useEffect, useRef, useState } from "react";
 import type { Connection } from "@solana/web3.js";
-import type { Program } from "@coral-xyz/anchor";
 import { PROGRAM_ID } from "@/lib/program";
+import { celebratePlant } from "@/lib/celebrate";
 import { setKidName } from "@/lib/kidNames";
+import { SeedlingQuasarClient } from "@/lib/quasar-client";
+import { useToast } from "@/components/Toast";
+import {
+  familyPositionPda,
+  kidViewPda,
+  vaultConfigPda,
+} from "@/lib/quasarPdas";
+import { sendQuasarIx } from "@/lib/sendQuasarIx";
 import {
   defaultHybridConfig,
   estimatedAnnualYield,
@@ -18,7 +26,6 @@ import {
   type DepositMode,
   type HybridConfig,
 } from "@/lib/depositMode";
-import type { Seedling } from "@/lib/types";
 import { ArrowR } from "./icons";
 
 const MIN_STREAM_USD = 1;
@@ -28,20 +35,18 @@ const MIN_STREAM_USD = 1;
 const MAX_STREAM_USD = 100_000;
 
 type Props = {
-  program: Program<Seedling>;
   connection: Connection;
   parent: PublicKey;
   onCreated: () => void;
   onCancel: () => void;
 };
 
-export function AddKidForm({
-  program,
-  connection,
-  parent,
-  onCreated,
-  onCancel,
-}: Props) {
+export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
+  const wallet = useWallet();
+  const { showToast } = useToast();
+  // Section ref so the planting confetti fires FROM the form's location
+  // (not screen-center). Captured before onCreated unmounts us.
+  const sectionRef = useRef<HTMLElement>(null);
   const [nameInput, setNameInput] = useState("");
   const [pubkeyInput, setPubkeyInput] = useState("");
   const [monthlyInput, setMonthlyInput] = useState("50");
@@ -54,6 +59,14 @@ export function AddKidForm({
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Scroll the form into view on mount. The "+ add another kid" button
+  // lives at the bottom of the dashboard, but the form renders at the
+  // top — without this, clicking the button does nothing visible until
+  // the user scrolls up.
+  useEffect(() => {
+    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   // Sync the hybrid pre-fills to whatever stream rate the parent's typed —
   // but only while the parent hasn't manually edited the hybrid fields.
@@ -150,17 +163,22 @@ export function AddKidForm({
 
     try {
       const streamRateBaseUnits = Math.round(monthlyNum * 1_000_000);
-      const streamRate = new BN(streamRateBaseUnits);
+      const client = new SeedlingQuasarClient();
+      const familyPda = familyPositionPda(parent, parsedKid);
+      const kidViewAddr = kidViewPda(parent, parsedKid);
 
-      const sig = await program.methods
-        .createFamily(parsedKid, streamRate)
-        .accounts({ parent })
-        .rpc({ commitment: "confirmed" });
-
-      const [familyPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("family"), parent.toBuffer(), parsedKid.toBuffer()],
-        PROGRAM_ID
-      );
+      const ix = client.createCreateFamilyInstruction({
+        parent,
+        vaultConfig: vaultConfigPda(),
+        familyPosition: familyPda,
+        kidView: kidViewAddr,
+        systemProgram: SystemProgram.programId,
+        kid: parsedKid,
+        streamRate: BigInt(streamRateBaseUnits),
+      });
+      const sig = await sendQuasarIx(ix, connection, wallet, {
+        commitment: "confirmed",
+      });
       if (nameInput.trim()) {
         setKidName(familyPda.toBase58(), nameInput);
       }
@@ -180,6 +198,16 @@ export function AddKidForm({
 
       await connection.confirmTransaction(sig, "finalized");
       console.log(`[create_family] tx ${sig}`);
+      // Plant celebration — capture origin BEFORE onCreated unmounts the form.
+      const origin = computeOrigin(sectionRef.current);
+      void celebratePlant(origin);
+      showToast({
+        variant: "monthly",
+        title: nameInput.trim()
+          ? `${nameInput.trim()}'s allowance is planted`
+          : "new allowance planted",
+        subtitle: `$${monthlyNum}/mo · earning yield on Kamino`,
+      });
       onCreated();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -202,6 +230,15 @@ export function AddKidForm({
             }
           }
         }
+        const origin = computeOrigin(sectionRef.current);
+        void celebratePlant(origin);
+        showToast({
+          variant: "monthly",
+          title: nameInput.trim()
+            ? `${nameInput.trim()}'s allowance is planted`
+            : "new allowance planted",
+          subtitle: `$${monthlyNum}/mo · earning yield on Kamino`,
+        });
         onCreated();
         return;
       }
@@ -223,12 +260,17 @@ export function AddKidForm({
 
   return (
     <section
+      ref={sectionRef}
       className="dash-card"
       style={{
         padding: "36px 40px",
         marginBottom: 32,
         background: "var(--stone-2)",
         border: "1px solid var(--line)",
+        // Leaves breathing room above the eyebrow when scrollIntoView
+        // lands the form — without this the seedling header overlaps
+        // the "new family" eyebrow line.
+        scrollMarginTop: 120,
       }}
     >
       <div
@@ -431,6 +473,21 @@ export function AddKidForm({
   );
 }
 
+/** Convert an element's bounding rect to canvas-confetti's normalized
+ *  [0..1] viewport coordinates. Returns the element's center-bottom so
+ *  the planting sprout rises FROM the new family card area, not screen-
+ *  center. Falls back to lower-center on null. */
+function computeOrigin(el: HTMLElement | null): { x: number; y: number } {
+  if (!el || typeof window === "undefined") {
+    return { x: 0.5, y: 0.7 };
+  }
+  const r = el.getBoundingClientRect();
+  return {
+    x: (r.left + r.width / 2) / window.innerWidth,
+    y: (r.top + r.height * 0.85) / window.innerHeight,
+  };
+}
+
 // ──────────── deposit-cadence picker ────────────
 //
 // Three pills, each showing the live total commitment + projected yield
@@ -503,6 +560,23 @@ function ModePicker({
       >
         deposit cadence
       </span>
+      {/* Principle line — frames the cadence asymmetry as intentional
+          design (seedling rewards time), not a limitation of monthly. */}
+      <p
+        className="dash-serif"
+        style={{
+          margin: 0,
+          fontSize: 17,
+          lineHeight: 1.35,
+          color: "var(--ink-2)",
+          letterSpacing: "-0.005em",
+        }}
+      >
+        Seedling rewards time —{" "}
+        <span className="dash-italic">
+          the longer money stays, the more the kid earns.
+        </span>
+      </p>
       <div
         style={{
           display: "grid",

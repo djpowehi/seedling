@@ -1,8 +1,6 @@
 "use client";
 
-import { BN } from "@coral-xyz/anchor";
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
   getAssociatedTokenAddressSync,
@@ -12,19 +10,21 @@ import {
   PublicKey,
   SystemProgram,
 } from "@solana/web3.js";
-import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useRef, useState } from "react";
 import type { Connection } from "@solana/web3.js";
-import type { Program } from "@coral-xyz/anchor";
 import { DEVNET_ADDRESSES } from "@/lib/program";
+import { SeedlingQuasarClient } from "@/lib/quasar-client";
+import { sendQuasarIx } from "@/lib/sendQuasarIx";
+import { celebrateWithdraw } from "@/lib/celebrate";
+import { useToast } from "@/components/Toast";
 import type { FamilyView } from "@/lib/fetchFamilies";
-import type { Seedling } from "@/lib/types";
 
 const SYSVAR_INSTRUCTIONS = new PublicKey(
   "Sysvar1nstructions1111111111111111111111111"
 );
 
 type Props = {
-  program: Program<Seedling>;
   connection: Connection;
   parent: PublicKey;
   family: FamilyView;
@@ -33,52 +33,91 @@ type Props = {
 };
 
 export function WithdrawForm({
-  program,
   connection,
   parent,
   family,
   onWithdrawn,
   onCancel,
 }: Props) {
-  const totalShares = BigInt(family.shares.toString());
-  const [sharesInput, setSharesInput] = useState("");
+  const wallet = useWallet();
+  const client = new SeedlingQuasarClient();
+  const { showToast } = useToast();
+  // Form ref → confetti origin centered on the family card.
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Family-balance math. Both fields are raw u64 USDC base units.
+  // principal + yield gives us "USDC value of this family's shares" at the
+  // last harvest snapshot — close enough for input estimation; the program
+  // does an authoritative refresh + computes against current state.
+  const familyShares = BigInt(family.shares.toString());
+  const principalBase = BigInt(family.principalRemaining.toString());
+  const yieldBase = BigInt(family.totalYieldEarned.toString());
+  const balanceBase = principalBase + yieldBase;
+  const balanceUsd = Number(balanceBase) / 1_000_000;
+
+  const [usdInput, setUsdInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Shares-denominated input. USD-denom would require a live Kamino exchange-
-  // rate read; deferred to a v2 once the share-price view is exposed on-chain.
-  let sharesError: string | null = null;
-  let parsedShares: bigint | null = null;
-  if (sharesInput.trim()) {
-    try {
-      parsedShares = BigInt(sharesInput.trim());
-      if (parsedShares <= BigInt(0)) {
-        sharesError = "must be positive";
-      } else if (parsedShares > totalShares) {
-        sharesError = `max ${totalShares.toString()} shares`;
-      }
-    } catch {
-      sharesError = "must be a whole number";
-    }
+  const usdNum = parseFloat(usdInput);
+  let usdError: string | null = null;
+  if (!usdInput.trim()) {
+    usdError = null;
+  } else if (Number.isNaN(usdNum) || !Number.isFinite(usdNum)) {
+    usdError = "must be a number";
+  } else if (usdNum <= 0) {
+    usdError = "must be positive";
+  } else if (usdNum > balanceUsd + 0.005) {
+    // tiny epsilon so "$4.90" doesn't fail when the balance shows as 4.90
+    // due to base-unit rounding to 6dp.
+    usdError = `max $${balanceUsd.toFixed(2)}`;
   }
 
   const submitDisabled =
     submitting ||
-    !sharesInput.trim() ||
-    sharesError !== null ||
-    totalShares === BigInt(0);
+    !usdInput.trim() ||
+    usdError !== null ||
+    balanceBase === BigInt(0);
 
-  const setMax = () => setSharesInput(totalShares.toString());
+  /** Convert the user's USD intent into shares-to-burn at the
+   *  current local-snapshot share price. Caps at family's full
+   *  share balance to avoid over-burn from rounding. */
+  const computeSharesToBurn = (usd: number): bigint => {
+    if (balanceBase === BigInt(0)) return BigInt(0);
+    const amountBase = BigInt(Math.round(usd * 1_000_000));
+    if (amountBase >= balanceBase) return familyShares; // max-out
+    const shares = (amountBase * familyShares) / balanceBase;
+    return shares > familyShares ? familyShares : shares;
+  };
+
+  const previewShares =
+    Number.isFinite(usdNum) && usdNum > 0
+      ? computeSharesToBurn(usdNum)
+      : BigInt(0);
+
+  const setMax = () => setUsdInput(balanceUsd.toFixed(2));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitDisabled || parsedShares === null) return;
+    if (submitDisabled) return;
 
     setSubmitting(true);
     setSubmitError(null);
 
     try {
-      const sharesToBurn = new BN(parsedShares.toString());
+      // If the user typed effectively the full balance, just burn all
+      // shares — avoids dust strands of 1-2 shares left behind by
+      // rounding in the floor(usd * shares / balance) calculation.
+      const sharesToBurn =
+        Math.abs(usdNum - balanceUsd) < 0.005
+          ? familyShares
+          : computeSharesToBurn(usdNum);
+
+      if (sharesToBurn === BigInt(0)) {
+        setSubmitError("Amount too small to withdraw.");
+        setSubmitting(false);
+        return;
+      }
 
       const parentUsdcAta = getAssociatedTokenAddressSync(
         DEVNET_ADDRESSES.usdcMint,
@@ -97,51 +136,69 @@ export function WithdrawForm({
         DEVNET_ADDRESSES.usdcMint
       );
 
-      // Mirrors scripts/surfpool-withdraw-e2e.ts. Same Kamino account set as
-      // deposit; only the program-side instruction differs.
-      const sig = await program.methods
-        .withdraw(sharesToBurn, new BN(0))
-        .accountsPartial({
-          familyPosition: family.pubkey,
-          parent,
-          parentUsdcAta,
-          vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
-          vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
-          treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
-          vaultConfig: DEVNET_ADDRESSES.vaultConfig,
-          usdcMint: DEVNET_ADDRESSES.usdcMint,
-          ctokenMint: DEVNET_ADDRESSES.ctokenMint,
-          kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
-          lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
-          lendingMarketAuthority,
-          reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
-          oraclePyth: DEVNET_ADDRESSES.oraclePyth,
-          oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
-          oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
-          oracleScopeConfig: DEVNET_ADDRESSES.klendProgram,
-          kaminoProgram: DEVNET_ADDRESSES.klendProgram,
-          instructionSysvar: SYSVAR_INSTRUCTIONS,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        })
-        .preInstructions([
-          ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
-          ataIx,
-        ])
-        .rpc({ commitment: "confirmed" });
+      const withdrawIx = client.createWithdrawInstruction({
+        familyPosition: family.pubkey,
+        parent,
+        parentUsdcAta,
+        vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
+        vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
+        treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
+        vaultConfig: DEVNET_ADDRESSES.vaultConfig,
+        usdcMint: DEVNET_ADDRESSES.usdcMint,
+        ctokenMint: DEVNET_ADDRESSES.ctokenMint,
+        kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
+        lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
+        lendingMarketAuthority,
+        reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
+        oraclePyth: DEVNET_ADDRESSES.oraclePyth,
+        oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
+        oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
+        oracleScopeConfig: DEVNET_ADDRESSES.klendProgram,
+        kaminoProgram: DEVNET_ADDRESSES.klendProgram,
+        instructionSysvar: SYSVAR_INSTRUCTIONS,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        sharesToBurn,
+        // No slippage floor — we'd rather receive 1-2 base units less than
+        // bounce. Kamino's redeem can shave dust due to internal rounding.
+        minAssetsOut: BigInt(0),
+      });
 
-      // Wait for finalization so the immediate refetch sees the new
-      // family state, not a stale snapshot.
-      await connection.confirmTransaction(sig, "finalized");
+      const sig = await sendQuasarIx(
+        [
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 }),
+          ataIx,
+          withdrawIx,
+        ],
+        connection,
+        wallet,
+        { commitment: "finalized" }
+      );
       console.log(`[withdraw] tx ${sig}`);
 
+      // Celebrate at the family card's location + toast with the USD
+      // amount counting up. Capture origin BEFORE onWithdrawn unmounts.
+      const origin = computeWithdrawOrigin(formRef.current);
+      void celebrateWithdraw(origin);
+      showToast({
+        variant: "monthly",
+        title: "withdraw confirmed",
+        countUpUsd: usdNum,
+        subtitle: "USDC sent to your wallet",
+      });
       onWithdrawn();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      // Same Anchor-retry duplicate handling as DepositForm.
       if (msg.toLowerCase().includes("already been processed")) {
         console.log("[withdraw] duplicate submission — first tx succeeded");
+        const origin = computeWithdrawOrigin(formRef.current);
+        void celebrateWithdraw(origin);
+        showToast({
+          variant: "monthly",
+          title: "withdraw confirmed",
+          countUpUsd: usdNum,
+          subtitle: "USDC sent to your wallet",
+        });
         onWithdrawn();
         return;
       }
@@ -151,6 +208,31 @@ export function WithdrawForm({
         setSubmitError("The vault is paused. Try again later.");
       } else if (msg.includes("SlippageExceeded")) {
         setSubmitError("Share price moved during withdraw. Try again.");
+      } else if (msg.includes("BelowDustThreshold")) {
+        setSubmitError("Amount too small — must be at least 0.01 USDC.");
+      } else if (
+        // Phantom sometimes throws "Unexpected error" AFTER the tx has
+        // actually landed — wallet-adapter timing issue. Refetch so the
+        // dashboard reflects on-chain state; if the tx genuinely failed,
+        // principal didn't move and the user can retry.
+        msg.toLowerCase().includes("unexpected error") ||
+        msg.toLowerCase().includes("wallet rejected: unexpected")
+      ) {
+        console.log(
+          "[withdraw] wallet returned generic error — refetching to check actual state"
+        );
+        // Optimistically celebrate — common case is tx landed despite the
+        // generic error (verified on the $4.90→$3.90 case).
+        const origin = computeWithdrawOrigin(formRef.current);
+        void celebrateWithdraw(origin);
+        showToast({
+          variant: "monthly",
+          title: "withdraw likely confirmed",
+          countUpUsd: usdNum,
+          subtitle: "wallet glitched · check the principal updated",
+        });
+        onWithdrawn();
+        return;
       } else {
         setSubmitError(msg);
       }
@@ -161,11 +243,12 @@ export function WithdrawForm({
 
   return (
     <form
+      ref={formRef}
       onSubmit={handleSubmit}
       className="rounded-xl bg-stone-50 border border-stone-200 p-4 flex flex-col gap-3"
     >
       <div className="flex items-baseline justify-between">
-        <h3 className="text-sm font-medium text-emerald-900">Withdraw</h3>
+        <h3 className="text-sm font-medium text-emerald-900">Withdraw USDC</h3>
         <button
           type="button"
           onClick={onCancel}
@@ -177,32 +260,43 @@ export function WithdrawForm({
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
+          <span className="text-stone-500 text-sm">$</span>
           <input
             type="text"
-            inputMode="numeric"
-            value={sharesInput}
+            inputMode="decimal"
+            value={usdInput}
             onChange={(e) =>
-              setSharesInput(e.target.value.replace(/[^0-9]/g, ""))
+              // Allow digits + at most one decimal point; cap at 2 decimals.
+              setUsdInput(
+                e.target.value
+                  .replace(/[^0-9.]/g, "")
+                  .replace(/(\..*)\./g, "$1")
+                  .replace(/^(\d*\.\d{2}).*$/, "$1")
+              )
             }
-            placeholder="0"
-            className="rounded-lg border border-stone-300 px-3 py-2 text-sm w-40 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            placeholder="0.00"
+            className="rounded-lg border border-stone-300 px-3 py-2 text-sm w-32 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             autoFocus
           />
-          <span className="text-sm text-stone-500">shares</span>
+          <span className="text-sm text-stone-500">USDC</span>
           <button
             type="button"
             onClick={setMax}
             className="text-xs underline text-stone-600 hover:text-stone-800"
           >
-            max ({totalShares.toString()})
+            max (${balanceUsd.toFixed(2)})
           </button>
         </div>
-        {sharesError && (
-          <span className="text-xs text-red-700">{sharesError}</span>
-        )}
-        {totalShares === BigInt(0) && (
+        {usdError && <span className="text-xs text-red-700">{usdError}</span>}
+        {balanceBase === BigInt(0) && (
           <span className="text-xs text-stone-500">
-            No shares to withdraw. Deposit first.
+            No balance to withdraw. Deposit first.
+          </span>
+        )}
+        {!usdError && previewShares > BigInt(0) && balanceBase > BigInt(0) && (
+          <span className="text-xs text-stone-500">
+            burns ≈ {Number(previewShares).toLocaleString("en-US")} shares · you
+            receive ≈ ${usdNum.toFixed(2)} USDC
           </span>
         )}
       </div>
@@ -224,4 +318,21 @@ export function WithdrawForm({
       </div>
     </form>
   );
+}
+
+/** Convert the form's bounding rect into normalized [0..1] viewport
+ *  coords for canvas-confetti. Slight upward bias so particles spread
+ *  ABOVE the card. Falls back to upper-center on null. */
+function computeWithdrawOrigin(el: HTMLElement | null): {
+  x: number;
+  y: number;
+} {
+  if (!el || typeof window === "undefined") {
+    return { x: 0.5, y: 0.4 };
+  }
+  const r = el.getBoundingClientRect();
+  return {
+    x: (r.left + r.width / 2) / window.innerWidth,
+    y: (r.top + r.height * 0.3) / window.innerHeight,
+  };
 }

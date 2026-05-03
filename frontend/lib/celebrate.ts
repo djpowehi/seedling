@@ -13,6 +13,84 @@ const SEEDLING_PALETTE = {
   amber: ["#F5D08A", "#F8DA9A", "#C9A24A"],
 };
 
+/** Leaf-colored burst at the deposit's destination — usually the family
+ *  card itself so the visual ties to the row that just gained money.
+ *  Caller passes a normalized [0..1] origin from getBoundingClientRect();
+ *  defaults to upper-center if no rect supplied. */
+export async function celebrateDeposit(
+  origin: { x: number; y: number } = { x: 0.5, y: 0.4 }
+): Promise<void> {
+  const confetti = (await import("canvas-confetti")).default;
+  confetti({
+    particleCount: 140,
+    spread: 100,
+    startVelocity: 32,
+    origin,
+    colors: SEEDLING_PALETTE.green,
+    scalar: 1.1,
+    gravity: 1.0,
+    ticks: 220,
+  });
+}
+
+/** New-family celebration — "planting a seed". Two beats:
+ *  1) a tight upward sprout from the card's center-bottom (low gravity,
+ *     narrow spread, slow ticks → leaves drift UP rather than fall),
+ *  2) a light amber sparkle 250ms later for the "first signs of growth"
+ *     beat. Visually distinct from deposit (downward burst), withdraw
+ *     (mixed harvest), monthly (single bottom puff), and bonus (cascade). */
+export async function celebratePlant(
+  origin: { x: number; y: number } = { x: 0.5, y: 0.7 }
+): Promise<void> {
+  const confetti = (await import("canvas-confetti")).default;
+  // Stage 1 — upward sprout. Narrow spread, low gravity, high ticks so
+  // particles linger and drift like rising leaves.
+  confetti({
+    particleCount: 70,
+    angle: 90,
+    spread: 55,
+    startVelocity: 38,
+    origin,
+    colors: SEEDLING_PALETTE.green,
+    scalar: 0.95,
+    gravity: 0.55,
+    ticks: 320,
+  });
+  // Stage 2 — amber sparkle, slightly above the sprout origin.
+  setTimeout(() => {
+    confetti({
+      particleCount: 18,
+      angle: 90,
+      spread: 110,
+      startVelocity: 18,
+      origin: { x: origin.x, y: Math.max(0.05, origin.y - 0.1) },
+      colors: SEEDLING_PALETTE.amber,
+      scalar: 0.7,
+      gravity: 0.5,
+      ticks: 280,
+    });
+  }, 250);
+}
+
+/** Withdraw celebration — same shape as deposit but mixed green + amber
+ *  to read as "harvest" rather than "planting". Slightly fewer particles
+ *  so the two visuals are distinguishable side-by-side. */
+export async function celebrateWithdraw(
+  origin: { x: number; y: number } = { x: 0.5, y: 0.4 }
+): Promise<void> {
+  const confetti = (await import("canvas-confetti")).default;
+  confetti({
+    particleCount: 110,
+    spread: 100,
+    startVelocity: 30,
+    origin,
+    colors: [...SEEDLING_PALETTE.green, ...SEEDLING_PALETTE.amber],
+    scalar: 1.05,
+    gravity: 1.0,
+    ticks: 220,
+  });
+}
+
 export async function celebrateMonthly(): Promise<void> {
   const confetti = (await import("canvas-confetti")).default;
   // Single soft burst from the bottom, mostly green leaves.

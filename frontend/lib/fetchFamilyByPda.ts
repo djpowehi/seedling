@@ -2,52 +2,18 @@
 //
 // The kid page renders for anyone with the link (grandparents,
 // classmates, the kid themselves on a school computer). They have no
-// wallet adapter, so we build a no-signer Program instance and reuse
-// its coder — same case-conversion logic as the dashboard, no
-// subtle PascalCase/camelCase bug from raw BorshAccountsCoder.
+// wallet adapter, so we use the Quasar codec directly — no Provider/
+// Program plumbing needed.
 
-import { AnchorProvider, Idl, Program } from "@coral-xyz/anchor";
+import { BN } from "@coral-xyz/anchor";
+import { Connection, PublicKey } from "@solana/web3.js";
 import {
-  Connection,
-  Keypair,
-  PublicKey,
-  Transaction,
-  VersionedTransaction,
-} from "@solana/web3.js";
-import idl from "./idl.json";
+  FAMILY_POSITION_DISCRIMINATOR,
+  FamilyPositionCodec,
+  VAULT_CONFIG_DISCRIMINATOR,
+  VaultConfigCodec,
+} from "./quasar-client";
 import type { FamilyView } from "./fetchFamilies";
-import type { Seedling } from "./types";
-
-// `Wallet` from @coral-xyz/anchor is a Node-only export (it reads a
-// keypair file). Browsers can't import it. We only need a Wallet-shaped
-// object to instantiate a read-only Program — no signing happens here,
-// so a stub that throws on any signing call is safe.
-const stubKeypair = Keypair.generate();
-const stubWallet = {
-  publicKey: stubKeypair.publicKey,
-  signTransaction: <T extends Transaction | VersionedTransaction>(
-    _tx: T
-  ): Promise<T> => {
-    throw new Error("read-only wallet — signing is not supported");
-  },
-  signAllTransactions: <T extends Transaction | VersionedTransaction>(
-    _txs: T[]
-  ): Promise<T[]> => {
-    throw new Error("read-only wallet — signing is not supported");
-  },
-};
-
-let program: Program<Seedling> | null = null;
-let cachedConnection: Connection | null = null;
-function getProgram(connection: Connection): Program<Seedling> {
-  if (program && cachedConnection === connection) return program;
-  const provider = new AnchorProvider(connection, stubWallet, {
-    commitment: "confirmed",
-  });
-  program = new Program(idl as Idl, provider) as unknown as Program<Seedling>;
-  cachedConnection = connection;
-  return program;
-}
 
 export async function fetchFamilyByPda(
   connection: Connection,
@@ -55,11 +21,23 @@ export async function fetchFamilyByPda(
 ): Promise<FamilyView | null> {
   const info = await connection.getAccountInfo(familyPda, "confirmed");
   if (!info) return null;
-  const decoded = getProgram(connection).coder.accounts.decode(
-    "familyPosition",
-    info.data
-  ) as Omit<FamilyView, "pubkey">;
-  return { ...decoded, pubkey: familyPda };
+  if (info.data[0] !== FAMILY_POSITION_DISCRIMINATOR[0]) return null;
+
+  const decoded = FamilyPositionCodec.decode(info.data.subarray(1));
+  return {
+    pubkey: familyPda,
+    parent: decoded.parent,
+    kid: decoded.kid,
+    shares: new BN(decoded.shares.toString()),
+    principalDeposited: new BN(decoded.principalDeposited.toString()),
+    principalRemaining: new BN(decoded.principalRemaining.toString()),
+    streamRate: new BN(decoded.streamRate.toString()),
+    createdAt: new BN(decoded.createdAt.toString()),
+    lastDistribution: new BN(decoded.lastDistribution.toString()),
+    lastBonusPeriodId: decoded.lastBonusPeriodId,
+    totalYieldEarned: new BN(decoded.totalYieldEarned.toString()),
+    bump: decoded.bump,
+  };
 }
 
 export type VaultClock = {
@@ -76,26 +54,18 @@ export async function fetchVaultClock(
 ): Promise<VaultClock | null> {
   const info = await connection.getAccountInfo(vaultConfigPda, "confirmed");
   if (!info) return null;
-  const decoded = getProgram(connection).coder.accounts.decode(
-    "vaultConfig",
-    info.data
-  ) as {
-    totalShares: { toString(): string };
-    lastKnownTotalAssets: { toString(): string };
-    periodEndTs: { toString(): string };
-    currentPeriodId: number;
-    // Optional — only present once the program is redeployed with the
-    // cycle_months field. Devnet still runs the old binary so this is
-    // undefined there. We fall back to 12 (annual) for the UI label.
-    cycleMonths?: number;
-  };
+  if (info.data[0] !== VAULT_CONFIG_DISCRIMINATOR[0]) return null;
+
+  const decoded = VaultConfigCodec.decode(info.data.subarray(1));
   return {
-    totalShares: BigInt(decoded.totalShares.toString()),
-    lastKnownTotalAssets: BigInt(decoded.lastKnownTotalAssets.toString()),
-    periodEndTs: Number(decoded.periodEndTs.toString()),
-    currentPeriodId: Number(decoded.currentPeriodId),
-    cycleMonths:
-      typeof decoded.cycleMonths === "number" ? decoded.cycleMonths : 12,
+    totalShares: decoded.totalShares,
+    lastKnownTotalAssets: decoded.lastKnownTotalAssets,
+    periodEndTs: Number(decoded.periodEndTs),
+    currentPeriodId: decoded.currentPeriodId,
+    // Quasar VaultConfig doesn't carry cycle_months yet — default to 12
+    // (annual). Add the field on-chain in a future schema migration if we
+    // ever need other cadences.
+    cycleMonths: 12,
   };
 }
 

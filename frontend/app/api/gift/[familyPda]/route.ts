@@ -19,9 +19,7 @@
 // and the wallet hits THIS endpoint twice (GET, then POST). The familyPda
 // parameter is what scopes a gift to a specific kid.
 
-import { AnchorProvider, BN, Idl, Program } from "@coral-xyz/anchor";
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
   getAssociatedTokenAddressSync,
@@ -29,18 +27,18 @@ import {
 import {
   ComputeBudgetProgram,
   Connection,
-  Keypair,
   PublicKey,
   SystemProgram,
   Transaction,
   TransactionInstruction,
-  type VersionedTransaction,
 } from "@solana/web3.js";
 import { NextRequest, NextResponse } from "next/server";
 
-import idl from "@/lib/idl.json";
 import { DEVNET_ADDRESSES, DEVNET_RPC } from "@/lib/program";
-import type { Seedling } from "@/lib/types";
+import {
+  FAMILY_POSITION_DISCRIMINATOR,
+  SeedlingQuasarClient,
+} from "@/lib/quasar-client";
 
 const SYSVAR_INSTRUCTIONS = new PublicKey(
   "Sysvar1nstructions1111111111111111111111111"
@@ -76,30 +74,8 @@ function buildMemoIx(payload: string): TransactionInstruction {
   });
 }
 
-// Stub wallet — same pattern as fetchFamilyByPda. We're read-only on the
-// server: the route builds the transaction but the depositor signs it
-// client-side. Any signing call on this wallet should never fire.
-const stubKeypair = Keypair.generate();
-const stubWallet = {
-  publicKey: stubKeypair.publicKey,
-  signTransaction: <T extends Transaction | VersionedTransaction>(
-    _tx: T
-  ): Promise<T> => {
-    throw new Error("server-side stub — should never sign");
-  },
-  signAllTransactions: <T extends Transaction | VersionedTransaction>(
-    _txs: T[]
-  ): Promise<T[]> => {
-    throw new Error("server-side stub — should never sign");
-  },
-};
-
-function getProgram(connection: Connection) {
-  const provider = new AnchorProvider(connection, stubWallet, {
-    commitment: "confirmed",
-  });
-  return new Program(idl as Idl, provider) as unknown as Program<Seedling>;
-}
+// No stub wallet needed under Quasar — instruction builders don't need
+// a signer/provider, and account fetching uses the codec directly.
 
 // ----- GET: wallet metadata -----
 export async function GET() {
@@ -136,18 +112,19 @@ export async function POST(
     const depositor = new PublicKey(body.account);
     const familyPda = new PublicKey(familyPdaStr);
 
-    // Verify the family exists.
+    // Verify the family exists. Quasar accounts have a 1-byte
+    // discriminator at offset 0 = FAMILY_POSITION_DISCRIMINATOR (=2).
     const connection = new Connection(DEVNET_RPC, "confirmed");
-    const program = getProgram(connection);
-    const family = await program.account.familyPosition
-      .fetch(familyPda)
-      .catch(() => null);
-    if (!family) {
+    const familyInfo = await connection.getAccountInfo(familyPda, "confirmed");
+    if (
+      !familyInfo ||
+      familyInfo.data[0] !== FAMILY_POSITION_DISCRIMINATOR[0]
+    ) {
       return NextResponse.json({ error: "family not found" }, { status: 404 });
     }
 
+    const client = new SeedlingQuasarClient();
     const amountBaseUnits = Math.round(amountUsd * 1_000_000);
-    const amount = new BN(amountBaseUnits);
 
     const depositorUsdcAta = getAssociatedTokenAddressSync(
       DEVNET_ADDRESSES.usdcMint,
@@ -166,46 +143,46 @@ export async function POST(
       DEVNET_ADDRESSES.usdcMint
     );
 
-    // CU budget matches DepositForm. Day-4 measured ~111k actual; 300k is
-    // ~3× headroom for harvest fluctuations + future post-Kamino logic.
-    const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 });
+    // CU budget matches DepositForm. Quasar measured ~85k actual; 800k is
+    // generous headroom for harvest fluctuations.
+    const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 });
 
-    const depositIx = await program.methods
-      .deposit(amount, new BN(0))
-      .accountsPartial({
-        familyPosition: familyPda,
-        depositor,
-        depositorUsdcAta,
-        vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
-        vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
-        treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
-        vaultConfig: DEVNET_ADDRESSES.vaultConfig,
-        usdcMint: DEVNET_ADDRESSES.usdcMint,
-        ctokenMint: DEVNET_ADDRESSES.ctokenMint,
-        kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
-        lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
-        lendingMarketAuthority,
-        reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
-        oraclePyth: DEVNET_ADDRESSES.oraclePyth,
-        oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
-        oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
-        oracleScopeConfig: DEVNET_ADDRESSES.klendProgram,
-        kaminoProgram: DEVNET_ADDRESSES.klendProgram,
-        instructionSysvar: SYSVAR_INSTRUCTIONS,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-      })
-      .instruction();
+    const depositIx = client.createDepositInstruction({
+      familyPosition: familyPda,
+      depositor,
+      depositorUsdcAta,
+      vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
+      vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
+      treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
+      vaultConfig: DEVNET_ADDRESSES.vaultConfig,
+      usdcMint: DEVNET_ADDRESSES.usdcMint,
+      ctokenMint: DEVNET_ADDRESSES.ctokenMint,
+      kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
+      lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
+      lendingMarketAuthority,
+      reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
+      oraclePyth: DEVNET_ADDRESSES.oraclePyth,
+      oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
+      oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
+      oracleScopeConfig: DEVNET_ADDRESSES.klendProgram,
+      kaminoProgram: DEVNET_ADDRESSES.klendProgram,
+      instructionSysvar: SYSVAR_INSTRUCTIONS,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+      amount: BigInt(amountBaseUnits),
+      minSharesOut: BigInt(0),
+    });
 
     const { blockhash } = await connection.getLatestBlockhash("confirmed");
     const tx = new Transaction();
     tx.feePayer = depositor;
     tx.recentBlockhash = blockhash;
     tx.add(cuIx, ataIx);
-    if (fromName.length > 0) {
-      tx.add(buildMemoIx(GIFT_MEMO_PREFIX + fromName));
-    }
+    // Always tag gift-API txs with the prefix memo — even for anonymous
+    // gifts (no name supplied). The wall filters on memo presence to
+    // distinguish gifts from plain dashboard top-ups, so the memo must
+    // be present unconditionally for the gift to surface.
+    tx.add(buildMemoIx(GIFT_MEMO_PREFIX + fromName));
     tx.add(depositIx);
 
     // Serialize unsigned. The wallet completes signing client-side.
