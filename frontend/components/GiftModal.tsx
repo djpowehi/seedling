@@ -7,6 +7,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
+import { Connection, Transaction } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { DEVNET_RPC } from "@/lib/program";
 
 const PRESETS = [1, 5, 20, 50] as const;
 
@@ -44,7 +48,12 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
   const [fromName, setFromName] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [sentSig, setSentSig] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wallet = useWallet();
+  const { setVisible: setWalletModalVisible } = useWalletModal();
 
   // Detect after mount — UA isn't available during SSR.
   useEffect(() => {
@@ -72,6 +81,58 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
       // Intentionally swallow — modal degrades to copy-link only.
     });
   }, [open, giftUrl]);
+
+  // Send the gift from THIS browser's connected wallet — saves the
+  // grandma-on-laptop / single-device tester from needing a second
+  // device to scan the QR. Hits the same /api/gift endpoint the QR
+  // would hit, then signs + sends via wallet-adapter.
+  const handleSendFromThisDevice = async () => {
+    setSendError(null);
+    setSentSig(null);
+    if (!wallet.connected || !wallet.publicKey || !wallet.sendTransaction) {
+      setWalletModalVisible(true);
+      return;
+    }
+    setSending(true);
+    try {
+      const cleaned = sanitizeNameClient(fromName);
+      const fromQs = cleaned ? `&from=${encodeURIComponent(cleaned)}` : "";
+      const res = await fetch(
+        `/api/gift/${familyPda}?amount=${amountUsd}${fromQs}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ account: wallet.publicKey.toBase58() }),
+        }
+      );
+      const json = (await res.json()) as
+        | { transaction: string; message: string }
+        | { error: string };
+      if (!res.ok || "error" in json) {
+        const msg = "error" in json ? json.error : `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      const tx = Transaction.from(Buffer.from(json.transaction, "base64"));
+      const connection = new Connection(DEVNET_RPC, "confirmed");
+      const sig = await wallet.sendTransaction(tx, connection);
+      await connection.confirmTransaction(sig, "confirmed");
+      setSentSig(sig);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // Phantom's "Unexpected error" wraps the inner cause — surface the
+      // real message when present, same pattern as sendQuasarIx.
+      if (
+        msg.toLowerCase().includes("user rejected") ||
+        msg.toLowerCase().includes("rejected the request")
+      ) {
+        setSendError("you rejected the transaction in your wallet");
+      } else {
+        setSendError(msg);
+      }
+    } finally {
+      setSending(false);
+    }
+  };
 
   // Copy full Solana Pay URL (the same payload that's encoded in the QR).
   const handleCopy = async () => {
@@ -173,6 +234,38 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
               if (Number.isFinite(n) && n > 0 && n <= 1000) setAmountUsd(n);
             }}
           />
+        </div>
+
+        {/* Send-from-this-device — primary path for solo testers and
+            for desktop gifters who don't want to dig out their phone. */}
+        <button
+          type="button"
+          className="gm-send-here"
+          onClick={handleSendFromThisDevice}
+          disabled={sending || !!sentSig}
+        >
+          {sentSig
+            ? "✓ gift sent"
+            : sending
+            ? "confirming…"
+            : wallet.connected
+            ? `send $${amountUsd} from this wallet`
+            : "connect wallet to send here"}
+        </button>
+        {sentSig && (
+          <a
+            className="gm-tx-link"
+            href={`https://explorer.solana.com/tx/${sentSig}?cluster=devnet`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            view tx ↗
+          </a>
+        )}
+        {sendError && <div className="gm-send-error">{sendError}</div>}
+
+        <div className="gm-or-divider">
+          <span>or scan with another device</span>
         </div>
 
         <div className="gm-qr-frame">
@@ -314,6 +407,48 @@ const GIFT_MODAL_STYLES = `
   .gm-custom::-webkit-inner-spin-button {
     -webkit-appearance: none; margin: 0;
   }
+
+  .gm-send-here {
+    margin-top: 6px;
+    padding: 14px 16px;
+    background: #2E5C40; color: #FBF8F2;
+    border: 1px solid #2E5C40;
+    border-radius: 12px;
+    font-family: var(--font-instrument-serif), Georgia, serif;
+    font-size: 18px; cursor: pointer;
+    letter-spacing: 0.005em;
+    transition: background 140ms ease;
+  }
+  .gm-send-here:hover:not(:disabled) { background: #244A33; }
+  .gm-send-here:disabled { opacity: 0.55; cursor: default; }
+  .gm-tx-link {
+    align-self: center;
+    font-family: var(--font-jetbrains-mono), monospace;
+    font-size: 11px; color: #2E5C40;
+    text-decoration: underline; letter-spacing: 0.04em;
+  }
+  .gm-send-error {
+    padding: 10px 12px;
+    background: rgba(176, 71, 58, 0.08);
+    border: 1px solid rgba(176, 71, 58, 0.25);
+    border-radius: 8px;
+    font-family: var(--font-jetbrains-mono), monospace;
+    font-size: 11.5px; color: #B0473A;
+    line-height: 1.45; word-break: break-word;
+  }
+  .gm-or-divider {
+    display: flex; align-items: center;
+    gap: 12px; margin-top: 4px;
+    color: #8A8169;
+    font-family: var(--font-jetbrains-mono), monospace;
+    font-size: 10.5px; letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .gm-or-divider::before,
+  .gm-or-divider::after {
+    content: ""; flex: 1; height: 1px; background: #ECE4D2;
+  }
+  .gm-or-divider span { white-space: nowrap; }
 
   .gm-qr-frame {
     align-self: center;

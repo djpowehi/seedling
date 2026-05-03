@@ -2,8 +2,8 @@
 //
 // Strategy: walk recent signatures touching the FamilyPosition PDA, fetch
 // each transaction, scan the program-log lines for `Deposited` events,
-// decode with Anchor's event coder, then keep only those where
-// `depositor != family.parent`. That's the "gift" set.
+// decode with Anchor's event coder. Every deposit shows on the wall —
+// including the parent's own (birthdays, top-ups, surprise additions).
 //
 // Why not getProgramAccounts + filter: events are emitted in tx logs, not
 // stored in account state — there's no on-chain log of "every depositor
@@ -74,7 +74,12 @@ export async function fetchGifts(
     if (!tx?.meta?.logMessages) return;
     if (tx.meta.err) return;
     const sig = missing[i].signature;
-    const fromName = extractGiftMemo(tx.meta.logMessages);
+    // Only entries that flowed through `send a gift` carry the
+    // `seedling-gift:` memo. Skip plain dashboard deposits — those are
+    // top-ups, not gifts, and shouldn't pollute the wall.
+    const memoMatch = extractGiftMemo(tx.meta.logMessages);
+    if (memoMatch === null) return;
+    const fromName = memoMatch.length > 0 ? memoMatch : undefined;
 
     for (const line of tx.meta.logMessages) {
       if (!line.startsWith(PROGRAM_LOG_PREFIX)) continue;
@@ -84,7 +89,6 @@ export async function fetchGifts(
         // Match Quasar's 1-byte event discriminator for Deposited.
         if (bytes[0] !== DEPOSITED_DISCRIMINATOR[0]) continue;
         const data = DepositedCodec.decode(bytes.subarray(1));
-        if (data.depositor.equals(parent)) continue;
         cached.set(sig, {
           depositor: data.depositor.toBase58(),
           amountUsd: Number(data.amount) / 1_000_000,
@@ -105,16 +109,16 @@ export async function fetchGifts(
 }
 
 // SPL Memo logs as: `Program log: Memo (len 22): "seedling-gift:Grandma"`
-// We match on the prefix and pull out the trailing name.
+// We match on the prefix and pull out the trailing name. Returns:
+//   null   → no `seedling-gift:` memo found (NOT a gift — caller skips)
+//   ""     → memo present, name omitted (anonymous gift)
+//   "Foo"  → memo present, named gifter
 const MEMO_LOG_RE = /Program log: Memo \(len \d+\): "seedling-gift:([^"]*)"/;
 
-function extractGiftMemo(logs: string[]): string | undefined {
+function extractGiftMemo(logs: string[]): string | null {
   for (const line of logs) {
     const m = MEMO_LOG_RE.exec(line);
-    if (m) {
-      const name = m[1].trim();
-      return name.length > 0 ? name : undefined;
-    }
+    if (m) return m[1].trim();
   }
-  return undefined;
+  return null;
 }

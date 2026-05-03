@@ -99,6 +99,18 @@ function fmtCountdown(seconds: number): string {
   return `${h}h ${m}m`;
 }
 
+/** Compact display for big share counts. Past ~100K the extra digits are
+ *  cognitive noise — what matters is "this is roughly how much the
+ *  family owns of the vault", not the precise base-unit count.
+ *  Scales: <1K → exact, 1K → "1.2K", 1M → "1.2M", 1B → "1.2B". */
+function fmtShares(n: number): string {
+  if (n < 1_000) return Math.trunc(n).toString();
+  if (n < 1_000_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+  if (n < 1_000_000_000)
+    return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  return (n / 1_000_000_000).toFixed(2).replace(/\.?0+$/, "") + "B";
+}
+
 export function FamilyCard({
   family,
   connection,
@@ -114,6 +126,10 @@ export function FamilyCard({
   const [name, setName] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const renameRef = useRef<HTMLInputElement>(null);
+  // Once true, the card animates out (opacity + scale) before we call
+  // onMutated() to remove it from the parent's list. Reads as "this kid's
+  // chapter is closing" instead of a hard pop.
+  const [closing, setClosing] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
@@ -425,15 +441,30 @@ export function FamilyCard({
         wallet,
         { commitment: "confirmed" }
       );
+      // Soft fade-out of the card itself BEFORE removal. localStorage is
+      // wiped immediately (cheap), but onMutated is delayed to let the
+      // CSS transition play — reads as a quiet farewell, not a hard pop.
       removeKidName(familyKey);
       removeSavingsGoal(familyKey);
-      onMutated();
+      showToast({
+        variant: "info",
+        title: name ? `${name}'s vault is closed` : "vault closed",
+        subtitle: "remaining USDC returned · accounts closed",
+      });
+      setClosing(true);
+      setTimeout(() => onMutated(), 600);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.toLowerCase().includes("already been processed")) {
         removeKidName(familyKey);
         removeSavingsGoal(familyKey);
-        onMutated();
+        showToast({
+          variant: "info",
+          title: name ? `${name}'s vault is closed` : "vault closed",
+          subtitle: "remaining USDC returned · accounts closed",
+        });
+        setClosing(true);
+        setTimeout(() => onMutated(), 600);
         return;
       }
       setError(msg);
@@ -450,6 +481,12 @@ export function FamilyCard({
         position: "relative",
         display: "flex",
         flexDirection: "column",
+        transition:
+          "opacity 520ms ease-out, transform 520ms ease-out, filter 520ms ease-out",
+        opacity: closing ? 0 : 1,
+        transform: closing ? "scale(0.97) translateY(6px)" : "none",
+        filter: closing ? "saturate(0.6)" : "none",
+        pointerEvents: closing ? "none" : "auto",
       }}
     >
       {/* Top: name + age */}
@@ -566,7 +603,7 @@ export function FamilyCard({
         />
         <StatCell
           label="Shares"
-          value={Math.trunc(sharesInt).toLocaleString("en-US")}
+          value={fmtShares(sharesInt)}
           sub="of vault total"
         />
         <StatCell

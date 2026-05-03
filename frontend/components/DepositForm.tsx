@@ -171,6 +171,18 @@ export function DepositForm({
         setSubmitError("The vault is paused. Try again later.");
       } else if (msg.includes("SlippageExceeded")) {
         setSubmitError("Share price moved during deposit. Try again.");
+      } else if (
+        // Phantom returns "Unexpected error" sometimes AFTER the tx has
+        // landed — wallet-adapter timing issue. Refetch and let the
+        // dashboard show actual state instead of a misleading error.
+        msg.toLowerCase().includes("unexpected error") ||
+        msg.toLowerCase().includes("wallet rejected: unexpected")
+      ) {
+        console.log(
+          "[deposit] wallet returned generic error — refetching to check actual state"
+        );
+        onDeposited();
+        return;
       } else {
         setSubmitError(msg);
       }

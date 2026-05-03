@@ -224,9 +224,10 @@ export function modeLabel(mode: DepositMode): string {
   return "Monthly";
 }
 
-/** One-line marketing description per mode. */
+/** One-line marketing description per mode. Kept parallel + intentional —
+ *  Seedling rewards time, so the longer money stays, the more the kid earns. */
 export function modeDescription(mode: DepositMode): string {
-  if (mode === "yearly") return "Park 2× upfront. Real bonus.";
-  if (mode === "hybrid") return "Smaller upfront. Smaller bonus.";
-  return "Pay-as-you-go. Smallest bonus.";
+  if (mode === "yearly") return "deposit once · earn the most";
+  if (mode === "hybrid") return "balance flexibility + bonus";
+  return "flexible deposits · smaller bonus";
 }
