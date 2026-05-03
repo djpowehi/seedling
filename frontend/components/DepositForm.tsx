@@ -11,11 +11,13 @@ import {
   SystemProgram,
 } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Connection } from "@solana/web3.js";
 import { DEVNET_ADDRESSES } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { sendQuasarIx } from "@/lib/sendQuasarIx";
+import { celebrateDeposit } from "@/lib/celebrate";
+import { useToast } from "@/components/Toast";
 import type { FamilyView } from "@/lib/fetchFamilies";
 
 const SYSVAR_INSTRUCTIONS = new PublicKey(
@@ -41,6 +43,10 @@ export function DepositForm({
 }: Props) {
   const wallet = useWallet();
   const client = new SeedlingQuasarClient();
+  const { showToast } = useToast();
+  // Form ref so confetti can fire FROM the family card (not screen-center).
+  // Captured before onDeposited unmounts us.
+  const formRef = useRef<HTMLFormElement>(null);
   const [amountInput, setAmountInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -125,6 +131,16 @@ export function DepositForm({
       );
       console.log(`[deposit] tx ${sig}`);
 
+      // Celebrate: confetti at the family card's location + toast with the
+      // amount. Capture origin BEFORE onDeposited unmounts the form.
+      const origin = computeOrigin(formRef.current);
+      void celebrateDeposit(origin);
+      showToast({
+        variant: "monthly", // reuse the green-palette toast variant
+        title: "deposit confirmed",
+        countUpUsd: amountNum,
+        subtitle: "added to vault · earning yield on Kamino",
+      });
       onDeposited();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -133,6 +149,14 @@ export function DepositForm({
       // this as success rather than spooking the user.
       if (msg.toLowerCase().includes("already been processed")) {
         console.log("[deposit] duplicate submission — first tx succeeded");
+        const origin = computeOrigin(formRef.current);
+        void celebrateDeposit(origin);
+        showToast({
+          variant: "monthly",
+          title: "deposit confirmed",
+          countUpUsd: amountNum,
+          subtitle: "added to vault · earning yield on Kamino",
+        });
         onDeposited();
         return;
       }
@@ -157,6 +181,7 @@ export function DepositForm({
 
   return (
     <form
+      ref={formRef}
       onSubmit={handleSubmit}
       className="rounded-xl bg-emerald-50/60 border border-emerald-200 p-4 flex flex-col gap-3"
     >
@@ -229,4 +254,19 @@ export function DepositForm({
       </div>
     </form>
   );
+}
+
+/** Convert an element's bounding rect to canvas-confetti's normalized
+ *  [0..1] viewport coordinates. Returns the element's center, biased
+ *  slightly upward so the burst spreads OVER the card rather than
+ *  behind/below it. Falls back to upper-center on null. */
+function computeOrigin(el: HTMLElement | null): { x: number; y: number } {
+  if (!el || typeof window === "undefined") {
+    return { x: 0.5, y: 0.4 };
+  }
+  const r = el.getBoundingClientRect();
+  return {
+    x: (r.left + r.width / 2) / window.innerWidth,
+    y: (r.top + r.height * 0.3) / window.innerHeight,
+  };
 }
