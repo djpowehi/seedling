@@ -112,14 +112,27 @@ pub struct Deposit {
     pub reserve_liquidity_supply: UncheckedAccount,
 
     // 4 oracle slots — caller passes klend program ID for unused slots
-    // (matches Kamino's Option<AccountInfo> sentinel convention).
+    // (matches Kamino's Option<AccountInfo> sentinel convention). Quasar
+    // requires explicit `dup` to allow these to share the same address with
+    // each other or with `kamino_program` below; without `dup`, parse_accounts
+    // fails with AccountBorrowFailed when 2+ slots map to the same pubkey.
+    /// CHECK: validated against vault_config.oracle_pyth in handler; dup
+    /// allowed so caller can use klend program ID as a "None" sentinel.
+    #[account(dup)]
     pub oracle_pyth: UncheckedAccount,
+    /// CHECK: validated against vault_config.oracle_switchboard_price; dup ok.
+    #[account(dup)]
     pub oracle_switchboard_price: UncheckedAccount,
+    /// CHECK: validated against vault_config.oracle_switchboard_twap; dup ok.
+    #[account(dup)]
     pub oracle_switchboard_twap: UncheckedAccount,
+    /// CHECK: validated against vault_config.oracle_scope_config; dup ok.
+    #[account(dup)]
     pub oracle_scope_config: UncheckedAccount,
 
-    /// Address-constrained to prevent arbitrary-CPI substitution.
-    #[account(address = KLEND_PROGRAM_ID)]
+    /// CHECK: address-constrained to KLEND_PROGRAM_ID; dup allowed because
+    /// the unused oracle slots above commonly share this same address.
+    #[account(dup, address = KLEND_PROGRAM_ID)]
     pub kamino_program: UncheckedAccount,
 
     #[account(address = SYSVAR_INSTRUCTIONS_ID)]

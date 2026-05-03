@@ -98,12 +98,22 @@ pub struct DistributeMonthlyAllowance {
     #[account(mut)]
     pub reserve_liquidity_supply: UncheckedAccount,
 
+    // dup flags — same rationale as deposit.rs.
+    /// CHECK: validated against vault_config.oracle_pyth; dup ok.
+    #[account(dup)]
     pub oracle_pyth: UncheckedAccount,
+    /// CHECK: validated against vault_config.oracle_switchboard_price; dup ok.
+    #[account(dup)]
     pub oracle_switchboard_price: UncheckedAccount,
+    /// CHECK: validated against vault_config.oracle_switchboard_twap; dup ok.
+    #[account(dup)]
     pub oracle_switchboard_twap: UncheckedAccount,
+    /// CHECK: validated against vault_config.oracle_scope_config; dup ok.
+    #[account(dup)]
     pub oracle_scope_config: UncheckedAccount,
 
-    #[account(address = KLEND_PROGRAM_ID)]
+    /// CHECK: address-constrained to KLEND_PROGRAM_ID; dup ok.
+    #[account(dup, address = KLEND_PROGRAM_ID)]
     pub kamino_program: UncheckedAccount,
 
     #[account(address = SYSVAR_INSTRUCTIONS_ID)]

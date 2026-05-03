@@ -1,23 +1,12 @@
 import { Buffer } from "buffer";
 import { PublicKey as Address, TransactionInstruction } from "@solana/web3.js";
-import {
-  fixCodecSize,
-  getBooleanCodec,
-  getBytesCodec,
-  getI64Codec,
-  getStructCodec,
-  getU16Codec,
-  getU32Codec,
-  getU64Codec,
-  getU8Codec,
-  transformCodec,
-} from "@solana/codecs";
+import { fixCodecSize, getBooleanCodec, getBytesCodec, getI64Codec, getStructCodec, getU16Codec, getU32Codec, getU64Codec, getU8Codec, transformCodec } from "@solana/codecs";
 
 function getPublicKeyCodec() {
   return transformCodec(
     fixCodecSize(getBytesCodec(), 32),
     (value: Address) => value.toBytes(),
-    (bytes) => new Address(bytes)
+    bytes => new Address(bytes),
   );
 }
 
@@ -44,19 +33,15 @@ export const INITIALIZE_VAULT_INSTRUCTION_DISCRIMINATOR = new Uint8Array([0]);
 export const CREATE_FAMILY_INSTRUCTION_DISCRIMINATOR = new Uint8Array([1]);
 export const DEPOSIT_INSTRUCTION_DISCRIMINATOR = new Uint8Array([2]);
 export const WITHDRAW_INSTRUCTION_DISCRIMINATOR = new Uint8Array([3]);
-export const DISTRIBUTE_MONTHLY_ALLOWANCE_INSTRUCTION_DISCRIMINATOR =
-  new Uint8Array([4]);
+export const DISTRIBUTE_MONTHLY_ALLOWANCE_INSTRUCTION_DISCRIMINATOR = new Uint8Array([4]);
 export const DISTRIBUTE_BONUS_INSTRUCTION_DISCRIMINATOR = new Uint8Array([5]);
 export const CLOSE_FAMILY_INSTRUCTION_DISCRIMINATOR = new Uint8Array([6]);
-export const SET_FAMILY_LAST_DISTRIBUTION_INSTRUCTION_DISCRIMINATOR =
-  new Uint8Array([7]);
+export const SET_FAMILY_LAST_DISTRIBUTION_INSTRUCTION_DISCRIMINATOR = new Uint8Array([7]);
 export const ROLL_PERIOD_INSTRUCTION_DISCRIMINATOR = new Uint8Array([8]);
 export const SET_PAUSED_INSTRUCTION_DISCRIMINATOR = new Uint8Array([9]);
 
 /* Manually emitted (Quasar codegen bug — composite arg structs aren't
- * auto-generated). Mirrors InitializeVaultArgs in
- * programs/seedling-quasar/src/instructions/initialize_vault.rs.
- */
+ * auto-generated). Mirrors InitializeVaultArgs in initialize_vault.rs. */
 export interface InitializeVaultArgs {
   oraclePyth: Address;
   oracleSwitchboardPrice: Address;
@@ -506,10 +491,7 @@ export type DecodedEvent =
   | { type: ProgramEvent.FamilyCreated; data: FamilyCreated }
   | { type: ProgramEvent.Deposited; data: Deposited }
   | { type: ProgramEvent.Withdrawn; data: Withdrawn }
-  | {
-      type: ProgramEvent.MonthlyAllowanceDistributed;
-      data: MonthlyAllowanceDistributed;
-    }
+  | { type: ProgramEvent.MonthlyAllowanceDistributed; data: MonthlyAllowanceDistributed }
   | { type: ProgramEvent.BonusDistributed; data: BonusDistributed }
   | { type: ProgramEvent.FamilyClosed; data: FamilyClosed };
 
@@ -527,145 +509,81 @@ export enum ProgramInstruction {
 }
 
 export type DecodedInstruction =
-  | {
-      type: ProgramInstruction.InitializeVault;
-      args: InitializeVaultInstructionArgs;
-    }
+  | { type: ProgramInstruction.InitializeVault; args: InitializeVaultInstructionArgs }
   | { type: ProgramInstruction.CreateFamily; args: CreateFamilyInstructionArgs }
   | { type: ProgramInstruction.Deposit; args: DepositInstructionArgs }
   | { type: ProgramInstruction.Withdraw; args: WithdrawInstructionArgs }
   | { type: ProgramInstruction.DistributeMonthlyAllowance }
   | { type: ProgramInstruction.DistributeBonus }
   | { type: ProgramInstruction.CloseFamily }
-  | {
-      type: ProgramInstruction.SetFamilyLastDistribution;
-      args: SetFamilyLastDistributionInstructionArgs;
-    }
+  | { type: ProgramInstruction.SetFamilyLastDistribution; args: SetFamilyLastDistributionInstructionArgs }
   | { type: ProgramInstruction.RollPeriod; args: RollPeriodInstructionArgs }
   | { type: ProgramInstruction.SetPaused; args: SetPausedInstructionArgs };
 
 /* Client */
 export class SeedlingQuasarClient {
-  static readonly programId = new Address(
-    "975WF6vpccfi5CGoYpuaytqwwoFuZJxY2HLm5r8Dg7Zv"
-  );
+  static readonly programId = new Address("EQtCpic4xr3N4wmyDcZNPT9oimbaheHykmxJGs7EQyLr");
 
   decodeVaultConfig(data: Uint8Array): VaultConfig {
-    if (!matchDisc(data, VAULT_CONFIG_DISCRIMINATOR))
-      throw new Error("Invalid VaultConfig discriminator");
-    return VaultConfigCodec.decode(
-      data.slice(VAULT_CONFIG_DISCRIMINATOR.length)
-    );
+    if (!matchDisc(data, VAULT_CONFIG_DISCRIMINATOR)) throw new Error("Invalid VaultConfig discriminator");
+    return VaultConfigCodec.decode(data.slice(VAULT_CONFIG_DISCRIMINATOR.length));
   }
 
   decodeFamilyPosition(data: Uint8Array): FamilyPosition {
-    if (!matchDisc(data, FAMILY_POSITION_DISCRIMINATOR))
-      throw new Error("Invalid FamilyPosition discriminator");
-    return FamilyPositionCodec.decode(
-      data.slice(FAMILY_POSITION_DISCRIMINATOR.length)
-    );
+    if (!matchDisc(data, FAMILY_POSITION_DISCRIMINATOR)) throw new Error("Invalid FamilyPosition discriminator");
+    return FamilyPositionCodec.decode(data.slice(FAMILY_POSITION_DISCRIMINATOR.length));
   }
 
   decodeKidView(data: Uint8Array): KidView {
-    if (!matchDisc(data, KID_VIEW_DISCRIMINATOR))
-      throw new Error("Invalid KidView discriminator");
+    if (!matchDisc(data, KID_VIEW_DISCRIMINATOR)) throw new Error("Invalid KidView discriminator");
     return KidViewCodec.decode(data.slice(KID_VIEW_DISCRIMINATOR.length));
   }
 
   decodeEvent(data: Uint8Array): DecodedEvent | null {
     if (matchDisc(data, VAULT_INITIALIZED_DISCRIMINATOR))
-      return {
-        type: ProgramEvent.VaultInitialized,
-        data: VaultInitializedCodec.decode(
-          data.slice(VAULT_INITIALIZED_DISCRIMINATOR.length)
-        ),
-      };
+      return { type: ProgramEvent.VaultInitialized, data: VaultInitializedCodec.decode(data.slice(VAULT_INITIALIZED_DISCRIMINATOR.length)) };
     if (matchDisc(data, FAMILY_CREATED_DISCRIMINATOR))
-      return {
-        type: ProgramEvent.FamilyCreated,
-        data: FamilyCreatedCodec.decode(
-          data.slice(FAMILY_CREATED_DISCRIMINATOR.length)
-        ),
-      };
+      return { type: ProgramEvent.FamilyCreated, data: FamilyCreatedCodec.decode(data.slice(FAMILY_CREATED_DISCRIMINATOR.length)) };
     if (matchDisc(data, DEPOSITED_DISCRIMINATOR))
-      return {
-        type: ProgramEvent.Deposited,
-        data: DepositedCodec.decode(data.slice(DEPOSITED_DISCRIMINATOR.length)),
-      };
+      return { type: ProgramEvent.Deposited, data: DepositedCodec.decode(data.slice(DEPOSITED_DISCRIMINATOR.length)) };
     if (matchDisc(data, WITHDRAWN_DISCRIMINATOR))
-      return {
-        type: ProgramEvent.Withdrawn,
-        data: WithdrawnCodec.decode(data.slice(WITHDRAWN_DISCRIMINATOR.length)),
-      };
+      return { type: ProgramEvent.Withdrawn, data: WithdrawnCodec.decode(data.slice(WITHDRAWN_DISCRIMINATOR.length)) };
     if (matchDisc(data, MONTHLY_ALLOWANCE_DISTRIBUTED_DISCRIMINATOR))
-      return {
-        type: ProgramEvent.MonthlyAllowanceDistributed,
-        data: MonthlyAllowanceDistributedCodec.decode(
-          data.slice(MONTHLY_ALLOWANCE_DISTRIBUTED_DISCRIMINATOR.length)
-        ),
-      };
+      return { type: ProgramEvent.MonthlyAllowanceDistributed, data: MonthlyAllowanceDistributedCodec.decode(data.slice(MONTHLY_ALLOWANCE_DISTRIBUTED_DISCRIMINATOR.length)) };
     if (matchDisc(data, BONUS_DISTRIBUTED_DISCRIMINATOR))
-      return {
-        type: ProgramEvent.BonusDistributed,
-        data: BonusDistributedCodec.decode(
-          data.slice(BONUS_DISTRIBUTED_DISCRIMINATOR.length)
-        ),
-      };
+      return { type: ProgramEvent.BonusDistributed, data: BonusDistributedCodec.decode(data.slice(BONUS_DISTRIBUTED_DISCRIMINATOR.length)) };
     if (matchDisc(data, FAMILY_CLOSED_DISCRIMINATOR))
-      return {
-        type: ProgramEvent.FamilyClosed,
-        data: FamilyClosedCodec.decode(
-          data.slice(FAMILY_CLOSED_DISCRIMINATOR.length)
-        ),
-      };
+      return { type: ProgramEvent.FamilyClosed, data: FamilyClosedCodec.decode(data.slice(FAMILY_CLOSED_DISCRIMINATOR.length)) };
     return null;
   }
 
   decodeInstruction(data: Uint8Array): DecodedInstruction | null {
     if (matchDisc(data, INITIALIZE_VAULT_INSTRUCTION_DISCRIMINATOR)) {
-      const argsCodec = getStructCodec([["args", InitializeVaultArgsCodec]]);
-      return {
-        type: ProgramInstruction.InitializeVault,
-        args: argsCodec.decode(
-          data.slice(INITIALIZE_VAULT_INSTRUCTION_DISCRIMINATOR.length)
-        ),
-      };
+      const argsCodec = getStructCodec([
+        ["args", InitializeVaultArgsCodec],
+      ]);
+      return { type: ProgramInstruction.InitializeVault, args: argsCodec.decode(data.slice(INITIALIZE_VAULT_INSTRUCTION_DISCRIMINATOR.length)) };
     }
     if (matchDisc(data, CREATE_FAMILY_INSTRUCTION_DISCRIMINATOR)) {
       const argsCodec = getStructCodec([
         ["kid", getPublicKeyCodec()],
         ["streamRate", getU64Codec()],
       ]);
-      return {
-        type: ProgramInstruction.CreateFamily,
-        args: argsCodec.decode(
-          data.slice(CREATE_FAMILY_INSTRUCTION_DISCRIMINATOR.length)
-        ),
-      };
+      return { type: ProgramInstruction.CreateFamily, args: argsCodec.decode(data.slice(CREATE_FAMILY_INSTRUCTION_DISCRIMINATOR.length)) };
     }
     if (matchDisc(data, DEPOSIT_INSTRUCTION_DISCRIMINATOR)) {
       const argsCodec = getStructCodec([
         ["amount", getU64Codec()],
         ["minSharesOut", getU64Codec()],
       ]);
-      return {
-        type: ProgramInstruction.Deposit,
-        args: argsCodec.decode(
-          data.slice(DEPOSIT_INSTRUCTION_DISCRIMINATOR.length)
-        ),
-      };
+      return { type: ProgramInstruction.Deposit, args: argsCodec.decode(data.slice(DEPOSIT_INSTRUCTION_DISCRIMINATOR.length)) };
     }
     if (matchDisc(data, WITHDRAW_INSTRUCTION_DISCRIMINATOR)) {
       const argsCodec = getStructCodec([
         ["sharesToBurn", getU64Codec()],
         ["minAssetsOut", getU64Codec()],
       ]);
-      return {
-        type: ProgramInstruction.Withdraw,
-        args: argsCodec.decode(
-          data.slice(WITHDRAW_INSTRUCTION_DISCRIMINATOR.length)
-        ),
-      };
+      return { type: ProgramInstruction.Withdraw, args: argsCodec.decode(data.slice(WITHDRAW_INSTRUCTION_DISCRIMINATOR.length)) };
     }
     if (matchDisc(data, DISTRIBUTE_MONTHLY_ALLOWANCE_INSTRUCTION_DISCRIMINATOR))
       return { type: ProgramInstruction.DistributeMonthlyAllowance };
@@ -673,50 +591,33 @@ export class SeedlingQuasarClient {
       return { type: ProgramInstruction.DistributeBonus };
     if (matchDisc(data, CLOSE_FAMILY_INSTRUCTION_DISCRIMINATOR))
       return { type: ProgramInstruction.CloseFamily };
-    if (
-      matchDisc(data, SET_FAMILY_LAST_DISTRIBUTION_INSTRUCTION_DISCRIMINATOR)
-    ) {
+    if (matchDisc(data, SET_FAMILY_LAST_DISTRIBUTION_INSTRUCTION_DISCRIMINATOR)) {
       const argsCodec = getStructCodec([
         ["newLastDistribution", getI64Codec()],
       ]);
-      return {
-        type: ProgramInstruction.SetFamilyLastDistribution,
-        args: argsCodec.decode(
-          data.slice(
-            SET_FAMILY_LAST_DISTRIBUTION_INSTRUCTION_DISCRIMINATOR.length
-          )
-        ),
-      };
+      return { type: ProgramInstruction.SetFamilyLastDistribution, args: argsCodec.decode(data.slice(SET_FAMILY_LAST_DISTRIBUTION_INSTRUCTION_DISCRIMINATOR.length)) };
     }
     if (matchDisc(data, ROLL_PERIOD_INSTRUCTION_DISCRIMINATOR)) {
-      const argsCodec = getStructCodec([["nextPeriodEndTs", getI64Codec()]]);
-      return {
-        type: ProgramInstruction.RollPeriod,
-        args: argsCodec.decode(
-          data.slice(ROLL_PERIOD_INSTRUCTION_DISCRIMINATOR.length)
-        ),
-      };
+      const argsCodec = getStructCodec([
+        ["nextPeriodEndTs", getI64Codec()],
+      ]);
+      return { type: ProgramInstruction.RollPeriod, args: argsCodec.decode(data.slice(ROLL_PERIOD_INSTRUCTION_DISCRIMINATOR.length)) };
     }
     if (matchDisc(data, SET_PAUSED_INSTRUCTION_DISCRIMINATOR)) {
-      const argsCodec = getStructCodec([["paused", getBooleanCodec()]]);
-      return {
-        type: ProgramInstruction.SetPaused,
-        args: argsCodec.decode(
-          data.slice(SET_PAUSED_INSTRUCTION_DISCRIMINATOR.length)
-        ),
-      };
+      const argsCodec = getStructCodec([
+        ["paused", getBooleanCodec()],
+      ]);
+      return { type: ProgramInstruction.SetPaused, args: argsCodec.decode(data.slice(SET_PAUSED_INSTRUCTION_DISCRIMINATOR.length)) };
     }
     return null;
   }
 
-  createInitializeVaultInstruction(
-    input: InitializeVaultInstructionInput
-  ): TransactionInstruction {
+  createInitializeVaultInstruction(input: InitializeVaultInstructionInput): TransactionInstruction {
     const accountsMap: Record<string, Address> = {};
-    accountsMap["associatedTokenProgram"] = new Address(
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-    );
-    const argsCodec = getStructCodec([["args", InitializeVaultArgsCodec]]);
+    accountsMap["associatedTokenProgram"] = new Address("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+    const argsCodec = getStructCodec([
+      ["args", InitializeVaultArgsCodec],
+    ]);
     const data = Buffer.from([0, ...argsCodec.encode({ args: input.args })]);
     return new TransactionInstruction({
       programId: SeedlingQuasarClient.programId,
@@ -730,28 +631,19 @@ export class SeedlingQuasarClient {
         { pubkey: input.vaultUsdcAta, isSigner: false, isWritable: true },
         { pubkey: input.vaultCtokenAta, isSigner: false, isWritable: true },
         { pubkey: input.tokenProgram, isSigner: false, isWritable: false },
-        {
-          pubkey: accountsMap["associatedTokenProgram"],
-          isSigner: false,
-          isWritable: false,
-        },
+        { pubkey: accountsMap["associatedTokenProgram"], isSigner: false, isWritable: false },
         { pubkey: input.systemProgram, isSigner: false, isWritable: false },
       ],
       data,
     });
   }
 
-  createCreateFamilyInstruction(
-    input: CreateFamilyInstructionInput
-  ): TransactionInstruction {
+  createCreateFamilyInstruction(input: CreateFamilyInstructionInput): TransactionInstruction {
     const argsCodec = getStructCodec([
       ["kid", getPublicKeyCodec()],
       ["streamRate", getU64Codec()],
     ]);
-    const data = Buffer.from([
-      1,
-      ...argsCodec.encode({ kid: input.kid, streamRate: input.streamRate }),
-    ]);
+    const data = Buffer.from([1, ...argsCodec.encode({ kid: input.kid, streamRate: input.streamRate })]);
     return new TransactionInstruction({
       programId: SeedlingQuasarClient.programId,
       keys: [
@@ -765,24 +657,14 @@ export class SeedlingQuasarClient {
     });
   }
 
-  createDepositInstruction(
-    input: DepositInstructionInput
-  ): TransactionInstruction {
+  createDepositInstruction(input: DepositInstructionInput): TransactionInstruction {
     const accountsMap: Record<string, Address> = {};
-    accountsMap["associatedTokenProgram"] = new Address(
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-    );
+    accountsMap["associatedTokenProgram"] = new Address("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
     const argsCodec = getStructCodec([
       ["amount", getU64Codec()],
       ["minSharesOut", getU64Codec()],
     ]);
-    const data = Buffer.from([
-      2,
-      ...argsCodec.encode({
-        amount: input.amount,
-        minSharesOut: input.minSharesOut,
-      }),
-    ]);
+    const data = Buffer.from([2, ...argsCodec.encode({ amount: input.amount, minSharesOut: input.minSharesOut })]);
     return new TransactionInstruction({
       programId: SeedlingQuasarClient.programId,
       keys: [
@@ -797,60 +679,30 @@ export class SeedlingQuasarClient {
         { pubkey: input.ctokenMint, isSigner: false, isWritable: true },
         { pubkey: input.kaminoReserve, isSigner: false, isWritable: true },
         { pubkey: input.lendingMarket, isSigner: false, isWritable: false },
-        {
-          pubkey: input.lendingMarketAuthority,
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: input.reserveLiquiditySupply,
-          isSigner: false,
-          isWritable: true,
-        },
+        { pubkey: input.lendingMarketAuthority, isSigner: false, isWritable: false },
+        { pubkey: input.reserveLiquiditySupply, isSigner: false, isWritable: true },
         { pubkey: input.oraclePyth, isSigner: false, isWritable: false },
-        {
-          pubkey: input.oracleSwitchboardPrice,
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: input.oracleSwitchboardTwap,
-          isSigner: false,
-          isWritable: false,
-        },
+        { pubkey: input.oracleSwitchboardPrice, isSigner: false, isWritable: false },
+        { pubkey: input.oracleSwitchboardTwap, isSigner: false, isWritable: false },
         { pubkey: input.oracleScopeConfig, isSigner: false, isWritable: false },
         { pubkey: input.kaminoProgram, isSigner: false, isWritable: false },
         { pubkey: input.instructionSysvar, isSigner: false, isWritable: false },
         { pubkey: input.tokenProgram, isSigner: false, isWritable: false },
-        {
-          pubkey: accountsMap["associatedTokenProgram"],
-          isSigner: false,
-          isWritable: false,
-        },
+        { pubkey: accountsMap["associatedTokenProgram"], isSigner: false, isWritable: false },
         { pubkey: input.systemProgram, isSigner: false, isWritable: false },
       ],
       data,
     });
   }
 
-  createWithdrawInstruction(
-    input: WithdrawInstructionInput
-  ): TransactionInstruction {
+  createWithdrawInstruction(input: WithdrawInstructionInput): TransactionInstruction {
     const accountsMap: Record<string, Address> = {};
-    accountsMap["associatedTokenProgram"] = new Address(
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-    );
+    accountsMap["associatedTokenProgram"] = new Address("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
     const argsCodec = getStructCodec([
       ["sharesToBurn", getU64Codec()],
       ["minAssetsOut", getU64Codec()],
     ]);
-    const data = Buffer.from([
-      3,
-      ...argsCodec.encode({
-        sharesToBurn: input.sharesToBurn,
-        minAssetsOut: input.minAssetsOut,
-      }),
-    ]);
+    const data = Buffer.from([3, ...argsCodec.encode({ sharesToBurn: input.sharesToBurn, minAssetsOut: input.minAssetsOut })]);
     return new TransactionInstruction({
       programId: SeedlingQuasarClient.programId,
       keys: [
@@ -865,49 +717,25 @@ export class SeedlingQuasarClient {
         { pubkey: input.ctokenMint, isSigner: false, isWritable: true },
         { pubkey: input.kaminoReserve, isSigner: false, isWritable: true },
         { pubkey: input.lendingMarket, isSigner: false, isWritable: false },
-        {
-          pubkey: input.lendingMarketAuthority,
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: input.reserveLiquiditySupply,
-          isSigner: false,
-          isWritable: true,
-        },
+        { pubkey: input.lendingMarketAuthority, isSigner: false, isWritable: false },
+        { pubkey: input.reserveLiquiditySupply, isSigner: false, isWritable: true },
         { pubkey: input.oraclePyth, isSigner: false, isWritable: false },
-        {
-          pubkey: input.oracleSwitchboardPrice,
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: input.oracleSwitchboardTwap,
-          isSigner: false,
-          isWritable: false,
-        },
+        { pubkey: input.oracleSwitchboardPrice, isSigner: false, isWritable: false },
+        { pubkey: input.oracleSwitchboardTwap, isSigner: false, isWritable: false },
         { pubkey: input.oracleScopeConfig, isSigner: false, isWritable: false },
         { pubkey: input.kaminoProgram, isSigner: false, isWritable: false },
         { pubkey: input.instructionSysvar, isSigner: false, isWritable: false },
         { pubkey: input.tokenProgram, isSigner: false, isWritable: false },
-        {
-          pubkey: accountsMap["associatedTokenProgram"],
-          isSigner: false,
-          isWritable: false,
-        },
+        { pubkey: accountsMap["associatedTokenProgram"], isSigner: false, isWritable: false },
         { pubkey: input.systemProgram, isSigner: false, isWritable: false },
       ],
       data,
     });
   }
 
-  createDistributeMonthlyAllowanceInstruction(
-    input: DistributeMonthlyAllowanceInstructionInput
-  ): TransactionInstruction {
+  createDistributeMonthlyAllowanceInstruction(input: DistributeMonthlyAllowanceInstructionInput): TransactionInstruction {
     const accountsMap: Record<string, Address> = {};
-    accountsMap["associatedTokenProgram"] = new Address(
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-    );
+    accountsMap["associatedTokenProgram"] = new Address("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
     const data = Buffer.from([4]);
     return new TransactionInstruction({
       programId: SeedlingQuasarClient.programId,
@@ -925,49 +753,25 @@ export class SeedlingQuasarClient {
         { pubkey: input.ctokenMint, isSigner: false, isWritable: true },
         { pubkey: input.kaminoReserve, isSigner: false, isWritable: true },
         { pubkey: input.lendingMarket, isSigner: false, isWritable: false },
-        {
-          pubkey: input.lendingMarketAuthority,
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: input.reserveLiquiditySupply,
-          isSigner: false,
-          isWritable: true,
-        },
+        { pubkey: input.lendingMarketAuthority, isSigner: false, isWritable: false },
+        { pubkey: input.reserveLiquiditySupply, isSigner: false, isWritable: true },
         { pubkey: input.oraclePyth, isSigner: false, isWritable: false },
-        {
-          pubkey: input.oracleSwitchboardPrice,
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: input.oracleSwitchboardTwap,
-          isSigner: false,
-          isWritable: false,
-        },
+        { pubkey: input.oracleSwitchboardPrice, isSigner: false, isWritable: false },
+        { pubkey: input.oracleSwitchboardTwap, isSigner: false, isWritable: false },
         { pubkey: input.oracleScopeConfig, isSigner: false, isWritable: false },
         { pubkey: input.kaminoProgram, isSigner: false, isWritable: false },
         { pubkey: input.instructionSysvar, isSigner: false, isWritable: false },
         { pubkey: input.tokenProgram, isSigner: false, isWritable: false },
-        {
-          pubkey: accountsMap["associatedTokenProgram"],
-          isSigner: false,
-          isWritable: false,
-        },
+        { pubkey: accountsMap["associatedTokenProgram"], isSigner: false, isWritable: false },
         { pubkey: input.systemProgram, isSigner: false, isWritable: false },
       ],
       data,
     });
   }
 
-  createDistributeBonusInstruction(
-    input: DistributeBonusInstructionInput
-  ): TransactionInstruction {
+  createDistributeBonusInstruction(input: DistributeBonusInstructionInput): TransactionInstruction {
     const accountsMap: Record<string, Address> = {};
-    accountsMap["associatedTokenProgram"] = new Address(
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-    );
+    accountsMap["associatedTokenProgram"] = new Address("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
     const data = Buffer.from([5]);
     return new TransactionInstruction({
       programId: SeedlingQuasarClient.programId,
@@ -985,49 +789,25 @@ export class SeedlingQuasarClient {
         { pubkey: input.ctokenMint, isSigner: false, isWritable: true },
         { pubkey: input.kaminoReserve, isSigner: false, isWritable: true },
         { pubkey: input.lendingMarket, isSigner: false, isWritable: false },
-        {
-          pubkey: input.lendingMarketAuthority,
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: input.reserveLiquiditySupply,
-          isSigner: false,
-          isWritable: true,
-        },
+        { pubkey: input.lendingMarketAuthority, isSigner: false, isWritable: false },
+        { pubkey: input.reserveLiquiditySupply, isSigner: false, isWritable: true },
         { pubkey: input.oraclePyth, isSigner: false, isWritable: false },
-        {
-          pubkey: input.oracleSwitchboardPrice,
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: input.oracleSwitchboardTwap,
-          isSigner: false,
-          isWritable: false,
-        },
+        { pubkey: input.oracleSwitchboardPrice, isSigner: false, isWritable: false },
+        { pubkey: input.oracleSwitchboardTwap, isSigner: false, isWritable: false },
         { pubkey: input.oracleScopeConfig, isSigner: false, isWritable: false },
         { pubkey: input.kaminoProgram, isSigner: false, isWritable: false },
         { pubkey: input.instructionSysvar, isSigner: false, isWritable: false },
         { pubkey: input.tokenProgram, isSigner: false, isWritable: false },
-        {
-          pubkey: accountsMap["associatedTokenProgram"],
-          isSigner: false,
-          isWritable: false,
-        },
+        { pubkey: accountsMap["associatedTokenProgram"], isSigner: false, isWritable: false },
         { pubkey: input.systemProgram, isSigner: false, isWritable: false },
       ],
       data,
     });
   }
 
-  createCloseFamilyInstruction(
-    input: CloseFamilyInstructionInput
-  ): TransactionInstruction {
+  createCloseFamilyInstruction(input: CloseFamilyInstructionInput): TransactionInstruction {
     const accountsMap: Record<string, Address> = {};
-    accountsMap["associatedTokenProgram"] = new Address(
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-    );
+    accountsMap["associatedTokenProgram"] = new Address("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
     const data = Buffer.from([6]);
     return new TransactionInstruction({
       programId: SeedlingQuasarClient.programId,
@@ -1044,50 +824,27 @@ export class SeedlingQuasarClient {
         { pubkey: input.ctokenMint, isSigner: false, isWritable: true },
         { pubkey: input.kaminoReserve, isSigner: false, isWritable: true },
         { pubkey: input.lendingMarket, isSigner: false, isWritable: false },
-        {
-          pubkey: input.lendingMarketAuthority,
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: input.reserveLiquiditySupply,
-          isSigner: false,
-          isWritable: true,
-        },
+        { pubkey: input.lendingMarketAuthority, isSigner: false, isWritable: false },
+        { pubkey: input.reserveLiquiditySupply, isSigner: false, isWritable: true },
         { pubkey: input.oraclePyth, isSigner: false, isWritable: false },
-        {
-          pubkey: input.oracleSwitchboardPrice,
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: input.oracleSwitchboardTwap,
-          isSigner: false,
-          isWritable: false,
-        },
+        { pubkey: input.oracleSwitchboardPrice, isSigner: false, isWritable: false },
+        { pubkey: input.oracleSwitchboardTwap, isSigner: false, isWritable: false },
         { pubkey: input.oracleScopeConfig, isSigner: false, isWritable: false },
         { pubkey: input.kaminoProgram, isSigner: false, isWritable: false },
         { pubkey: input.instructionSysvar, isSigner: false, isWritable: false },
         { pubkey: input.tokenProgram, isSigner: false, isWritable: false },
-        {
-          pubkey: accountsMap["associatedTokenProgram"],
-          isSigner: false,
-          isWritable: false,
-        },
+        { pubkey: accountsMap["associatedTokenProgram"], isSigner: false, isWritable: false },
         { pubkey: input.systemProgram, isSigner: false, isWritable: false },
       ],
       data,
     });
   }
 
-  createSetFamilyLastDistributionInstruction(
-    input: SetFamilyLastDistributionInstructionInput
-  ): TransactionInstruction {
-    const argsCodec = getStructCodec([["newLastDistribution", getI64Codec()]]);
-    const data = Buffer.from([
-      7,
-      ...argsCodec.encode({ newLastDistribution: input.newLastDistribution }),
+  createSetFamilyLastDistributionInstruction(input: SetFamilyLastDistributionInstructionInput): TransactionInstruction {
+    const argsCodec = getStructCodec([
+      ["newLastDistribution", getI64Codec()],
     ]);
+    const data = Buffer.from([7, ...argsCodec.encode({ newLastDistribution: input.newLastDistribution })]);
     return new TransactionInstruction({
       programId: SeedlingQuasarClient.programId,
       keys: [
@@ -1099,14 +856,11 @@ export class SeedlingQuasarClient {
     });
   }
 
-  createRollPeriodInstruction(
-    input: RollPeriodInstructionInput
-  ): TransactionInstruction {
-    const argsCodec = getStructCodec([["nextPeriodEndTs", getI64Codec()]]);
-    const data = Buffer.from([
-      8,
-      ...argsCodec.encode({ nextPeriodEndTs: input.nextPeriodEndTs }),
+  createRollPeriodInstruction(input: RollPeriodInstructionInput): TransactionInstruction {
+    const argsCodec = getStructCodec([
+      ["nextPeriodEndTs", getI64Codec()],
     ]);
+    const data = Buffer.from([8, ...argsCodec.encode({ nextPeriodEndTs: input.nextPeriodEndTs })]);
     return new TransactionInstruction({
       programId: SeedlingQuasarClient.programId,
       keys: [
@@ -1117,14 +871,11 @@ export class SeedlingQuasarClient {
     });
   }
 
-  createSetPausedInstruction(
-    input: SetPausedInstructionInput
-  ): TransactionInstruction {
-    const argsCodec = getStructCodec([["paused", getBooleanCodec()]]);
-    const data = Buffer.from([
-      9,
-      ...argsCodec.encode({ paused: input.paused }),
+  createSetPausedInstruction(input: SetPausedInstructionInput): TransactionInstruction {
+    const argsCodec = getStructCodec([
+      ["paused", getBooleanCodec()],
     ]);
+    const data = Buffer.from([9, ...argsCodec.encode({ paused: input.paused })]);
     return new TransactionInstruction({
       programId: SeedlingQuasarClient.programId,
       keys: [
@@ -1161,3 +912,4 @@ export const PROGRAM_ERRORS: Record<number, { name: string; msg?: string }> = {
   20: { name: "InvalidOracle" },
   21: { name: "BelowDustThreshold" },
 };
+

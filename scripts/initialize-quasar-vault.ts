@@ -72,10 +72,17 @@ async function main() {
     return;
   }
 
-  // Treasury ATA — owned by wallet, holds protocol fees in USDC.
+  // Treasury ATA — owned by a SEPARATE keypair so it's never the same as a
+  // depositor's ATA (otherwise deposit fails with AccountBorrowFailed when
+  // depositor_usdc_ata == treasury_usdc_ata as two writable slots).
+  // The treasury keypair just holds the address; we don't need to sign
+  // with it — the ATA is owned by it but receives transfers, never sends.
+  const TREASURY_OWNER = process.env.TREASURY_OWNER
+    ? new PublicKey(process.env.TREASURY_OWNER)
+    : new PublicKey("6dkYhc2QN1NjhhUjMr5zJnYXTovYFiaHvfd2Tq3w1EGB");
   const treasuryAta = await getAssociatedTokenAddress(
     USDC_MINT,
-    wallet.publicKey,
+    TREASURY_OWNER,
     false,
     TOKEN_PROGRAM_ID,
     ASSOCIATED_TOKEN_PROGRAM_ID
@@ -125,9 +132,9 @@ async function main() {
 
   // Treasury ATA may not exist yet. Create idempotently in same tx.
   const ataIx = createAssociatedTokenAccountIdempotentInstruction(
-    wallet.publicKey,
+    wallet.publicKey,    // payer
     treasuryAta,
-    wallet.publicKey,
+    TREASURY_OWNER,      // ATA owner = the separate treasury keypair
     USDC_MINT
   );
 

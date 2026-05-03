@@ -112,8 +112,19 @@ async function main() {
     TOKEN_PROGRAM_ID,
     ASSOCIATED_TOKEN_PROGRAM_ID
   );
-  // Treasury was set at init as the parent's USDC ATA (per init script).
-  const treasuryUsdcAta = depositorUsdcAta;
+  // Treasury ATA — derived from the same TREASURY_OWNER pubkey used in
+  // initialize-quasar-vault.ts. Must be != depositor_usdc_ata to avoid
+  // AccountBorrowFailed (two writable slots for the same address).
+  const TREASURY_OWNER = process.env.TREASURY_OWNER
+    ? new PublicKey(process.env.TREASURY_OWNER)
+    : new PublicKey("6dkYhc2QN1NjhhUjMr5zJnYXTovYFiaHvfd2Tq3w1EGB");
+  const treasuryUsdcAta = await getAssociatedTokenAddress(
+    USDC_MINT,
+    TREASURY_OWNER,
+    false,
+    TOKEN_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  );
 
   console.log("Wallet:           ", wallet.publicKey.toBase58());
   console.log("Kid:              ", kid.toBase58());
@@ -169,6 +180,13 @@ async function main() {
   tx.recentBlockhash = blockhash;
   tx.sign(wallet);
 
+  // Diagnostic: list all accounts in the deposit instruction.
+  console.log("\nDeposit instruction accounts:");
+  ix.keys.forEach((k, i) => {
+    console.log(
+      `  [${i.toString().padStart(2)}] ${k.pubkey.toBase58()} signer=${k.isSigner} writable=${k.isWritable}`
+    );
+  });
   console.log("\nSimulating deposit (logs will show the Kamino CPI flow)...");
   const sim = await connection.simulateTransaction(tx);
   if (sim.value.logs) {
