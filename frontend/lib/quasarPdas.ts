@@ -12,7 +12,10 @@ import { PROGRAM_ID } from "./program";
 
 const FAMILY_SEED = Buffer.from("family");
 const KID_SEED = Buffer.from("kid");
-const VAULT_CONFIG_SEED = Buffer.from("vault_config");
+// Seed bumped to "vault_config_v2" because the canonical program address
+// has stale Anchor-format VaultConfig data at the v1 PDA. v2 gives us a
+// fresh PDA at the same canonical program ID.
+const VAULT_CONFIG_SEED = Buffer.from("vault_config_v2");
 
 export function vaultConfigPda(programId: PublicKey = PROGRAM_ID) {
   return PublicKey.findProgramAddressSync([VAULT_CONFIG_SEED], programId)[0];
