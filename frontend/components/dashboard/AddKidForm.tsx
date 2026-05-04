@@ -4,7 +4,6 @@ import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useEffect, useRef, useState } from "react";
 import type { Connection } from "@solana/web3.js";
-import { PROGRAM_ID } from "@/lib/program";
 import { celebratePlant } from "@/lib/celebrate";
 import { setKidName } from "@/lib/kidNames";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
@@ -117,13 +116,19 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
     let cancelled = false;
     const check = async () => {
       try {
-        const [familyPda] = PublicKey.findProgramAddressSync(
-          [Buffer.from("family"), parent.toBuffer(), parsedKid!.toBuffer()],
-          PROGRAM_ID
-        );
+        // Use the helper so the seed version stays in sync with quasarPdas.ts
+        // (which now uses family_v2). Inlining `b"family"` here would drift
+        // and let the v1 stale-data PDA register as a duplicate.
+        const familyPda = familyPositionPda(parent, parsedKid!);
         const info = await connection.getAccountInfo(familyPda);
         if (cancelled) return;
-        setDuplicateError(info ? "already a family for this kid pubkey" : null);
+        // PDA derives from (parent, kid) — collisions only happen for
+        // THIS connected wallet + the same kid. A different parent wallet
+        // can have its own seedling for this kid simultaneously (e.g.
+        // divorced co-parents, grandparent + parent each running one).
+        setDuplicateError(
+          info ? "you already have a seedling for this kid" : null
+        );
       } catch {
         // submit-time error will surface anything real
       }
@@ -213,10 +218,7 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.toLowerCase().includes("already been processed")) {
         if (parsedKid) {
-          const [familyPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from("family"), parent.toBuffer(), parsedKid.toBuffer()],
-            PROGRAM_ID
-          );
+          const familyPda = familyPositionPda(parent, parsedKid);
           if (nameInput.trim()) setKidName(familyPda.toBase58(), nameInput);
           setDepositMode(familyPda.toBase58(), mode);
           if (mode === "hybrid") {
