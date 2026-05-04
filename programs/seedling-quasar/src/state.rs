@@ -42,13 +42,16 @@ pub struct VaultConfig {
     pub bump: u8,
 }
 
-/// Per parent-kid pair. PDA at ["family", parent, kid].
+/// Per parent-kid pair. PDA at ["family_v2", parent, kid].
 ///
 /// `shares` is mutated ONLY through utils::harvest::mint_family_shares /
 /// burn_family_shares which atomically update VaultConfig.total_shares by
 /// the same delta. Direct mutation is a footgun — use the helpers.
+///
+/// v2 seed: dodges stale Anchor-format FamilyPosition data left over at
+/// the v1 PDAs from the original Anchor deployment at this program ID.
 #[account(discriminator = 2, set_inner)]
-#[seeds(b"family", parent: Address, kid: Address)]
+#[seeds(b"family_v2", parent: Address, kid: Address)]
 pub struct FamilyPosition {
     pub parent: Address,
     pub kid: Address,
@@ -70,8 +73,10 @@ pub struct FamilyPosition {
 
 /// Read-only PDA derived for the kid so the kid-facing URL has a canonical,
 /// shareable address. Kid never signs in v1.
+///
+/// v2 seed: paired with family_v2 above.
 #[account(discriminator = 3, set_inner)]
-#[seeds(b"kid", parent: Address, kid: Address)]
+#[seeds(b"kid_v2", parent: Address, kid: Address)]
 pub struct KidView {
     pub family_position: Address,
     pub bump: u8,

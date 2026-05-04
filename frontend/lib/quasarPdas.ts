@@ -10,11 +10,12 @@
 import { PublicKey } from "@solana/web3.js";
 import { PROGRAM_ID } from "./program";
 
-const FAMILY_SEED = Buffer.from("family");
-const KID_SEED = Buffer.from("kid");
-// Seed bumped to "vault_config_v2" because the canonical program address
-// has stale Anchor-format VaultConfig data at the v1 PDA. v2 gives us a
-// fresh PDA at the same canonical program ID.
+// All v2 seeds — the canonical program address has stale Anchor-format
+// data at the v1 PDAs (vault_config, family, kid_view) from the original
+// Anchor deployment. v2 gives us fresh PDAs at the same canonical
+// program ID without needing a centralized force-close instruction.
+const FAMILY_SEED = Buffer.from("family_v2");
+const KID_SEED = Buffer.from("kid_v2");
 const VAULT_CONFIG_SEED = Buffer.from("vault_config_v2");
 
 export function vaultConfigPda(programId: PublicKey = PROGRAM_ID) {
