@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MainnetNotify } from "./MainnetNotify";
 
 // Landing page — sourced from a Claude Design pass on Day 10 evening.
 // All styles are scoped to landing-* class names + the `landing-root`
@@ -372,6 +373,128 @@ const STYLES = `
     margin-top: 6px;
   }
 
+  .landing-notify-section {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 32px 32px;
+  }
+  .landing-notify-card {
+    background: var(--stone-100);
+    border: 1px solid var(--stone-200);
+    border-radius: 14px;
+    padding: 26px 28px 22px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .landing-notify-card--success {
+    background: linear-gradient(135deg, var(--stone-100) 0%, var(--green-100) 100%);
+    border-color: var(--green-300);
+  }
+  .landing-notify-card--fallback {
+    background: var(--stone-50);
+  }
+  a.landing-notify-card--dm {
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  }
+  a.landing-notify-card--dm:hover {
+    border-color: var(--green-700);
+    background: var(--stone-50);
+    transform: translateY(-1px);
+  }
+  .landing-notify-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 11px 18px;
+    background: var(--green-800);
+    color: var(--stone-50);
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    align-self: flex-start;
+    transition: background 140ms ease;
+  }
+  a.landing-notify-card--dm:hover .landing-notify-cta {
+    background: var(--green-900);
+  }
+  .landing-notify-headline {
+    font-family: var(--serif);
+    font-size: 26px;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    color: var(--green-900);
+  }
+  .landing-notify-sub {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .landing-notify-row {
+    display: flex; gap: 8px; margin-top: 6px;
+  }
+  .landing-notify-input {
+    flex: 1;
+    font-family: var(--sans);
+    font-size: 15px;
+    padding: 12px 14px;
+    border: 1px solid var(--stone-300);
+    border-radius: 8px;
+    background: var(--stone-50);
+    color: var(--ink);
+    outline: none;
+    transition: border-color 140ms ease;
+  }
+  .landing-notify-input:focus {
+    border-color: var(--green-700);
+  }
+  .landing-notify-input:disabled {
+    opacity: 0.6;
+  }
+  .landing-notify-btn {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 12px 18px;
+    background: var(--green-800);
+    color: var(--stone-50);
+    border: 1px solid var(--green-900);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 140ms ease;
+    white-space: nowrap;
+  }
+  .landing-notify-btn:hover:not(:disabled) {
+    background: var(--green-900);
+  }
+  .landing-notify-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .landing-notify-err {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #B0473A;
+    margin-top: 4px;
+  }
+  .landing-notify-fine {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.02em;
+    margin: 4px 0 0;
+  }
+  .landing-notify-link {
+    color: var(--green-800);
+    text-decoration: underline;
+  }
+  @media (max-width: 540px) {
+    .landing-notify-row { flex-direction: column; }
+  }
+
   .landing-footer {
     max-width: var(--max);
     margin: 0 auto;
@@ -441,14 +564,14 @@ export default function Home() {
         </Link>
         <div className="landing-nav-meta">
           <span className="landing-pulse"></span>
-          <span>live on Solana</span>
+          <span>live on Solana devnet · mainnet soon</span>
         </div>
       </nav>
 
       <header className="landing-hero">
         <div>
           <div className="landing-eyebrow">
-            Programmable allowance for families · on Solana
+            Family allowance, on-chain · on Solana
           </div>
           <h1 className="landing-headline">
             allowance
@@ -456,9 +579,9 @@ export default function Home() {
             that <em>grows</em>.
           </h1>
           <p className="landing-subhead">
-            Money grows. Habits grow. Your kid grows with both. Parents deposit
-            USDC, the vault earns yield through Kamino, and we only earn when
-            families do.
+            Money grows. Habits grow. Your kid grows with both. One deposit
+            funds your kid&apos;s monthly allowance — and a year-end bonus that
+            comes from yield, not your wallet.
           </p>
           <div className="landing-cta-row">
             <Link href="/dashboard" className="landing-cta">
@@ -592,6 +715,10 @@ export default function Home() {
         </div>
       </header>
 
+      <section className="landing-notify-section">
+        <MainnetNotify />
+      </section>
+
       <section className="landing-section">
         <div className="landing-section-label">
           <span>
@@ -648,7 +775,7 @@ export default function Home() {
             <h3>Kamino lends it at ~8% APY.</h3>
             <p>
               The vault deposits into Kamino lending. Yield compounds in the
-              background.
+              background. Estimated · based on current rates.
             </p>
           </div>
 
