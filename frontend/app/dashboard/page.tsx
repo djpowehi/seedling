@@ -14,14 +14,6 @@ import { FamilyCard } from "@/components/dashboard/FamilyCard";
 import { Plus } from "@/components/dashboard/icons";
 import { DASHBOARD_STYLES } from "@/components/dashboard/styles";
 
-// Custom add/withdraw modal on top of Orda's REST API. Lazy-loaded so the
-// initial dashboard bundle stays light (qrcode + spl-token only fetched
-// when the user actually opens the funds drawer).
-const AddFundsModal = dynamic(
-  async () => (await import("@/components/AddFundsModal")).AddFundsModal,
-  { ssr: false }
-);
-
 const WalletMultiButton = dynamic(
   async () =>
     (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
@@ -38,7 +30,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showFunds, setShowFunds] = useState(false);
 
   const refetch = useCallback(async () => {
     if (!seedling || !publicKey) return;
@@ -89,22 +80,6 @@ export default function Dashboard() {
               <span className="dash-pulse-dot" />
               live on Solana
             </span>
-            {/* + add funds button hidden until Orda confirms Solana on-ramp.
-                Their BRL on-ramp currently outputs BRZ on Polygon/Base only;
-                Solana support pending (Kauê pinging Orda team 2026-05-02).
-                Restore by uncommenting this block — modal + API routes below
-                are intact and ready. */}
-            {/* {connected && (
-              <button
-                type="button"
-                className="dash-btn dash-btn-ghost"
-                onClick={() => setShowFunds(true)}
-                style={{ padding: "6px 14px", fontSize: 13 }}
-                title="Convert BRL ⇄ USDC via PIX"
-              >
-                + add funds
-              </button>
-            )} */}
             <WalletMultiButton />
           </div>
         </div>
@@ -284,8 +259,6 @@ export default function Dashboard() {
           </div>
         </div>
       </footer>
-
-      <AddFundsModal open={showFunds} onClose={() => setShowFunds(false)} />
     </div>
   );
 }
