@@ -8,11 +8,14 @@
 // visitor lands directly in a compose window. The screen_name fallback
 // also works on mobile clients that don't honor recipient_id.
 
+import { useLocale } from "@/lib/i18n";
+
 const X_HANDLE = "seedling_sol";
 const X_USER_ID = "2043459270847377408";
 const X_DM_URL = `https://twitter.com/messages/compose?recipient_id=${X_USER_ID}`;
 
 export function MainnetNotify() {
+  const { t } = useLocale();
   return (
     <a
       className="landing-notify-card landing-notify-card--dm"
@@ -20,13 +23,10 @@ export function MainnetNotify() {
       target="_blank"
       rel="noreferrer"
     >
-      <div className="landing-notify-headline">mainnet soon.</div>
-      <p className="landing-notify-sub">
-        want a heads-up when families can deposit real USDC? send us a DM on X —
-        we&apos;ll ping you the day mainnet goes live.
-      </p>
+      <div className="landing-notify-headline">{t("mainnet.headline")}</div>
+      <p className="landing-notify-sub">{t("mainnet.body")}</p>
       <div className="landing-notify-cta">
-        <span>DM @{X_HANDLE} on X</span>
+        <span>{t("mainnet.cta", { handle: X_HANDLE })}</span>
         <svg
           width="14"
           height="14"
@@ -43,9 +43,7 @@ export function MainnetNotify() {
           />
         </svg>
       </div>
-      <p className="landing-notify-fine">
-        no list · no spam · just a heads-up DM
-      </p>
+      <p className="landing-notify-fine">{t("mainnet.fine")}</p>
     </a>
   );
 }
