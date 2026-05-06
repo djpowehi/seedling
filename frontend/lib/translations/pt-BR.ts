@@ -27,11 +27,11 @@ export const ptBR: Translations = {
 
   // ---- landing ----
   "landing.eyebrow": "Mesada da família, on-chain · na Solana",
-  "landing.headline.line1": "uma mesada",
+  "landing.headline.line1": "mesada",
   "landing.headline.line2": "que {italic}.",
   "landing.headline.italic": "rende",
   "landing.subhead":
-    "O dinheiro cresce. O hábito cresce. Seu filho cresce com os dois. Um depósito financia todas as mesadas mensais — e um bônus de fim de ano que vem do rendimento, não do seu bolso.",
+    "Dinheiro cresce. Responsabilidade cresce. Seu filho cresce com os dois. Um depósito financia todas as mesadas mensais — e um bônus de fim de ano que vem do rendimento, não do seu bolso.",
   "landing.cta.dashboard": "abrir dashboard",
   "landing.cta.label": "Abrir o dashboard",
   "landing.cta.note":
