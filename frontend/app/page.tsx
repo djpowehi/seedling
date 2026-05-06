@@ -1,5 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { MainnetNotify } from "./MainnetNotify";
+import { LocaleToggle } from "@/components/LocaleToggle";
+import { useLocale } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/i18n";
 
 // Landing page — sourced from a Claude Design pass on Day 10 evening.
 // All styles are scoped to landing-* class names + the `landing-root`
@@ -7,6 +12,32 @@ import { MainnetNotify } from "./MainnetNotify";
 // Serif, Inter, JetBrains Mono) are loaded via next/font in layout.tsx
 // as CSS variables — referenced here by their original names so the
 // designer's CSS works unchanged.
+//
+// "use client" because the locale toggle + t() use React Context state.
+// The page has no server-side data dependencies, so the cost is just
+// hydration of static JSX — negligible.
+
+// Render a templated string with an `{italic}` placeholder, swapping
+// the placeholder for an <em>-wrapped translation. Used by hero
+// headline + dashboard headlines that have a single italicized word.
+function TItalic({
+  tplKey,
+  italicKey,
+}: {
+  tplKey: TranslationKey;
+  italicKey: TranslationKey;
+}) {
+  const { t } = useLocale();
+  const tmpl = t(tplKey);
+  const [pre, post = ""] = tmpl.split("{italic}");
+  return (
+    <>
+      {pre}
+      <em>{t(italicKey)}</em>
+      {post}
+    </>
+  );
+}
 
 const STYLES = `
   .landing-root {
@@ -71,6 +102,13 @@ const STYLES = `
     color: var(--ink-muted);
     text-transform: uppercase;
     display: flex; align-items: center; gap: 10px;
+  }
+  /* Mobile: keep the toggle + pulse dot, drop the long pulse text so the
+   * nav doesn't wrap. The pulse signals "we're alive"; the words are
+   * branding the toggle already implies. */
+  @media (max-width: 540px) {
+    .landing-nav { padding: 22px 18px 0; }
+    .landing-nav-pulse-text { display: none; }
   }
   .landing-pulse {
     width: 7px; height: 7px; border-radius: 50%;
@@ -554,6 +592,7 @@ const STYLES = `
 `;
 
 export default function Home() {
+  const { t } = useLocale();
   return (
     <div className="landing-root">
       <style dangerouslySetInnerHTML={{ __html: STYLES }} />
@@ -563,29 +602,27 @@ export default function Home() {
           seedling<span className="dot"></span>
         </Link>
         <div className="landing-nav-meta">
+          <LocaleToggle />
           <span className="landing-pulse"></span>
-          <span>live on Solana devnet · mainnet soon</span>
+          <span className="landing-nav-pulse-text">{t("nav.live.devnet")}</span>
         </div>
       </nav>
 
       <header className="landing-hero">
         <div>
-          <div className="landing-eyebrow">
-            Family allowance, on-chain · on Solana
-          </div>
+          <div className="landing-eyebrow">{t("landing.eyebrow")}</div>
           <h1 className="landing-headline">
-            allowance
+            {t("landing.headline.line1")}
             <br />
-            that <em>grows</em>.
+            <TItalic
+              tplKey="landing.headline.line2"
+              italicKey="landing.headline.italic"
+            />
           </h1>
-          <p className="landing-subhead">
-            Money grows. Habits grow. Your kid grows with both. One deposit
-            funds your kid&apos;s monthly allowance — and a year-end bonus that
-            comes from yield, not your wallet.
-          </p>
+          <p className="landing-subhead">{t("landing.subhead")}</p>
           <div className="landing-cta-row">
             <Link href="/dashboard" className="landing-cta">
-              Open the dashboard
+              {t("landing.cta.label")}
               <svg
                 className="arrow"
                 width="16"
@@ -602,9 +639,7 @@ export default function Home() {
                 />
               </svg>
             </Link>
-            <span className="landing-cta-note">
-              Live on Solana · no wallet required to look around
-            </span>
+            <span className="landing-cta-note">{t("landing.cta.note")}</span>
           </div>
         </div>
 
@@ -722,9 +757,10 @@ export default function Home() {
       <section className="landing-section">
         <div className="landing-section-label">
           <span>
-            <span className="num">02</span> &nbsp;&nbsp;How it works
+            <span className="num">{t("landing.section.howit.label_num")}</span>
+            &nbsp;&nbsp;{t("landing.section.howit.label")}
           </span>
-          <span>Three steps · one decision</span>
+          <span>{t("landing.section.howit.sub")}</span>
         </div>
 
         <div className="landing-steps">
@@ -750,11 +786,8 @@ export default function Home() {
               />
               <path d="M14 12h28" opacity="0.5" />
             </svg>
-            <h3>Parents deposit USDC, once.</h3>
-            <p>
-              One transaction sets the principal. No subscriptions, no monthly
-              chores.
-            </p>
+            <h3>{t("landing.step.i.title")}</h3>
+            <p>{t("landing.step.i.body")}</p>
           </div>
 
           <div className="landing-step">
@@ -772,11 +805,8 @@ export default function Home() {
               <path d="M28 46 C 28 30, 38 24, 46 20 C 44 32, 40 42, 28 46 Z" />
               <path d="M28 46 V 30" opacity="0.6" />
             </svg>
-            <h3>Kamino lends it at ~8% APY.</h3>
-            <p>
-              The vault deposits into Kamino lending. Yield compounds in the
-              background. Estimated · based on current rates.
-            </p>
+            <h3>{t("landing.step.ii.title")}</h3>
+            <p>{t("landing.step.ii.body")}</p>
           </div>
 
           <div className="landing-step">
@@ -796,12 +826,8 @@ export default function Home() {
               <circle cx="28" cy="34" r="6" />
               <path d="M28 31v6M25 34h6" opacity="0.6" />
             </svg>
-            <h3>Kids get paid monthly. Bonus at year-end.</h3>
-            <p>
-              The 1st of every month, the allowance arrives. Year-end brings the
-              annual bonus — pure yield. Seedling rewards time: the longer money
-              stays, the more the kid earns.
-            </p>
+            <h3>{t("landing.step.iii.title")}</h3>
+            <p>{t("landing.step.iii.body")}</p>
           </div>
         </div>
       </section>
@@ -809,39 +835,46 @@ export default function Home() {
       <section className="landing-section landing-shots-section">
         <div className="landing-section-label">
           <span>
-            <span className="num">03</span> &nbsp;&nbsp;The product
+            <span className="num">
+              {t("landing.section.product.label_num")}
+            </span>
+            &nbsp;&nbsp;{t("landing.section.product.label")}
           </span>
-          <span>Two views · same family</span>
+          <span>{t("landing.section.product.sub")}</span>
         </div>
 
         <div className="landing-shots landing-shots--two">
           <div className="landing-shot-wrap">
-            <span className="landing-shot-tag">screen 01 · parent</span>
+            <span className="landing-shot-tag">
+              {t("landing.shot.parent.tag")}
+            </span>
             <figure className="landing-shot landing-shot--filled">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/parent-dashboard.png"
-                alt="Seedling parent dashboard with two kids saving"
+                alt={t("landing.shot.parent.alt")}
                 className="landing-shot-img"
               />
               <figcaption className="landing-shot-caption">
-                Parent dashboard
-                <span>deposit · withdraw · monthly · bonus</span>
+                {t("landing.shot.parent.caption")}
+                <span>{t("landing.shot.parent.caption_sub")}</span>
               </figcaption>
             </figure>
           </div>
           <div className="landing-shot-wrap">
-            <span className="landing-shot-tag">screen 02 · kid</span>
+            <span className="landing-shot-tag">
+              {t("landing.shot.kid.tag")}
+            </span>
             <figure className="landing-shot landing-shot--filled">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/kid-view.png"
-                alt="Seedling kid view with a growing tree and live yield ticker"
+                alt={t("landing.shot.kid.alt")}
                 className="landing-shot-img"
               />
               <figcaption className="landing-shot-caption">
-                Kid view
-                <span>a tree, growing — no wallet needed</span>
+                {t("landing.shot.kid.caption")}
+                <span>{t("landing.shot.kid.caption_sub")}</span>
               </figcaption>
             </figure>
           </div>
@@ -851,14 +884,14 @@ export default function Home() {
       <footer className="landing-footer">
         <div className="landing-foot-mark">seedling.</div>
         <div className="landing-foot-meta">
-          <div className="landing-foot-built">Built on Kamino · Solana</div>
+          <div className="landing-foot-built">{t("landing.footer.built")}</div>
           <div>
             <a
               href="https://github.com/djpowehi/seedling"
               target="_blank"
               rel="noreferrer"
             >
-              github
+              {t("footer.github")}
             </a>
             &nbsp;·&nbsp;
             <a
@@ -866,11 +899,11 @@ export default function Home() {
               target="_blank"
               rel="noreferrer"
             >
-              @seedling_sol
+              {t("footer.x")}
             </a>
           </div>
           <div style={{ opacity: 0.55, marginTop: 8 }}>
-            © 2026 · seedlingsol.xyz
+            {t("landing.footer.copy")}
           </div>
         </div>
       </footer>
