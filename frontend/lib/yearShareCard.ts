@@ -33,6 +33,26 @@ function fmtUsd(v: number): string {
 type ShareData = {
   kidName: string;
   recap: YearRecap;
+  /** Localized strings rendered into the PNG. Caller (YearRecap) routes
+   *  these through t(); we keep the function locale-agnostic so it stays
+   *  usable from any context. Defaults preserve EN behavior. */
+  labels?: {
+    eyebrow: string; // "{YEAR} · {NAME}'S SEEDLING YEAR" pre-uppercased
+    headline1: string; // "a year of"
+    headline2: string; // "growing."
+    monthSection: string; // "MONTH BY MONTH"
+    monthSub: string; // "monthly yield"
+    bestSection: string; // "BEST MONTH"
+    bestApy: string; // "at 8.0% APY" — caller substitutes apy
+    deposited: string; // "YOU PUT IN"
+    yielded: string; // "YOUR SAVINGS EARNED"
+    growth: string; // "THAT'S"
+    growthSub: string; // "growth, just by waiting."
+    foot: string; // "seedling · seedlingsol.xyz" (right-aligned)
+    /** Locale used for monthShort labels in the bar chart (e.g. "pt-BR"
+     *  → "JAN" / "FEV" / "MAR"). Defaults to en-US. */
+    monthLocale?: string;
+  };
 };
 
 export async function renderYearShareCard(data: ShareData): Promise<Blob> {
@@ -74,21 +94,22 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
   const startYr = data.recap.startCycleKey.slice(0, 4);
   const endYr = data.recap.endCycleKey.slice(0, 4);
   const header =
-    startYr === endYr
+    data.labels?.eyebrow ??
+    (startYr === endYr
       ? `${startYr} · ${data.kidName.toUpperCase()}'S SEEDLING YEAR`
-      : `${startYr}–${endYr} · ${data.kidName.toUpperCase()}'S SEEDLING YEAR`;
+      : `${startYr}–${endYr} · ${data.kidName.toUpperCase()}'S SEEDLING YEAR`);
   ctx.fillText(header, PAD + 30, y);
 
   // ── headline (two-line serif) ──
   y = PAD + 78;
   ctx.fillStyle = C.green900;
   ctx.font = "400 132px Iowan Old Style, Georgia, serif";
-  ctx.fillText("a year of", PAD, y);
+  ctx.fillText(data.labels?.headline1 ?? "a year of", PAD, y);
   y += 132;
 
   ctx.fillStyle = C.green700;
   ctx.font = "italic 400 132px Iowan Old Style, Georgia, serif";
-  ctx.fillText("growing.", PAD, y);
+  ctx.fillText(data.labels?.headline2 ?? "growing.", PAD, y);
   y += 132 + 100; // headline + generous breathing room (the "growing."
   // descender + the "MONTH BY MONTH" eyebrow were crowding each other on
   // mobile renders; we have ~280px of slack at the bottom anyway).
@@ -96,11 +117,11 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
   // ── monthly sparkline ──
   ctx.fillStyle = C.inkMuted;
   ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
-  ctx.fillText("MONTH BY MONTH", PAD, y);
+  ctx.fillText(data.labels?.monthSection ?? "MONTH BY MONTH", PAD, y);
   y += 30;
   ctx.fillStyle = C.inkSoft;
   ctx.font = "italic 400 30px Iowan Old Style, Georgia, serif";
-  ctx.fillText("monthly yield", PAD, y);
+  ctx.fillText(data.labels?.monthSub ?? "monthly yield", PAD, y);
   y += 38;
 
   const chartTop = y;
@@ -153,7 +174,7 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
   // ── best month callout ──
   ctx.fillStyle = C.inkMuted;
   ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
-  ctx.fillText("BEST MONTH", PAD, y);
+  ctx.fillText(data.labels?.bestSection ?? "BEST MONTH", PAD, y);
   y += 36;
 
   ctx.fillStyle = C.green900;
@@ -168,8 +189,11 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
   y += 56 + 8;
   ctx.fillStyle = C.inkSoft;
   ctx.font = "400 26px Iowan Old Style, Georgia, serif";
+  const apyStr = (data.recap.bestMonth.apyEffectiveBps / 100).toFixed(1);
   ctx.fillText(
-    `at ${(data.recap.bestMonth.apyEffectiveBps / 100).toFixed(1)}% APY`,
+    data.labels?.bestApy
+      ? data.labels.bestApy.replace("{apy}", apyStr)
+      : `at ${apyStr}% APY`,
     PAD,
     y
   );
@@ -178,7 +202,7 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
   // ── totals stack ──
   ctx.fillStyle = C.inkMuted;
   ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
-  ctx.fillText("YOU PUT IN", PAD, y);
+  ctx.fillText(data.labels?.deposited ?? "YOU PUT IN", PAD, y);
   y += 30;
   ctx.fillStyle = C.ink;
   ctx.font = "400 80px Iowan Old Style, Georgia, serif";
@@ -187,7 +211,7 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
 
   ctx.fillStyle = C.inkMuted;
   ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
-  ctx.fillText("YOUR SAVINGS EARNED", PAD, y);
+  ctx.fillText(data.labels?.yielded ?? "YOUR SAVINGS EARNED", PAD, y);
   y += 30;
   ctx.fillStyle = C.green700;
   ctx.font = "italic 400 116px Iowan Old Style, Georgia, serif";
@@ -196,7 +220,7 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
 
   ctx.fillStyle = C.inkMuted;
   ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
-  ctx.fillText("THAT'S", PAD, y);
+  ctx.fillText(data.labels?.growth ?? "THAT'S", PAD, y);
   y += 30;
   ctx.fillStyle = C.amber;
   ctx.font = "400 88px Iowan Old Style, Georgia, serif";
@@ -204,7 +228,7 @@ export async function renderYearShareCard(data: ShareData): Promise<Blob> {
   y += 88 + 8;
   ctx.fillStyle = C.inkSoft;
   ctx.font = "400 28px Iowan Old Style, Georgia, serif";
-  ctx.fillText("growth, just by waiting.", PAD, y);
+  ctx.fillText(data.labels?.growthSub ?? "growth, just by waiting.", PAD, y);
 
   // ── footer wordmark (positioned absolutely from bottom) ──
   const footerY = H - PAD;

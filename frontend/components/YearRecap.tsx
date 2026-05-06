@@ -25,6 +25,10 @@ import { renderYearShareCard } from "@/lib/yearShareCard";
 import { canNativeShare, downloadImage, shareImage } from "@/lib/shareCard";
 import type { DepositMode, HybridConfig } from "@/lib/depositMode";
 import { Tree, type Stage } from "@/components/Tree";
+import { useLocale } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/i18n";
+
+type T = (k: TranslationKey, vars?: Record<string, string | number>) => string;
 
 type Props = {
   familyKey: string;
@@ -56,6 +60,7 @@ export function YearRecap({
   hybridConfig,
   bonusReady,
 }: Props) {
+  const { t, locale } = useLocale();
   // Recap data — deterministic per (family, start cycle, mode, hybrid config).
   const recap = useMemo<YearRecap>(
     () =>
@@ -64,7 +69,8 @@ export function YearRecap({
         createdAtSec,
         monthlyStreamRateUsd > 0 ? monthlyStreamRateUsd : 50,
         depositMode,
-        hybridConfig
+        hybridConfig,
+        locale
       ),
     [
       familyKey,
@@ -73,6 +79,7 @@ export function YearRecap({
       depositMode,
       hybridConfig?.upfrontUsd,
       hybridConfig?.monthlyUsd,
+      locale,
     ]
   );
 
@@ -82,8 +89,14 @@ export function YearRecap({
     startYear === endYear ? startYear : `${startYear}–${endYear}`;
 
   const slides = useMemo<Slide[]>(
-    () => buildSlides(recap, kidName ?? "friend", bonusReady, yearLabel),
-    [recap, kidName, bonusReady, yearLabel]
+    () =>
+      buildSlides(
+        recap,
+        kidName ?? t("year.fallback_name"),
+        bonusReady,
+        yearLabel
+      ),
+    [recap, kidName, bonusReady, yearLabel, t]
   );
 
   const [open, setOpen] = useState(false);
@@ -161,9 +174,30 @@ export function YearRecap({
   const handleShare = async () => {
     setBusy(true);
     try {
+      const resolvedName = kidName ?? t("predict.kid_fallback");
       const blob = await renderYearShareCard({
-        kidName: kidName ?? "kid",
+        kidName: resolvedName,
         recap,
+        labels: {
+          eyebrow: t("year_card.eyebrow", {
+            year: yearLabel,
+            name: resolvedName,
+          }).toUpperCase(),
+          headline1: t("year_card.headline_1"),
+          headline2: t("year_card.headline_2"),
+          monthSection: t("year_card.month_section"),
+          monthSub: t("year_card.month_sub"),
+          bestSection: t("year_card.best"),
+          // Pass raw template; yearShareCard substitutes {apy} with the
+          // computed APY string at render time.
+          bestApy: t("year_card.best_apy"),
+          deposited: t("year_card.label.deposited"),
+          yielded: t("year_card.label.yielded"),
+          growth: t("year_card.label.growth"),
+          growthSub: t("year_card.growth_sub"),
+          foot: t("year_card.foot"),
+          monthLocale: locale,
+        },
       });
       const url = URL.createObjectURL(blob);
       setPreviewBlob(blob);
@@ -175,7 +209,9 @@ export function YearRecap({
     }
   };
 
-  const filename = `seedling-${kidName ?? "kid"}-${yearLabel}-year.png`;
+  const filename = `seedling-${
+    kidName ?? t("predict.kid_fallback")
+  }-${yearLabel}-year.png`;
   const sharable = previewBlob ? canNativeShare(previewBlob, filename) : false;
 
   const handleSharePreview = async () => {
@@ -191,8 +227,8 @@ export function YearRecap({
   // ──────────── render ────────────
 
   const ctaLabel = bonusReady
-    ? `your ${yearLabel} just landed — relive it`
-    : `your year so far · tap to relive it`;
+    ? t("year.cta.title.bonus", { year: yearLabel })
+    : t("year.cta.title.recap");
 
   return (
     <>
@@ -204,7 +240,9 @@ export function YearRecap({
         onClick={handleOpen}
       >
         <span className="yr-cta-eyebrow">
-          {bonusReady ? "annual bonus" : "year recap"}
+          {bonusReady
+            ? t("year.cta.eyebrow.bonus")
+            : t("year.cta.eyebrow.recap")}
         </span>
         <span className="yr-cta-title">{ctaLabel}</span>
         <span className="yr-cta-num">+{recap.percentGrowth.toFixed(2)}%</span>
@@ -239,6 +277,7 @@ export function YearRecap({
             </button>
 
             <SlideView
+              t={t}
               slide={slides[slideIdx]}
               recap={recap}
               onShare={handleShare}
@@ -322,6 +361,7 @@ function buildSlides(
 // ──────────── slide renderers ────────────
 
 function SlideView({
+  t,
   slide,
   recap,
   onShare,
@@ -333,6 +373,7 @@ function SlideView({
   onDownloadCard,
   onClosePreview,
 }: {
+  t: T;
   slide: Slide;
   recap: YearRecap;
   onShare: () => void;
@@ -351,16 +392,20 @@ function SlideView({
   if (slide.kind === "hero") {
     return (
       <div className="yr-slide yr-slide-hero">
-        <div className="yr-eyebrow">{slide.yearLabel} · seedling</div>
+        <div className="yr-eyebrow">
+          {t("year.slide.hero.eyebrow", { year: slide.yearLabel })}
+        </div>
         <h2 className="yr-headline">
-          {slide.bonusReady ? "your year." : "your year so far."}
+          {slide.bonusReady
+            ? t("year.slide.hero.headline.bonus")
+            : t("year.slide.hero.headline.recap")}
         </h2>
         <p className="yr-sub">
-          {slide.kidName === "friend"
-            ? "let's look back."
-            : `let's look back, ${slide.kidName}.`}
+          {slide.kidName === t("year.fallback_name")
+            ? t("year.slide.hero.sub.unnamed")
+            : t("year.slide.hero.sub.named", { name: slide.kidName })}
         </p>
-        <div className="yr-tap-hint">tap to start →</div>
+        <div className="yr-tap-hint">{t("year.slide.hero.tap_hint")}</div>
       </div>
     );
   }
@@ -373,16 +418,20 @@ function SlideView({
           <Tree stage={slide.stage} />
         </div>
         <div className="yr-eyebrow">{slide.month.monthLabel.toLowerCase()}</div>
-        <div className="yr-month-line">your savings earned</div>
+        <div className="yr-month-line">{t("year.slide.month.line")}</div>
         <h2 className="yr-headline-big">${slide.month.yieldUsd.toFixed(2)}</h2>
         <div className="yr-month-foot">
-          at {(slide.month.apyEffectiveBps / 100).toFixed(1)}% APY
+          {t("year.slide.month.foot", {
+            apy: (slide.month.apyEffectiveBps / 100).toFixed(1),
+          })}
         </div>
         <div className="yr-month-bar">
           <span style={{ width: `${pct * 100}%` }} />
         </div>
         <div className="yr-month-balance">
-          yield so far: ${slide.month.cumulativeYieldUsd.toFixed(2)}
+          {t("year.slide.month.cumulative", {
+            amount: slide.month.cumulativeYieldUsd.toFixed(2),
+          })}
         </div>
       </div>
     );
@@ -394,11 +443,13 @@ function SlideView({
         <div className="yr-month-tree">
           <Tree stage={slide.stage} />
         </div>
-        <div className="yr-eyebrow">your best month</div>
+        <div className="yr-eyebrow">{t("year.slide.best.eyebrow")}</div>
         <h2 className="yr-headline">{slide.best.monthLabel}.</h2>
         <p className="yr-sub">
-          earned <em>${slide.best.yieldUsd.toFixed(2)}</em> at{" "}
-          {(slide.best.apyEffectiveBps / 100).toFixed(1)}% APY.
+          {t("year.slide.best.sub")} <em>${slide.best.yieldUsd.toFixed(2)}</em>{" "}
+          {t("year.slide.best.sub_at", {
+            apy: (slide.best.apyEffectiveBps / 100).toFixed(1),
+          })}
         </p>
       </div>
     );
@@ -407,9 +458,9 @@ function SlideView({
   if (slide.kind === "deposited") {
     return (
       <div className="yr-slide">
-        <div className="yr-eyebrow">you put in</div>
+        <div className="yr-eyebrow">{t("year.slide.deposited.eyebrow")}</div>
         <h2 className="yr-headline-num">${slide.total.toFixed(2)}</h2>
-        <p className="yr-sub">across the year.</p>
+        <p className="yr-sub">{t("year.slide.deposited.sub")}</p>
       </div>
     );
   }
@@ -418,15 +469,17 @@ function SlideView({
     return (
       <div className="yr-slide yr-slide-yielded">
         <div className="yr-eyebrow">
-          {slide.bonusReady ? "your annual bonus" : "what your savings earned"}
+          {slide.bonusReady
+            ? t("year.slide.yielded.eyebrow.bonus")
+            : t("year.slide.yielded.eyebrow.recap")}
         </div>
         <h2 className="yr-headline-num yr-emphasized">
           ${slide.total.toFixed(2)}
         </h2>
         <p className="yr-sub">
           {slide.bonusReady
-            ? "just landed in your wallet — pure yield."
-            : "just from your savings sitting still."}
+            ? t("year.slide.yielded.sub.bonus")
+            : t("year.slide.yielded.sub.recap")}
         </p>
       </div>
     );
@@ -435,9 +488,9 @@ function SlideView({
   if (slide.kind === "growth") {
     return (
       <div className="yr-slide">
-        <div className="yr-eyebrow">that&apos;s</div>
+        <div className="yr-eyebrow">{t("year.slide.growth.eyebrow")}</div>
         <h2 className="yr-headline-num yr-amber">+{slide.pct.toFixed(2)}%</h2>
-        <p className="yr-sub">growth, without you doing anything.</p>
+        <p className="yr-sub">{t("year.slide.growth.sub")}</p>
       </div>
     );
   }
@@ -445,11 +498,9 @@ function SlideView({
   // share
   return (
     <div className="yr-slide">
-      <div className="yr-eyebrow">share your year</div>
-      <h2 className="yr-headline">make it a card.</h2>
-      <p className="yr-sub">
-        a single image with everything — send it to grandma.
-      </p>
+      <div className="yr-eyebrow">{t("year.slide.share.eyebrow")}</div>
+      <h2 className="yr-headline">{t("year.slide.share.headline")}</h2>
+      <p className="yr-sub">{t("year.slide.share.sub")}</p>
       <div className="yr-actions">
         <button
           type="button"
@@ -457,10 +508,10 @@ function SlideView({
           onClick={onShare}
           disabled={busy}
         >
-          {busy ? "making your card…" : "see my card"}
+          {busy ? t("year.slide.share.cta.busy") : t("year.slide.share.cta")}
         </button>
         <button type="button" className="yr-btn yr-btn-quiet" onClick={onClose}>
-          done
+          {t("year.slide.share.done")}
         </button>
       </div>
 
@@ -481,7 +532,7 @@ function SlideView({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={previewUrl}
-              alt={`seedling ${yearLabel} year recap`}
+              alt={t("year.preview.alt", { year: yearLabel })}
               className="yr-preview-img"
             />
             <div className="yr-actions">
@@ -491,7 +542,7 @@ function SlideView({
                   className="yr-btn yr-btn-primary"
                   onClick={onShareCard}
                 >
-                  share
+                  {t("year.preview.share")}
                 </button>
               )}
               <button
@@ -499,14 +550,14 @@ function SlideView({
                 className="yr-btn yr-btn-primary"
                 onClick={onDownloadCard}
               >
-                download
+                {t("year.preview.download")}
               </button>
               <button
                 type="button"
                 className="yr-btn yr-btn-quiet"
                 onClick={onClosePreview}
               >
-                close
+                {t("year.preview.close")}
               </button>
             </div>
           </div>
@@ -597,7 +648,9 @@ const YEAR_STYLES = `
   .yr-pip-done { background: var(--green-700); }
   .yr-pip-active { background: var(--green-800); }
   .yr-close {
-    position: absolute; top: 12px; right: 12px;
+    /* Pushed below the progress pips (top:14, height:3) so the close
+     * tap target doesn't overlap the progress strip. */
+    position: absolute; top: 32px; right: 12px;
     width: 36px; height: 36px;
     background: rgba(36, 74, 51, 0.08);
     border: none; border-radius: 50%;

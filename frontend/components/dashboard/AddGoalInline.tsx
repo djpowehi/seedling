@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { addSavingsGoal } from "@/lib/savingsGoals";
 import { fileToCompressedDataUrl } from "@/lib/imageUpload";
+import { useLocale } from "@/lib/i18n";
 import { GOAL_ILLOS, GOAL_ILLO_KEYS, type GoalIlloKey } from "./icons";
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export function AddGoalInline({ familyPubkey, onSaved, onCancel }: Props) {
+  const { t } = useLocale();
   const [label, setLabel] = useState("");
   const [target, setTarget] = useState("150");
   const [illo, setIllo] = useState<GoalIlloKey>("pig");
@@ -66,21 +68,33 @@ export function AddGoalInline({ familyPubkey, onSaved, onCancel }: Props) {
         <input
           ref={labelRef}
           type="text"
-          placeholder="goal name (e.g. nintendo switch)"
+          placeholder={t("goal.add.name_placeholder")}
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           style={{ flex: "1 1 200px" }}
         />
-        <input
-          type="number"
-          min={1}
-          max={5000}
-          placeholder="$"
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-          className="dash-mono-input"
-          style={{ width: 110 }}
-        />
+        <div className="dash-row" style={{ gap: 6, alignItems: "center" }}>
+          <input
+            type="number"
+            min={1}
+            max={5000}
+            placeholder="$"
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            className="dash-mono-input"
+            style={{ width: 90 }}
+          />
+          <span
+            className="dash-mono"
+            style={{
+              fontSize: 11,
+              color: "var(--ink-3)",
+              letterSpacing: "0.04em",
+            }}
+          >
+            USDC
+          </span>
+        </div>
       </div>
       <div
         className="dash-row"
@@ -90,7 +104,7 @@ export function AddGoalInline({ familyPubkey, onSaved, onCancel }: Props) {
           className="dash-field-label"
           style={{ marginBottom: 0, marginRight: 6 }}
         >
-          icon
+          {t("goal.add.icon_label")}
         </span>
         {GOAL_ILLO_KEYS.map((key) => (
           <button
@@ -122,10 +136,10 @@ export function AddGoalInline({ familyPubkey, onSaved, onCancel }: Props) {
           className="dash-btn-link"
         >
           {uploading
-            ? "uploading…"
+            ? t("goal.uploading")
             : photoUrl
-            ? "change photo"
-            : "+ add a photo (optional)"}
+            ? t("goal.change_photo")
+            : t("goal.add.add_photo_optional")}
         </button>
         {photoUrl && !uploading && (
           <button
@@ -134,7 +148,7 @@ export function AddGoalInline({ familyPubkey, onSaved, onCancel }: Props) {
             className="dash-btn-link"
             style={{ color: "var(--ink-3)" }}
           >
-            remove photo
+            {t("goal.remove_photo")}
           </button>
         )}
         <input
@@ -159,14 +173,14 @@ export function AddGoalInline({ familyPubkey, onSaved, onCancel }: Props) {
           className="dash-btn dash-btn-primary"
           onClick={save}
         >
-          save goal
+          {t("goal.add.save")}
         </button>
         <button
           type="button"
           className="dash-btn dash-btn-quiet"
           onClick={onCancel}
         >
-          cancel
+          {t("goal.cancel")}
         </button>
       </div>
     </div>

@@ -112,3 +112,29 @@ export function useLocale(): LocaleContextValue {
   }
   return ctx;
 }
+
+/**
+ * Render a templated string with a single `{italic}` placeholder, swapping
+ * the placeholder for an `<em>`-wrapped translation. Used for hero
+ * headlines + dashboard titles where one word is italicized.
+ */
+export function TItalic({
+  tplKey,
+  italicKey,
+  vars,
+}: {
+  tplKey: TranslationKey;
+  italicKey: TranslationKey;
+  vars?: Record<string, string | number>;
+}) {
+  const { t } = useLocale();
+  const tmpl = t(tplKey, vars);
+  const [pre, post = ""] = tmpl.split("{italic}");
+  return (
+    <>
+      {pre}
+      <em>{t(italicKey)}</em>
+      {post}
+    </>
+  );
+}

@@ -1,12 +1,14 @@
 "use client";
 
 import { ArrowR, Sprout } from "./icons";
+import { useLocale } from "@/lib/i18n";
 
 type Props = {
   onAdd: () => void;
 };
 
 export function EmptyState({ onAdd }: Props) {
+  const { t } = useLocale();
   return (
     <div
       className="dash-card"
@@ -29,7 +31,7 @@ export function EmptyState({ onAdd }: Props) {
           className="dash-serif dash-italic"
           style={{ fontSize: 56, lineHeight: 1, margin: 0 }}
         >
-          no kids yet.
+          {t("empty.title")}
         </h2>
         <p
           style={{
@@ -39,8 +41,7 @@ export function EmptyState({ onAdd }: Props) {
             lineHeight: 1.55,
           }}
         >
-          Add a kid wallet, set a monthly amount, and your first deposit starts
-          compounding the moment it lands.
+          {t("empty.body")}
         </p>
       </div>
       <button
@@ -48,7 +49,7 @@ export function EmptyState({ onAdd }: Props) {
         style={{ padding: "14px 22px", fontSize: 14 }}
         onClick={onAdd}
       >
-        Add your first kid <ArrowR color="currentColor" />
+        {t("empty.cta")} <ArrowR color="currentColor" />
       </button>
     </div>
   );
