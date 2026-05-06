@@ -13,6 +13,8 @@ import { EmptyState } from "@/components/dashboard/EmptyState";
 import { FamilyCard } from "@/components/dashboard/FamilyCard";
 import { Plus } from "@/components/dashboard/icons";
 import { DASHBOARD_STYLES } from "@/components/dashboard/styles";
+import { LocaleToggle } from "@/components/LocaleToggle";
+import { useLocale } from "@/lib/i18n";
 
 const WalletMultiButton = dynamic(
   async () =>
@@ -24,6 +26,7 @@ export default function Dashboard() {
   const { connection } = useConnection();
   const { publicKey, connected } = useWallet();
   const seedling = useSeedlingProgram();
+  const { t } = useLocale();
 
   const [families, setFamilies] = useState<FamilyView[] | null>(null);
   const [vaultClock, setVaultClock] = useState<VaultClock | null>(null);
@@ -64,9 +67,10 @@ export default function Dashboard() {
             seedling
             <span className="dot" />
           </Link>
-          <div className="dash-row" style={{ gap: 18, alignItems: "center" }}>
+          <div className="dash-row" style={{ gap: 14, alignItems: "center" }}>
+            <LocaleToggle />
             <span
-              className="dash-mono"
+              className="dash-mono dash-nav-pulse"
               style={{
                 fontSize: 11,
                 color: "var(--ink-2)",
@@ -78,7 +82,7 @@ export default function Dashboard() {
               }}
             >
               <span className="dash-pulse-dot" />
-              live on Solana
+              <span className="dash-nav-pulse-text">{t("nav.live.short")}</span>
             </span>
             <WalletMultiButton />
           </div>

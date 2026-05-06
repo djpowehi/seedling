@@ -198,6 +198,11 @@ export const DASHBOARD_STYLES = `
     .dash-nav-inner { height: 64px; }
     .dash-root { font-size: 14px; }
   }
+  /* Mobile: drop the "live on Solana" text so wordmark + toggle + wallet
+   * button fit at 375px. The pulse dot itself stays as the "alive" tell. */
+  @media (max-width: 640px) {
+    .dash-nav-pulse-text { display: none; }
+  }
 
   .dash-progress {
     height: 6px; background: var(--stone-2);
