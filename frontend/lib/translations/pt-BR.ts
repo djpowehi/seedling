@@ -41,10 +41,10 @@ export const ptBR: Translations = {
   "landing.section.howit.sub": "Três passos · uma decisão",
   "landing.step.i.title": "Os pais depositam USDC, uma vez.",
   "landing.step.i.body":
-    "Uma única transação define o valor principal. Sem assinaturas, sem cobranças mensais.",
+    "Uma única transação define o capital. Sem assinaturas, sem cobranças mensais.",
   "landing.step.ii.title": "A Kamino empresta a ~8% APY.",
   "landing.step.ii.body":
-    "O cofre deposita na Kamino. O rendimento se compõe em segundo plano. Estimado · com base nas taxas atuais.",
+    "O cofre deposita na Kamino. O rendimento se acumula em segundo plano. Estimado · com base nas taxas atuais.",
   "landing.step.iii.title": "A criança recebe todo mês. Bônus no fim do ano.",
   "landing.step.iii.body":
     "Todo dia 1º a mesada cai. No fim do ano vem o bônus anual — rendimento puro. Seedling recompensa o tempo: quanto mais o dinheiro fica, mais a criança ganha.",
