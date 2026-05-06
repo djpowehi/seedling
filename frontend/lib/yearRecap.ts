@@ -102,7 +102,10 @@ export function buildYearRecap(
   createdAtUnixSec: number,
   monthlyStreamRateUsd: number,
   mode: DepositMode = "yearly",
-  hybridConfig?: HybridConfig | null
+  hybridConfig?: HybridConfig | null,
+  /** Locale for month labels rendered into MonthRecap.monthLabel /
+   *  monthShort. Defaults to en-US so legacy callers stay unchanged. */
+  locale: string = "en-US"
 ): YearRecap {
   const created = new Date(createdAtUnixSec * 1000);
   const startYear = created.getFullYear();
@@ -155,8 +158,8 @@ export function buildYearRecap(
 
     months.push({
       cycleKey,
-      monthLabel: cycleLabel(cycleKey).split(" ")[0],
-      monthShort: cycleLabel(cycleKey).split(" ")[0].slice(0, 3),
+      monthLabel: cycleLabel(cycleKey, locale).split(" ")[0],
+      monthShort: cycleLabel(cycleKey, locale).split(" ")[0].slice(0, 3),
       yieldUsd: round(monthYield),
       cumulativeYieldUsd: round(cumulativeYield),
       principalAtMonthStartUsd: round(principalAtMonthStart),

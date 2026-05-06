@@ -14,7 +14,7 @@ import { FamilyCard } from "@/components/dashboard/FamilyCard";
 import { Plus } from "@/components/dashboard/icons";
 import { DASHBOARD_STYLES } from "@/components/dashboard/styles";
 import { LocaleToggle } from "@/components/LocaleToggle";
-import { useLocale } from "@/lib/i18n";
+import { useLocale, TItalic } from "@/lib/i18n";
 
 const WalletMultiButton = dynamic(
   async () =>
@@ -97,7 +97,7 @@ export default function Dashboard() {
             <header style={{ paddingTop: 80, paddingBottom: 56 }}>
               <div className="dash-col" style={{ gap: 18, maxWidth: 760 }}>
                 <span className="dash-eyebrow">
-                  <span className="rule" /> parent dashboard
+                  <span className="rule" /> {t("dashboard.eyebrow")}
                 </span>
                 <h1
                   className="dash-serif"
@@ -109,16 +109,14 @@ export default function Dashboard() {
                   }}
                 >
                   {families == null ? (
-                    <>loading…</>
+                    t("dashboard.title.loading")
                   ) : families.length === 0 ? (
-                    <>
-                      start the <span className="dash-italic">first</span>.
-                    </>
+                    <TItalic
+                      tplKey="dashboard.title.first"
+                      italicKey="dashboard.title.first.italic"
+                    />
                   ) : (
-                    <>
-                      {families.length} {families.length === 1 ? "kid" : "kids"}{" "}
-                      <span className="dash-italic">saving</span>.
-                    </>
+                    <KidsTitle count={families.length} />
                   )}
                 </h1>
                 <span
@@ -129,7 +127,7 @@ export default function Dashboard() {
                     letterSpacing: "0.04em",
                   }}
                 >
-                  all live on Solana
+                  {t("dashboard.subtitle")}
                 </span>
               </div>
             </header>
@@ -147,7 +145,7 @@ export default function Dashboard() {
                   className="dash-mono"
                   style={{ color: "var(--rose)", fontSize: 12 }}
                 >
-                  Couldn&apos;t load families. {error}
+                  {t("dashboard.error.load", { error: error ?? "" })}
                 </span>
               </div>
             )}
@@ -174,7 +172,7 @@ export default function Dashboard() {
                   fontSize: 12,
                 }}
               >
-                Fetching from devnet…
+                {t("dashboard.fetching")}
               </div>
             )}
 
@@ -220,7 +218,7 @@ export default function Dashboard() {
                         onClick={() => setShowAddForm(true)}
                         style={{ padding: "14px 22px" }}
                       >
-                        <Plus /> add another kid
+                        <Plus /> {t("dashboard.add_another")}
                       </button>
                     </div>
                   )}
@@ -240,7 +238,7 @@ export default function Dashboard() {
               className="dash-mono"
               style={{ fontSize: 11, color: "var(--ink-3)" }}
             >
-              Built on Kamino · Solana
+              {t("landing.footer.built")}
             </span>
           </div>
           <div className="dash-row" style={{ gap: 22 }}>
@@ -250,7 +248,7 @@ export default function Dashboard() {
               target="_blank"
               rel="noreferrer"
             >
-              github ↗
+              {t("footer.github")} ↗
             </a>
             <a
               className="dash-btn-link"
@@ -258,7 +256,7 @@ export default function Dashboard() {
               target="_blank"
               rel="noreferrer"
             >
-              @seedling_sol ↗
+              {t("footer.x")} ↗
             </a>
           </div>
         </div>
@@ -267,7 +265,31 @@ export default function Dashboard() {
   );
 }
 
+// Renders the dynamic "{count} {kid|kids} {italic}." dashboard headline.
+// Splits the localized template on placeholders so the italic word can be
+// wrapped in <em> while the count + plural-aware noun remain in normal weight.
+function KidsTitle({ count }: { count: number }) {
+  const { t } = useLocale();
+  const kidWord = t(
+    count === 1 ? "dashboard.title.word.kid" : "dashboard.title.word.kids"
+  );
+  const tmpl = t("dashboard.title.kids", {
+    count,
+    kidWord,
+    italic: "{italic}",
+  });
+  const [pre, post = ""] = tmpl.split("{italic}");
+  return (
+    <>
+      {pre}
+      <span className="dash-italic">{t("dashboard.title.kids.italic")}</span>
+      {post}
+    </>
+  );
+}
+
 function ConnectGate() {
+  const { t } = useLocale();
   return (
     <div style={{ paddingTop: 120, paddingBottom: 120 }}>
       <div
@@ -281,7 +303,7 @@ function ConnectGate() {
         }}
       >
         <span className="dash-eyebrow">
-          <span className="rule" /> sign in
+          <span className="rule" /> {t("gate.eyebrow")}
         </span>
         <h1
           className="dash-serif"
@@ -292,11 +314,10 @@ function ConnectGate() {
             letterSpacing: "-0.02em",
           }}
         >
-          connect to see <span className="dash-italic">your families</span>.
+          <TItalic tplKey="gate.title" italicKey="gate.title.italic" />
         </h1>
         <p style={{ color: "var(--ink-2)", margin: 0, maxWidth: 460 }}>
-          Seedling lives on Solana. Connect Phantom or Solflare to view your
-          kids&apos; positions, deposit USDC, and trigger distributions.
+          {t("gate.body")}
         </p>
       </div>
     </div>

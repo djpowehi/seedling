@@ -18,6 +18,7 @@ import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { sendQuasarIx } from "@/lib/sendQuasarIx";
 import { celebrateDeposit } from "@/lib/celebrate";
 import { useToast } from "@/components/Toast";
+import { useLocale } from "@/lib/i18n";
 import type { FamilyView } from "@/lib/fetchFamilies";
 
 const SYSVAR_INSTRUCTIONS = new PublicKey(
@@ -44,6 +45,7 @@ export function DepositForm({
   const wallet = useWallet();
   const client = new SeedlingQuasarClient();
   const { showToast } = useToast();
+  const { t, locale } = useLocale();
   // Form ref so confetti can fire FROM the family card (not screen-center).
   // Captured before onDeposited unmounts us.
   const formRef = useRef<HTMLFormElement>(null);
@@ -56,11 +58,13 @@ export function DepositForm({
   if (!amountInput.trim()) {
     amountError = null;
   } else if (Number.isNaN(amountNum) || !Number.isFinite(amountNum)) {
-    amountError = "must be a number";
+    amountError = t("deposit.error.amount_required");
   } else if (amountNum <= 0) {
-    amountError = "must be positive";
+    amountError = t("deposit.error.amount_positive");
   } else if (amountNum > MAX_DEPOSIT_USD) {
-    amountError = `max $${MAX_DEPOSIT_USD.toLocaleString()} per deposit`;
+    amountError = t("deposit.error.amount_max", {
+      max: MAX_DEPOSIT_USD.toLocaleString(),
+    });
   }
 
   const submitDisabled =
@@ -137,9 +141,9 @@ export function DepositForm({
       void celebrateDeposit(origin);
       showToast({
         variant: "monthly", // reuse the green-palette toast variant
-        title: "deposit confirmed",
+        title: t("deposit.toast.title"),
         countUpUsd: amountNum,
-        subtitle: "added to vault · earning yield on Kamino",
+        subtitle: t("deposit.toast.subtitle"),
       });
       onDeposited();
     } catch (e: unknown) {
@@ -153,24 +157,24 @@ export function DepositForm({
         void celebrateDeposit(origin);
         showToast({
           variant: "monthly",
-          title: "deposit confirmed",
+          title: t("deposit.toast.title"),
           countUpUsd: amountNum,
-          subtitle: "added to vault · earning yield on Kamino",
+          subtitle: t("deposit.toast.subtitle"),
         });
         onDeposited();
         return;
       }
       if (msg.includes("0x1") && msg.toLowerCase().includes("custom")) {
-        setSubmitError("Insufficient USDC. Use the faucets below.");
+        setSubmitError(t("deposit.error.insufficient_usdc"));
       } else if (
         msg.toLowerCase().includes("insufficient funds") ||
         msg.toLowerCase().includes("0x1")
       ) {
-        setSubmitError("Insufficient SOL or USDC. Check the faucets below.");
+        setSubmitError(t("deposit.error.insufficient"));
       } else if (msg.includes("VaultPaused")) {
-        setSubmitError("The vault is paused. Try again later.");
+        setSubmitError(t("deposit.error.paused"));
       } else if (msg.includes("SlippageExceeded")) {
-        setSubmitError("Share price moved during deposit. Try again.");
+        setSubmitError(t("deposit.error.slippage"));
       } else if (
         // Phantom returns "Unexpected error" sometimes AFTER the tx has
         // landed — wallet-adapter timing issue. Refetch and let the
@@ -198,13 +202,15 @@ export function DepositForm({
       className="rounded-xl bg-emerald-50/60 border border-emerald-200 p-4 flex flex-col gap-3"
     >
       <div className="flex items-baseline justify-between">
-        <h3 className="text-sm font-medium text-emerald-900">Deposit USDC</h3>
+        <h3 className="text-sm font-medium text-emerald-900">
+          {t("deposit.title")}
+        </h3>
         <button
           type="button"
           onClick={onCancel}
           className="text-xs text-stone-500 hover:text-stone-700"
         >
-          cancel
+          {t("generic.cancel")}
         </button>
       </div>
 
@@ -227,6 +233,12 @@ export function DepositForm({
         {amountError && (
           <span className="text-xs text-red-700">{amountError}</span>
         )}
+        {/* PT-BR-only USDC≠BRL clarifier (Brazilian users read "$" as R$). */}
+        {locale === "pt-BR" && (
+          <span className="text-[11px] text-stone-500 font-mono">
+            {t("currency.usdc_note")}
+          </span>
+        )}
       </div>
 
       {submitError && (
@@ -237,7 +249,7 @@ export function DepositForm({
 
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-stone-500">
-          Need USDC?{" "}
+          {t("add_kid.faucets.label")}{" "}
           <a
             href="https://solfaucet.com"
             target="_blank"
@@ -261,7 +273,9 @@ export function DepositForm({
           disabled={submitDisabled}
           className="rounded-full bg-lime-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-lime-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitting ? "Confirming…" : "Deposit"}
+          {submitting
+            ? t("deposit.button.confirming")
+            : t("deposit.button.submit")}
         </button>
       </div>
     </form>

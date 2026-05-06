@@ -24,7 +24,7 @@ import {
   buildChipsAndActual,
   clearPrediction,
   currentCycleKey,
-  cycleLabel,
+  cycleMonthLabel,
   getPrediction,
   migrateLegacyRecord,
   previousCycleKey,
@@ -37,6 +37,7 @@ import {
   renderShareCard,
   shareImage,
 } from "@/lib/shareCard";
+import { useLocale } from "@/lib/i18n";
 
 function fmtChip(v: number): string {
   if (v < 1) return `$${v.toFixed(2)}`;
@@ -66,6 +67,7 @@ export function PredictionCard({
   createdAtSec,
   goal,
 }: Props) {
+  const { t, locale } = useLocale();
   // currentCycle is "today's month" → the prompt asks about the PREVIOUS
   // month. Re-evaluate periodically so a kid who leaves the page open
   // through midnight on the 1st sees the new cycle take over cleanly.
@@ -79,7 +81,8 @@ export function PredictionCard({
     () => previousCycleKey(currentCycle),
     [currentCycle]
   );
-  const targetMonthLabel = cycleLabel(targetCycle).split(" ")[0]; // "April"
+  // Locale-aware month name ("April" / "Abril"). Drives the eyebrow + prompt.
+  const targetMonthLabel = cycleMonthLabel(targetCycle, locale);
 
   // Calendar guard: don't ask about a month before the family existed.
   // Compare YYYY-MM strings — lexicographic order matches calendar order.
@@ -155,14 +158,29 @@ export function PredictionCard({
     setBusy(true);
     setShareError(null);
     try {
+      const resolvedKidName = kidName ?? t("predict.kid_fallback");
+      const offByCents = Math.round(
+        Math.abs(prediction.guess - actualUsd) * 100
+      );
       const blob = await renderShareCard({
-        kidName: kidName ?? "kid",
+        kidName: resolvedKidName,
         monthLabel: targetMonthLabel,
         guessUsd: prediction.guess,
         actualUsd,
         goalLabel: goal?.label,
         goalProgressUsd: goal?.progressUsd,
         goalTargetUsd: goal?.targetUsd,
+        labels: {
+          eyebrow: t("share_card.eyebrow", {
+            month: targetMonthLabel,
+            name: resolvedKidName,
+          }).toUpperCase(),
+          myPrediction: t("share_card.my_prediction"),
+          actual: t("share_card.actual"),
+          diffSpotOn: t("share_card.spot_on"),
+          diffOffBy: t("share_card.off_by", { cents: offByCents }),
+          savingToward: t("share_card.saving_toward"),
+        },
       });
       // Stash the blob + URL for the modal; don't act on it yet. The
       // modal exposes two distinct actions (share / download) — the kid
@@ -172,14 +190,16 @@ export function PredictionCard({
       setPreviewUrl(url);
     } catch (e) {
       setShareError(
-        e instanceof Error ? e.message : "couldn't generate the card"
+        e instanceof Error ? e.message : t("predict.share_card.error")
       );
     } finally {
       setBusy(false);
     }
   };
 
-  const filename = `seedling-${kidName ?? "kid"}-${targetCycle}.png`;
+  const filename = `seedling-${
+    kidName ?? t("predict.kid_fallback")
+  }-${targetCycle}.png`;
   const sharable = previewBlob ? canNativeShare(previewBlob, filename) : false;
 
   const handleSharePreview = async () => {
@@ -209,13 +229,9 @@ export function PredictionCard({
     return (
       <section className="kv-card kv-predict">
         <style dangerouslySetInnerHTML={{ __html: PREDICT_STYLES }} />
-        <div className="kv-card-eyebrow">guess your yield</div>
-        <p className="kv-predict-prompt">
-          your first guessing round opens on the 1st of next month.
-        </p>
-        <div className="kv-predict-foot">
-          come back then to guess how much your savings earned.
-        </div>
+        <div className="kv-card-eyebrow">{t("predict.eyebrow.too_early")}</div>
+        <p className="kv-predict-prompt">{t("predict.too_early.body")}</p>
+        <div className="kv-predict-foot">{t("predict.too_early.foot")}</div>
       </section>
     );
   }
@@ -237,10 +253,10 @@ export function PredictionCard({
       {showPredict && (
         <>
           <div className="kv-card-eyebrow">
-            guess {targetMonthLabel}&apos;s yield
+            {t("predict.eyebrow.predict", { month: targetMonthLabel })}
           </div>
           <p className="kv-predict-prompt">
-            how much did your savings earn during {targetMonthLabel}?
+            {t("predict.prompt", { month: targetMonthLabel })}
           </p>
           <div className="kv-predict-chips">
             {chips.map((v) => (
@@ -254,21 +270,19 @@ export function PredictionCard({
               </button>
             ))}
           </div>
-          <div className="kv-predict-foot">
-            tap a chip — the answer reveals right after.
-          </div>
+          <div className="kv-predict-foot">{t("predict.foot.predict")}</div>
         </>
       )}
 
       {showPreview && pendingGuess != null && (
         <>
-          <div className="kv-card-eyebrow">lock in your guess?</div>
+          <div className="kv-card-eyebrow">{t("predict.eyebrow.preview")}</div>
           <div className="kv-predict-locked">
             <span className="kv-predict-locked-amt">
               ${pendingGuess.toFixed(2)}
             </span>
             <span className="kv-predict-locked-hint">
-              once you lock, the answer reveals. ready?
+              {t("predict.preview.hint")}
             </span>
           </div>
           <div className="kv-predict-actions">
@@ -277,14 +291,14 @@ export function PredictionCard({
               className="kv-predict-share"
               onClick={handleConfirmLock}
             >
-              lock it in
+              {t("predict.lock_in")}
             </button>
             <button
               type="button"
               className="kv-predict-next"
               onClick={handlePickAgain}
             >
-              pick again
+              {t("predict.pick_again")}
             </button>
           </div>
         </>
@@ -293,18 +307,20 @@ export function PredictionCard({
       {showReveal && prediction && (
         <>
           <div className="kv-card-eyebrow">
-            how&apos;d your {targetMonthLabel} guess do?
+            {t("predict.eyebrow.reveal", { month: targetMonthLabel })}
           </div>
           <div className="kv-predict-versus">
             <div className="kv-predict-side">
-              <span className="kv-predict-label">your guess</span>
+              <span className="kv-predict-label">
+                {t("predict.your_guess")}
+              </span>
               <span className="kv-predict-value">
                 ${prediction.guess.toFixed(2)}
               </span>
             </div>
-            <span className="kv-predict-vs">vs</span>
+            <span className="kv-predict-vs">{t("predict.vs")}</span>
             <div className="kv-predict-side">
-              <span className="kv-predict-label">actual</span>
+              <span className="kv-predict-label">{t("predict.actual")}</span>
               <span className="kv-predict-value kv-predict-actual">
                 ${actualUsd.toFixed(2)}
               </span>
@@ -312,8 +328,8 @@ export function PredictionCard({
           </div>
           <div className="kv-predict-diff">
             {offBy < 0.01
-              ? "spot on. nice."
-              : `off by ${Math.round(offBy * 100)}¢.`}
+              ? t("predict.spot_on")
+              : t("predict.off_by", { cents: Math.round(offBy * 100) })}
           </div>
           <div className="kv-predict-actions">
             <button
@@ -322,20 +338,18 @@ export function PredictionCard({
               onClick={handleShare}
               disabled={busy}
             >
-              {busy ? "making card…" : "share my month"}
+              {busy ? t("predict.share.busy") : t("predict.share")}
             </button>
             <button
               type="button"
               className="kv-predict-next"
               onClick={handlePlayAgain}
             >
-              play again
+              {t("predict.play_again")}
             </button>
           </div>
           {shareError && <div className="kv-predict-err">{shareError}</div>}
-          <div className="kv-predict-foot">
-            next prompt opens on the 1st of next month.
-          </div>
+          <div className="kv-predict-foot">{t("predict.foot.next")}</div>
         </>
       )}
 
@@ -350,11 +364,13 @@ export function PredictionCard({
             >
               ×
             </button>
-            <div className="kv-share-eyebrow">your card · ready to share</div>
+            <div className="kv-share-eyebrow">
+              {t("predict.preview.eyebrow")}
+            </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={previewUrl}
-              alt="seedling monthly recap"
+              alt={t("predict.preview.alt")}
               className="kv-share-img"
             />
             <div className="kv-share-actions">
@@ -364,7 +380,7 @@ export function PredictionCard({
                   className="kv-predict-share"
                   onClick={handleSharePreview}
                 >
-                  share
+                  {t("predict.preview.share")}
                 </button>
               )}
               <button
@@ -372,20 +388,20 @@ export function PredictionCard({
                 className="kv-predict-share"
                 onClick={handleDownloadPreview}
               >
-                download
+                {t("predict.preview.download")}
               </button>
               <button
                 type="button"
                 className="kv-predict-next"
                 onClick={handleClosePreview}
               >
-                close
+                {t("predict.preview.close")}
               </button>
             </div>
             <div className="kv-share-foot">
               {sharable
-                ? "share opens your phone's share sheet · download saves the image."
-                : "download saves the image to your computer."}
+                ? t("predict.preview.foot.share")
+                : t("predict.preview.foot.download")}
             </div>
           </div>
         </div>

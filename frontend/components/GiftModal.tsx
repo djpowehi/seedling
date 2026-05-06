@@ -11,6 +11,7 @@ import { Connection, Transaction } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { DEVNET_RPC } from "@/lib/program";
+import { useLocale } from "@/lib/i18n";
 
 const PRESETS = [1, 5, 20, 50] as const;
 
@@ -53,6 +54,7 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
   const [sentSig, setSentSig] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wallet = useWallet();
+  const { t, locale } = useLocale();
   const { setVisible: setWalletModalVisible } = useWalletModal();
 
   // Detect after mount — UA isn't available during SSR.
@@ -125,7 +127,7 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
         msg.toLowerCase().includes("user rejected") ||
         msg.toLowerCase().includes("rejected the request")
       ) {
-        setSendError("you rejected the transaction in your wallet");
+        setSendError(t("gm.send_error.rejected"));
       } else {
         setSendError(msg);
       }
@@ -182,23 +184,25 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
           ×
         </button>
 
-        <div className="gm-eyebrow">give to · seedling</div>
+        <div className="gm-eyebrow">{t("gm.eyebrow")}</div>
         <h2 className="gm-title">
-          send a gift to <em>{greetingName}</em>
+          {t("gm.title")} <em>{greetingName}</em>
         </h2>
         <p className="gm-sub">
-          Anyone with a Solana wallet can gift. The USDC lands in
-          {kidName ? ` ${kidName}'s` : " the family's"} seedling vault and
-          starts earning yield.
+          {t("gm.body", {
+            who: kidName
+              ? t("gm.body.named", { name: kidName })
+              : t("gm.body.unnamed"),
+          })}
         </p>
 
         <label className="gm-from-row">
-          <span className="gm-from-label">your name</span>
+          <span className="gm-from-label">{t("gm.from_label")}</span>
           <input
             type="text"
             value={fromName}
             onChange={(e) => setFromName(e.target.value)}
-            placeholder="Grandma · Uncle Tom · …"
+            placeholder={t("gm.from_placeholder")}
             maxLength={32}
             className="gm-from-input"
             autoComplete="off"
@@ -224,7 +228,7 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
             min={1}
             max={1000}
             inputMode="numeric"
-            placeholder="custom"
+            placeholder={t("gm.amount_custom")}
             className="gm-custom"
             value={customDraft}
             onChange={(e) => {
@@ -236,6 +240,12 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
           />
         </div>
 
+        {/* PT-BR-only USDC≠BRL clarifier. Brazilian gifters seeing "$50"
+            chips would default to assuming reais; this disambiguates. */}
+        {locale === "pt-BR" && (
+          <div className="gm-currency-note">{t("currency.usdc_note")}</div>
+        )}
+
         {/* Send-from-this-device — primary path for solo testers and
             for desktop gifters who don't want to dig out their phone. */}
         <button
@@ -245,12 +255,12 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
           disabled={sending || !!sentSig}
         >
           {sentSig
-            ? "✓ gift sent"
+            ? t("gm.send_here.sent")
             : sending
-            ? "confirming…"
+            ? t("gm.send_here.confirming")
             : wallet.connected
-            ? `send $${amountUsd} from this wallet`
-            : "connect wallet to send here"}
+            ? t("gm.send_here.cta", { amount: amountUsd })
+            : t("gm.send_here.connect")}
         </button>
         {sentSig && (
           <a
@@ -259,13 +269,13 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
             target="_blank"
             rel="noreferrer"
           >
-            view tx ↗
+            {t("gm.tx_link")}
           </a>
         )}
         {sendError && <div className="gm-send-error">{sendError}</div>}
 
         <div className="gm-or-divider">
-          <span>or scan with another device</span>
+          <span>{t("gm.or_divider")}</span>
         </div>
 
         <div className="gm-qr-frame">
@@ -275,7 +285,7 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
         <div className="gm-mobile-row">
           {isMobile && (
             <a href={giftUrl} className="gm-deep-link">
-              open in wallet app
+              {t("gm.deep_link")}
             </a>
           )}
           <button
@@ -284,14 +294,12 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
             onClick={handleCopy}
             style={isMobile ? undefined : { flex: 1 }}
           >
-            {copied ? "copied" : "copy link"}
+            {copied ? t("gm.copy_link.copied") : t("gm.copy_link")}
           </button>
         </div>
 
         <div className="gm-foot">
-          {isMobile
-            ? "or scan with Phantom, Solflare, or Backpack"
-            : "scan the QR with Phantom, Solflare, or Backpack on your phone"}
+          {isMobile ? t("gm.foot.mobile") : t("gm.foot.desktop")}
         </div>
       </div>
     </div>
@@ -485,6 +493,12 @@ const GIFT_MODAL_STYLES = `
     transition: all 140ms ease;
   }
   .gm-copy-btn:hover { border-color: #2E5C40; color: #2E5C40; }
+
+  .gm-currency-note {
+    font-family: var(--font-jetbrains-mono), monospace;
+    font-size: 10px; letter-spacing: 0.06em;
+    color: #8A8169; margin-top: -4px;
+  }
 
   .gm-foot {
     text-align: center;

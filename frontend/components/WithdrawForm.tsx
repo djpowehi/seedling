@@ -18,6 +18,7 @@ import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { sendQuasarIx } from "@/lib/sendQuasarIx";
 import { celebrateWithdraw } from "@/lib/celebrate";
 import { useToast } from "@/components/Toast";
+import { useLocale } from "@/lib/i18n";
 import type { FamilyView } from "@/lib/fetchFamilies";
 
 const SYSVAR_INSTRUCTIONS = new PublicKey(
@@ -42,6 +43,7 @@ export function WithdrawForm({
   const wallet = useWallet();
   const client = new SeedlingQuasarClient();
   const { showToast } = useToast();
+  const { t, locale } = useLocale();
   // Form ref → confetti origin centered on the family card.
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -64,13 +66,13 @@ export function WithdrawForm({
   if (!usdInput.trim()) {
     usdError = null;
   } else if (Number.isNaN(usdNum) || !Number.isFinite(usdNum)) {
-    usdError = "must be a number";
+    usdError = t("withdraw.error.amount_required");
   } else if (usdNum <= 0) {
-    usdError = "must be positive";
+    usdError = t("withdraw.error.amount_positive");
   } else if (usdNum > balanceUsd + 0.005) {
     // tiny epsilon so "$4.90" doesn't fail when the balance shows as 4.90
     // due to base-unit rounding to 6dp.
-    usdError = `max $${balanceUsd.toFixed(2)}`;
+    usdError = t("withdraw.error.amount_max", { max: balanceUsd.toFixed(2) });
   }
 
   const submitDisabled =
@@ -114,7 +116,7 @@ export function WithdrawForm({
           : computeSharesToBurn(usdNum);
 
       if (sharesToBurn === BigInt(0)) {
-        setSubmitError("Amount too small to withdraw.");
+        setSubmitError(t("withdraw.error.too_small"));
         setSubmitting(false);
         return;
       }
@@ -182,9 +184,9 @@ export function WithdrawForm({
       void celebrateWithdraw(origin);
       showToast({
         variant: "monthly",
-        title: "withdraw confirmed",
+        title: t("withdraw.toast.title"),
         countUpUsd: usdNum,
-        subtitle: "USDC sent to your wallet",
+        subtitle: t("withdraw.toast.subtitle"),
       });
       onWithdrawn();
     } catch (e: unknown) {
@@ -195,21 +197,21 @@ export function WithdrawForm({
         void celebrateWithdraw(origin);
         showToast({
           variant: "monthly",
-          title: "withdraw confirmed",
+          title: t("withdraw.toast.title"),
           countUpUsd: usdNum,
-          subtitle: "USDC sent to your wallet",
+          subtitle: t("withdraw.toast.subtitle"),
         });
         onWithdrawn();
         return;
       }
       if (msg.includes("InsufficientShares")) {
-        setSubmitError("Not enough shares to withdraw that amount.");
+        setSubmitError(t("withdraw.error.insufficient_shares"));
       } else if (msg.includes("VaultPaused")) {
-        setSubmitError("The vault is paused. Try again later.");
+        setSubmitError(t("withdraw.error.paused"));
       } else if (msg.includes("SlippageExceeded")) {
-        setSubmitError("Share price moved during withdraw. Try again.");
+        setSubmitError(t("withdraw.error.slippage"));
       } else if (msg.includes("BelowDustThreshold")) {
-        setSubmitError("Amount too small — must be at least 0.01 USDC.");
+        setSubmitError(t("withdraw.error.dust"));
       } else if (
         // Phantom sometimes throws "Unexpected error" AFTER the tx has
         // actually landed — wallet-adapter timing issue. Refetch so the
@@ -227,9 +229,9 @@ export function WithdrawForm({
         void celebrateWithdraw(origin);
         showToast({
           variant: "monthly",
-          title: "withdraw likely confirmed",
+          title: t("withdraw.toast.title_likely"),
           countUpUsd: usdNum,
-          subtitle: "wallet glitched · check the principal updated",
+          subtitle: t("withdraw.toast.subtitle_likely"),
         });
         onWithdrawn();
         return;
@@ -248,13 +250,15 @@ export function WithdrawForm({
       className="rounded-xl bg-stone-50 border border-stone-200 p-4 flex flex-col gap-3"
     >
       <div className="flex items-baseline justify-between">
-        <h3 className="text-sm font-medium text-emerald-900">Withdraw USDC</h3>
+        <h3 className="text-sm font-medium text-emerald-900">
+          {t("withdraw.title")}
+        </h3>
         <button
           type="button"
           onClick={onCancel}
           className="text-xs text-stone-500 hover:text-stone-700"
         >
-          cancel
+          {t("generic.cancel")}
         </button>
       </div>
 
@@ -284,19 +288,27 @@ export function WithdrawForm({
             onClick={setMax}
             className="text-xs underline text-stone-600 hover:text-stone-800"
           >
-            max (${balanceUsd.toFixed(2)})
+            {t("withdraw.max_label", { balance: balanceUsd.toFixed(2) })}
           </button>
         </div>
         {usdError && <span className="text-xs text-red-700">{usdError}</span>}
         {balanceBase === BigInt(0) && (
           <span className="text-xs text-stone-500">
-            No balance to withdraw. Deposit first.
+            {t("withdraw.no_balance")}
           </span>
         )}
         {!usdError && previewShares > BigInt(0) && balanceBase > BigInt(0) && (
           <span className="text-xs text-stone-500">
-            burns ≈ {Number(previewShares).toLocaleString("en-US")} shares · you
-            receive ≈ ${usdNum.toFixed(2)} USDC
+            {t("withdraw.preview", {
+              shares: Number(previewShares).toLocaleString("en-US"),
+              usd: usdNum.toFixed(2),
+            })}
+          </span>
+        )}
+        {/* PT-BR-only USDC≠BRL clarifier. */}
+        {locale === "pt-BR" && (
+          <span className="text-[11px] text-stone-500 font-mono">
+            {t("currency.usdc_note")}
           </span>
         )}
       </div>
@@ -313,7 +325,9 @@ export function WithdrawForm({
           disabled={submitDisabled}
           className="rounded-full bg-stone-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitting ? "Confirming…" : "Withdraw"}
+          {submitting
+            ? t("withdraw.button.confirming")
+            : t("withdraw.button.submit")}
         </button>
       </div>
     </form>
