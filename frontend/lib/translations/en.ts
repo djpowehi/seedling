@@ -21,7 +21,7 @@ export const en = {
   "landing.headline.line2": "that {italic}.",
   "landing.headline.italic": "grows",
   "landing.subhead":
-    "Money grows. Habits grow. Your kid grows with both. One deposit funds all of your kid's monthly allowances — and a year-end bonus that comes from yield, not your wallet.",
+    "Money grows. Responsibility grows. Your kid grows with both. One deposit funds all of your kid's monthly allowances — and a year-end bonus that comes from yield, not your wallet.",
   "landing.cta.dashboard": "open dashboard",
   "landing.cta.label": "Open the dashboard",
   "landing.cta.note": "Live on Solana · no wallet required to look around",
