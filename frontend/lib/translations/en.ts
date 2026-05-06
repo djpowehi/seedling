@@ -34,7 +34,7 @@ export const en = {
   "landing.step.ii.title": "Kamino lends it at ~8% APY.",
   "landing.step.ii.body":
     "The vault deposits into Kamino lending. Yield compounds in the background. Estimated · based on current rates.",
-  "landing.step.iii.title": "Kids get paid monthly. Bonus at year-end.",
+  "landing.step.iii.title": "Your kid gets paid monthly. Bonus at year-end.",
   "landing.step.iii.body":
     "The 1st of every month, the allowance arrives. Year-end brings the annual bonus — pure yield. Seedling rewards time: the longer money stays, the more the kid earns.",
   "landing.section.product.label_num": "03",
