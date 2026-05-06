@@ -113,37 +113,159 @@ export const en = {
   "card.bonus_loading": "Bonus in …",
   "card.remove_kid": "remove kid",
   "card.removing": "removing…",
-  "card.cadence_topup_eyebrow": "{cadence} cadence · this month",
+  "card.cadence_topup_eyebrow": "{plan} · this month",
   "card.cadence_topup_title": "deposit ${amount} to keep yield growing",
   "card.cadence_topup_cta": "+ top up",
+  // ago formatting
+  "card.ago.just_now": "just now",
+  "card.ago.minutes": "{n}m ago",
+  "card.ago.hours": "{n}h ago",
+  "card.ago.days": "{n}d ago",
+  // countdown formatting
+  "card.countdown.ready": "ready",
+  "card.countdown.dh": "{d}d {h}h",
+  "card.countdown.hm": "{h}h {m}m",
+  // tooltips
+  "card.tip.send_monthly": "send this month's allowance",
+  "card.tip.send_bonus": "send the year-end bonus",
+  "card.tip.available_in": "available in {countdown}",
+  "card.tip.loading": "loading…",
+  // remove kid confirm + close handling
+  "card.remove_confirm.named":
+    "Remove {name}? Any remaining USDC will be sent to your wallet, and the on-chain accounts close.",
+  "card.remove_confirm.unnamed":
+    "Remove this kid? Any remaining USDC will be sent to your wallet, and the on-chain accounts close.",
+  // distribute errors
+  "card.error.not_eligible": "Not eligible yet.",
+  "card.error.paused": "Vault paused. Try again later.",
+  "card.error.bonus_not_ready": "Annual bonus not ready yet.",
+  "card.error.bonus_already": "Bonus already distributed for this period.",
+  "card.error.no_yield":
+    "No yield to distribute yet — the vault hasn't earned enough on Kamino. Try again next month.",
+  // toasts on actions
+  "card.toast.kid_copied": "kid pubkey copied",
+  "card.toast.link_copied": "kid's page link copied",
+  "card.toast.share_fallback": "share unavailable here · link copied instead",
+  "card.toast.monthly_title.named": "Sent to {name}",
+  "card.toast.monthly_title.fallback": "Sent to your kid",
+  "card.toast.monthly_subtitle": "monthly allowance · on chain",
+  "card.toast.bonus_title.named": "{name}'s annual bonus arrived",
+  "card.toast.bonus_title.fallback": "Your kid's annual bonus arrived",
+  "card.toast.bonus_subtitle": "year-end yield · sent on chain",
+  "card.toast.closed_title.named": "{name}'s vault is closed",
+  "card.toast.closed_title.fallback": "vault closed",
+  "card.toast.closed_subtitle": "remaining USDC returned · accounts closed",
+  // share native message
+  "card.share.title": "{name}'s seedling page",
+  "card.share.text": "{name}'s growing savings on seedling.",
+  "card.share.fallback_kid": "your kid",
+  // savings goals section
+  "card.goals.label": "Savings goals",
+  "card.goals.active_count": "{n} active",
+  "card.goals.add_another": "+ add another goal",
+  // goal row
+  "goal.pct_saved": "{pct}% saved",
+  "goal.press_enter": "press enter to save",
+  "goal.click_to_edit": "click to edit",
+  "goal.uploading": "uploading…",
+  "goal.change_photo": "change photo",
+  "goal.add_photo": "+ add photo",
+  "goal.remove_photo": "remove photo",
+  "goal.save": "save",
+  "goal.cancel": "cancel",
+  "goal.delete": "delete this goal",
+  "goal.delete_confirm": 'Remove the "{label}" goal?',
+  "goal.add.name_placeholder": "goal name (e.g. nintendo switch)",
+  "goal.add.icon_label": "icon",
+  "goal.add.add_photo_optional": "+ add a photo (optional)",
+  "goal.add.save": "save goal",
+  // gifts section
+  "gifts.section.received": "gifts received",
+  "gifts.section.loading": "loading…",
+  "gifts.section.total": "{n} total",
+  "gifts.toast.title": "{who} gifted ${amount} to {recipient}",
+  "gifts.toast.subtitle": "GIFT · SEEDLING",
+  "gifts.fallback.someone": "Someone",
+  "gifts.fallback.recipient": "your family",
+  "gifts.name_input.placeholder": "Grandma, Uncle Tom, …",
+  "gifts.save": "save",
+  "gifts.tip.rename": "click to rename",
+  "gifts.tip.override": "name supplied by the gifter — click to override",
+  "gifts.tip.name": "click to name",
+  "gifts.name_button": "name {pubkey}",
 
   // ---- empty state ----
-  "empty.title": "no kids yet",
+  "empty.title": "no kids yet.",
   "empty.body":
-    "Add your first kid to start their seedling vault. Deposits earn yield on Kamino, allowance flows monthly.",
-  "empty.cta": "+ add a kid",
+    "Add a kid wallet, set a monthly amount, and your first deposit starts compounding the moment it lands.",
+  "empty.cta": "Add your first kid",
 
   // ---- add kid form ----
-  "add_kid.title": "add a kid",
-  "add_kid.cancel": "cancel",
-  "add_kid.kid_pubkey.label": "Kid's wallet pubkey",
-  "add_kid.kid_pubkey.help":
-    "Generate a new keypair if you don't have one. They'll receive their allowance here.",
-  "add_kid.stream.label": "Monthly allowance ($USDC)",
-  "add_kid.stream.placeholder": "20",
-  "add_kid.principal.label": "Initial deposit ($USDC, optional)",
-  "add_kid.principal.placeholder": "240",
-  "add_kid.principal.help":
-    "Pre-fund the vault if you want. You can always deposit later.",
-  "add_kid.submit": "create",
+  "add_kid.eyebrow": "new family",
+  "add_kid.title.line": "add a {italic}.",
+  "add_kid.title.italic": "kid",
+  "add_kid.close": "close ✕",
+  "add_kid.name.label": "name",
+  "add_kid.name.optional": "(optional · for you)",
+  "add_kid.name.placeholder": "Maria",
+  "add_kid.kid_pubkey.label": "kid wallet address",
+  "add_kid.kid_pubkey.placeholder": "e.g. 7xKX...J9pQ",
+  "add_kid.kid_pubkey.invalid": "not a valid Solana address",
+  "add_kid.kid_pubkey.duplicate": "you already have a seedling for this kid",
+  "add_kid.monthly.label": "monthly · USDC · min ${min}",
+  // Only rendered in PT-BR mode (Brazilian users read "$" as R$ by
+  // reflex). Kept as an EN key so the type-check stays in lockstep.
+  "add_kid.monthly.currency_note": "USDC · pegged 1:1 with US dollar",
+  "add_kid.monthly.error.number": "must be a number",
+  "add_kid.monthly.error.min": "minimum is ${min}/mo",
+  "add_kid.monthly.error.max": "maximum is ${max}/mo",
+  "add_kid.monthly.recommended":
+    "recommended deposit · ${total} upfront → ${cover} covers the year, ${bonus} earns the bonus",
+  "add_kid.submit": "add kid",
   "add_kid.creating": "creating…",
-  "add_kid.error.kid_pubkey.empty": "kid pubkey required",
-  "add_kid.error.kid_pubkey.invalid": "not a valid Solana pubkey",
-  "add_kid.error.kid_pubkey.duplicate":
-    "you already have a seedling for this kid",
-  "add_kid.error.stream.empty": "monthly amount required",
-  "add_kid.error.stream.positive": "must be positive",
-  "add_kid.error.stream.too_high": "max ${max} / month",
+  "add_kid.fee_note": "opens phantom to sign · ~0.001 SOL fee",
+  "add_kid.faucets.label": "need usdc?",
+  "add_kid.faucets.sol": "SOL faucet ↗",
+  "add_kid.faucets.usdc": "USDC faucet ↗",
+  "add_kid.error.in_use": "This kid already has an allowance set up.",
+  "add_kid.error.bad_rate": "Stream rate must be between ${min} and ${max}/mo.",
+  "add_kid.error.paused": "The vault is paused. Try again later.",
+  "add_kid.toast.title.named": "{name}'s allowance is planted",
+  "add_kid.toast.title.unnamed": "new allowance planted",
+  "add_kid.toast.subtitle": "${monthly}/mo · earning yield on Kamino",
+
+  // ---- mode picker (deposit cadence) ----
+  "mode.section.label": "deposit cadence",
+  "mode.tagline.start": "Seedling rewards time —",
+  "mode.tagline.italic": "the longer money stays, the more the kid earns.",
+  "mode.recommended_badge": "recommended",
+  "mode.yearly.label": "Yearly",
+  "mode.yearly.desc": "deposit once · earn the most",
+  "mode.yearly.plan": "Annual Plan",
+  "mode.hybrid.label": "Hybrid",
+  "mode.hybrid.desc": "balance flexibility + bonus",
+  "mode.hybrid.plan": "Hybrid Plan",
+  "mode.monthly.label": "Monthly",
+  "mode.monthly.desc": "flexible deposits · smaller bonus",
+  "mode.monthly.plan": "Monthly Plan",
+  "mode.yearly.upfront_line": "≈ ${total} upfront",
+  "mode.yearly.return_line": "≈ ${back} back to you + ≈ ${bonus} kid bonus",
+  "mode.year_total_line": "≈ ${total} / year you put in",
+  "mode.year_bonus_line": "≈ ${bonus} kid bonus at year-end",
+  "mode.hybrid.upfront_label": "upfront deposit",
+  "mode.hybrid.monthly_label": "monthly top-up · for 11 months",
+  "mode.hybrid.total_line":
+    "total over the year: ≈ ${total} · kid receives ${kid}",
+  "mode.hybrid.bonus_line":
+    "estimated bonus: ≈ ${bonus} ({pct}% of yearly's ${yearly})",
+  "mode.hybrid.zero_upfront":
+    "upfront is $0 → that's monthly, not hybrid. tap to switch to the monthly cadence (cleaner setup).",
+  "mode.hybrid.zero_monthly":
+    "monthly top-up is $0 → that's yearly, not hybrid. tap to switch to the yearly cadence (one deposit, max yield).",
+  "mode.hybrid.shortfall":
+    "your deposits cover ${total}, but the kid needs ${need} over the year. the allowance will pause ${short} short unless you add more.",
+  "mode.disclosure":
+    "we don't auto-debit your wallet. you commit to depositing on your chosen cadence; missed top-ups pause the kid's allowance until you catch up. funds you've deposited are always safe in the vault.",
 
   // ---- deposit (USDC wallet) form ----
   "deposit.title": "Deposit USDC",
@@ -163,11 +285,26 @@ export const en = {
   "deposit.toast.subtitle": "added to vault · earning yield on Kamino",
 
   // ---- withdraw form ----
-  "withdraw.title": "Withdraw",
+  "withdraw.title": "Withdraw USDC",
   "withdraw.button.submit": "Withdraw",
   "withdraw.button.confirming": "Confirming…",
-  "withdraw.toast.title": "withdrawal confirmed",
-  "withdraw.toast.subtitle": "USDC returned to your wallet",
+  "withdraw.error.amount_required": "must be a number",
+  "withdraw.error.amount_positive": "must be positive",
+  "withdraw.error.amount_max": "max ${max}",
+  "withdraw.max_label": "max (${balance})",
+  "withdraw.no_balance": "No balance to withdraw. Deposit first.",
+  "withdraw.preview": "burns ≈ {shares} shares · you receive ≈ ${usd} USDC",
+  "withdraw.error.too_small": "Amount too small to withdraw.",
+  "withdraw.error.insufficient_shares":
+    "Not enough shares to withdraw that amount.",
+  "withdraw.error.paused": "The vault is paused. Try again later.",
+  "withdraw.error.slippage": "Share price moved during withdraw. Try again.",
+  "withdraw.error.dust": "Amount too small — must be at least 0.01 USDC.",
+  "withdraw.toast.title": "withdraw confirmed",
+  "withdraw.toast.subtitle": "USDC sent to your wallet",
+  "withdraw.toast.title_likely": "withdraw likely confirmed",
+  "withdraw.toast.subtitle_likely":
+    "wallet glitched · check the principal updated",
 
   // ---- pix on-ramp form (parent + gift share most copy) ----
   "pix.cancel": "cancel",
@@ -193,14 +330,24 @@ export const en = {
   "pix.error.not_authorized":
     "Pix is not yet enabled. Our payment partner is finalizing setup — try again soon.",
   "pix.awaiting.title": "Pay R${amount} via Pix",
-  "pix.awaiting.body":
-    "Open your bank app, scan the QR or paste the code below. The vault will be credited automatically the moment 4P confirms.",
-  "pix.awaiting.copy_label": "Pix copia-e-cola",
-  "pix.awaiting.copied": "copied",
-  "pix.awaiting.copy": "copy",
+  // Refreshed iFood-style flow: copy-paste primary (mobile-first reality
+  // for Brazilian Pix payments), step-by-step guidance, QR de-emphasized
+  // as secondary path for desktop-to-mobile.
+  "pix.awaiting.paste_label": "Paste this code in your bank app:",
+  "pix.awaiting.copy_button": "Copy Pix code",
+  "pix.awaiting.copied_button": "Copied ✓",
+  "pix.awaiting.how_to_title": "How to pay:",
+  "pix.awaiting.step_1": "Open your bank app",
+  "pix.awaiting.step_2": "Find Pix → Pix Copy and Paste",
+  "pix.awaiting.step_3": "Paste the code and confirm",
+  "pix.awaiting.or_qr": "or pay from another phone",
   "pix.awaiting.waiting": "Waiting for payment…",
   "pix.awaiting.expired": "Waiting for payment · expired",
   "pix.awaiting.expires_in": "expires in {minutes}m {seconds}s",
+  // Shared USDC≠BRL clarifier — rendered only in PT-BR mode where "$"
+  // is genuinely ambiguous to native readers. Same key used across
+  // DepositForm, WithdrawForm, PixOfframpForm, GiftModal.
+  "currency.usdc_note": "USDC · pegged 1:1 with US dollar",
   "pix.success.title": "Vault credited",
   "pix.success.closing": "closing…",
   "pix.deposit.toast.title": "Pix received · vault credited",
@@ -238,33 +385,177 @@ export const en = {
   "pix.gift.submitting": "Generating Pix…",
   "pix.gift.success.title": "Gift received · vault credited",
   "pix.gift.success.body":
-    "Thank you for the gift. {name} vault has been topped up and is now earning yield on Kamino.",
+    "Thank you for the gift. {name}'s vault has been topped up and is now earning yield on Kamino.",
   "pix.gift.success.close": "close",
   "pix.gift.this_family": "this family",
 
   // ---- kid view ----
-  "kid.greeting": "hi {name}",
+  "kid.eyebrow": "kid · seedling",
+  "kid.greeting": "hi",
   "kid.greeting.fallback": "friend",
-  "kid.eyebrow": "your seedling",
-  "kid.value.label": "Total value",
-  "kid.principal": "Principal",
-  "kid.yield_earned": "Yield earned",
-  "kid.next_allowance": "Next allowance",
-  "kid.next_allowance.ready": "available now",
-  "kid.next_allowance.in": "in {days}d {hours}h",
-  "kid.bonus_in": "Annual bonus in {days}d",
-  "kid.bonus_ready": "Annual bonus ready",
+  "kid.ticker.label": "your money, right now",
+  "kid.ticker.sub.guess": "make your guess to see the cents",
+  "kid.ticker.sub.live": "estimated 8% APY · ticking on Solana",
+  "kid.stat.savings": "your savings",
+  "kid.stat.savings.foot": "from your family",
+  "kid.stat.yield": "earned in yield",
+  "kid.stat.yield.foot.guess": "make your guess first",
+  "kid.stat.yield.foot.live": "since you started",
+  "kid.coming.eyebrow": "what's coming",
+  "kid.coming.next_allowance": "next allowance",
+  "kid.coming.next_allowance.hint": "{amount} on the 1st",
+  "kid.coming.annual_bonus": "annual bonus",
+  "kid.coming.annual_bonus.hint": "year-end yield gift",
+  "kid.coming.ready": "ready!",
   "kid.gift_cta.line": "send a gift",
   "kid.gift_cta.hint": "grandma · auntie · anyone",
   "kid.gift_pix.line": "gift in BRL via Pix",
   "kid.gift_pix.hint": "no crypto wallet needed",
   "kid.gifts_received": "gifts received",
+  "kid.goal.eyebrow": "saving toward",
+  "kid.goal.of": "of ${amount}",
+  "kid.footer.powered": "powered by",
+  "kid.footer.meta": "{cycle} bonus · on Solana",
+  "kid.gift_toast.title": "{who} sent you ${amount}",
+  "kid.gift_toast.subtitle": "A GIFT JUST LANDED",
+  "kid.gift_toast.fallback_who": "Someone",
 
-  // ---- gifts ----
-  "gifts.section.title": "gifts received",
-  "gifts.empty": "no gifts yet · share your link to receive some",
-  "gifts.from": "from {name}",
-  "gifts.anonymous": "anonymous gift",
+  // ---- gift modal (Solana Pay) ----
+  "gm.eyebrow": "give to · seedling",
+  "gm.title": "send a gift to",
+  "gm.body":
+    "Anyone with a Solana wallet can gift. The USDC lands in {who} seedling vault and starts earning yield.",
+  "gm.body.named": "{name}'s",
+  "gm.body.unnamed": "the family's",
+  "gm.from_label": "your name",
+  "gm.from_placeholder": "Grandma · Uncle Tom · …",
+  "gm.amount_custom": "custom",
+  "gm.send_here.connect": "connect wallet to send here",
+  "gm.send_here.confirming": "confirming…",
+  "gm.send_here.sent": "✓ gift sent",
+  "gm.send_here.cta": "send ${amount} from this wallet",
+  "gm.tx_link": "view tx ↗",
+  "gm.or_divider": "or scan with another device",
+  "gm.deep_link": "open in wallet app",
+  "gm.copy_link": "copy link",
+  "gm.copy_link.copied": "copied",
+  "gm.foot.mobile": "or scan with Phantom, Solflare, or Backpack",
+  "gm.foot.desktop":
+    "scan the QR with Phantom, Solflare, or Backpack on your phone",
+  "gm.send_error.rejected": "you rejected the transaction in your wallet",
+
+  // ---- prediction card (guess your yield) ----
+  "predict.eyebrow.too_early": "guess your yield",
+  "predict.too_early.body":
+    "your first guessing round opens on the 1st of next month.",
+  "predict.too_early.foot":
+    "come back then to guess how much your savings earned.",
+  "predict.eyebrow.predict": "guess {month}'s yield",
+  "predict.prompt": "how much did your savings earn during {month}?",
+  "predict.foot.predict": "tap a chip — the answer reveals right after.",
+  "predict.eyebrow.preview": "lock in your guess?",
+  "predict.preview.hint": "once you lock, the answer reveals. ready?",
+  "predict.lock_in": "lock it in",
+  "predict.pick_again": "pick again",
+  "predict.eyebrow.reveal": "how'd your {month} guess do?",
+  "predict.your_guess": "your guess",
+  "predict.actual": "actual",
+  "predict.vs": "vs",
+  "predict.spot_on": "spot on. nice.",
+  "predict.off_by": "off by {cents}¢.",
+  "predict.share": "share my month",
+  "predict.share.busy": "making card…",
+  "predict.play_again": "play again",
+  "predict.foot.next": "next prompt opens on the 1st of next month.",
+  "predict.share_card.error": "couldn't generate the card",
+  // share preview modal
+  "predict.preview.eyebrow": "your card · ready to share",
+  "predict.preview.alt": "seedling monthly recap",
+  "predict.preview.share": "share",
+  "predict.preview.download": "download",
+  "predict.preview.close": "close",
+  "predict.preview.foot.share":
+    "share opens your phone's share sheet · download saves the image.",
+  "predict.preview.foot.download": "download saves the image to your computer.",
+  "predict.kid_fallback": "kid",
+  // Share card (rendered into PNG) — caller passes localized labels
+  // through to renderShareCard. Eyebrow + caption + section headers.
+  "share_card.eyebrow": "{month} · {name}'s seedling",
+  "share_card.my_prediction": "my prediction",
+  "share_card.actual": "actual",
+  "share_card.spot_on": "spot on.",
+  "share_card.off_by": "off by {cents}¢.",
+  "share_card.saving_toward": "saving toward",
+
+  // ---- year recap ----
+  // CTA on the kid view
+  "year.cta.eyebrow.bonus": "annual bonus",
+  "year.cta.eyebrow.recap": "year recap",
+  "year.cta.title.bonus": "your {year} just landed — relive it",
+  "year.cta.title.recap": "your year so far · tap to relive it",
+  // hero slide
+  "year.slide.hero.eyebrow": "{year} · seedling",
+  "year.slide.hero.headline.bonus": "your year.",
+  "year.slide.hero.headline.recap": "your year so far.",
+  "year.slide.hero.sub.named": "let's look back, {name}.",
+  "year.slide.hero.sub.unnamed": "let's look back.",
+  "year.slide.hero.tap_hint": "tap to start →",
+  // month slide
+  "year.slide.month.line": "your savings earned",
+  "year.slide.month.foot": "at {apy}% APY",
+  "year.slide.month.cumulative": "yield so far: ${amount}",
+  // best month
+  "year.slide.best.eyebrow": "your best month",
+  "year.slide.best.sub": "earned",
+  "year.slide.best.sub_at": "at {apy}% APY.",
+  // deposited
+  "year.slide.deposited.eyebrow": "you put in",
+  "year.slide.deposited.sub": "across the year.",
+  // yielded
+  "year.slide.yielded.eyebrow.bonus": "your annual bonus",
+  "year.slide.yielded.eyebrow.recap": "what your savings earned",
+  "year.slide.yielded.sub.bonus": "just landed in your wallet — pure yield.",
+  "year.slide.yielded.sub.recap": "just from your savings sitting still.",
+  // growth
+  "year.slide.growth.eyebrow": "that's",
+  "year.slide.growth.sub": "growth, without you doing anything.",
+  // share slide
+  "year.slide.share.eyebrow": "share your year",
+  "year.slide.share.headline": "make it a card.",
+  "year.slide.share.sub":
+    "a single image with everything — send it to grandma.",
+  "year.slide.share.cta.busy": "making your card…",
+  "year.slide.share.cta": "see my card",
+  "year.slide.share.done": "done",
+  // preview modal
+  "year.preview.alt": "seedling {year} year recap",
+  "year.preview.share": "share",
+  "year.preview.download": "download",
+  "year.preview.close": "close",
+  // hero fallback name when kidName is missing
+  "year.fallback_name": "friend",
+  // share-card label set (for the PNG)
+  "year_card.eyebrow": "{year} · {name}'s seedling year",
+  "year_card.headline_1": "a year of",
+  "year_card.headline_2": "growing.",
+  "year_card.month_section": "MONTH BY MONTH",
+  "year_card.month_sub": "monthly yield",
+  "year_card.label.deposited": "YOU PUT IN",
+  "year_card.label.yielded": "YOUR SAVINGS EARNED",
+  "year_card.label.growth": "THAT'S",
+  "year_card.best": "BEST MONTH",
+  "year_card.best_apy": "at {apy}% APY",
+  "year_card.growth_sub": "growth, just by waiting.",
+  "year_card.foot": "seedling · seedlingsol.xyz",
+  // cycle labels (used by kid view footer + year recap)
+  "cycle.annual": "annual",
+  "cycle.semi_annual": "semi-annual",
+  "cycle.eighteen_month": "18-month",
+  "cycle.biennial": "biennial",
+  "cycle.n_month": "{n}-month",
+
+  // ---- gifts ---- (additional gifts keys live under "gifts.section.*"
+  // earlier in this file — those are the ones actually rendered.)
 
   // ---- generic ----
   "generic.cancel": "cancel",

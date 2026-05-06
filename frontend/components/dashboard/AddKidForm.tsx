@@ -17,8 +17,6 @@ import { sendQuasarIx } from "@/lib/sendQuasarIx";
 import {
   defaultHybridConfig,
   estimatedAnnualYield,
-  modeDescription,
-  modeLabel,
   setDepositMode,
   setHybridConfig,
   totalCommitmentForYear,
@@ -26,6 +24,8 @@ import {
   type HybridConfig,
 } from "@/lib/depositMode";
 import { ArrowR } from "./icons";
+import { useLocale, TItalic } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/i18n";
 
 const MIN_STREAM_USD = 1;
 // Practical ceiling — chain-side u64 holds way more, but $100k/mo per kid
@@ -43,18 +43,19 @@ type Props = {
 export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
   const wallet = useWallet();
   const { showToast } = useToast();
+  const { t, locale } = useLocale();
   // Section ref so the planting confetti fires FROM the form's location
   // (not screen-center). Captured before onCreated unmounts us.
   const sectionRef = useRef<HTMLElement>(null);
   const [nameInput, setNameInput] = useState("");
   const [pubkeyInput, setPubkeyInput] = useState("");
-  const [monthlyInput, setMonthlyInput] = useState("50");
+  const [monthlyInput, setMonthlyInput] = useState("100");
   const [mode, setMode] = useState<DepositMode>("yearly");
   // Hybrid amounts the parent dialed in. Strings so the input fields can
   // stay editable mid-keystroke; we parse on render. Defaults to the
   // brand sweet-spot (8× upfront + 0.4× monthly) when hybrid is selected.
-  const [hybridUpfrontInput, setHybridUpfrontInput] = useState("400");
-  const [hybridMonthlyInput, setHybridMonthlyInput] = useState("20");
+  const [hybridUpfrontInput, setHybridUpfrontInput] = useState("800");
+  const [hybridMonthlyInput, setHybridMonthlyInput] = useState("40");
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -91,7 +92,7 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
     try {
       parsedKid = new PublicKey(pubkeyInput.trim());
     } catch {
-      kidValidationError = "not a valid Solana address";
+      kidValidationError = t("add_kid.kid_pubkey.invalid");
     }
   }
 
@@ -100,11 +101,15 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
   if (!monthlyInput.trim()) {
     rateValidationError = null;
   } else if (Number.isNaN(monthlyNum) || !Number.isFinite(monthlyNum)) {
-    rateValidationError = "must be a number";
+    rateValidationError = t("add_kid.monthly.error.number");
   } else if (monthlyNum < MIN_STREAM_USD) {
-    rateValidationError = `minimum is $${MIN_STREAM_USD}/mo`;
+    rateValidationError = t("add_kid.monthly.error.min", {
+      min: MIN_STREAM_USD,
+    });
   } else if (monthlyNum > MAX_STREAM_USD) {
-    rateValidationError = `maximum is $${MAX_STREAM_USD}/mo`;
+    rateValidationError = t("add_kid.monthly.error.max", {
+      max: MAX_STREAM_USD,
+    });
   }
 
   // Pre-flight duplicate check
@@ -126,9 +131,7 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
         // THIS connected wallet + the same kid. A different parent wallet
         // can have its own seedling for this kid simultaneously (e.g.
         // divorced co-parents, grandparent + parent each running one).
-        setDuplicateError(
-          info ? "you already have a seedling for this kid" : null
-        );
+        setDuplicateError(info ? t("add_kid.kid_pubkey.duplicate") : null);
       } catch {
         // submit-time error will surface anything real
       }
@@ -209,9 +212,9 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
       showToast({
         variant: "monthly",
         title: nameInput.trim()
-          ? `${nameInput.trim()}'s allowance is planted`
-          : "new allowance planted",
-        subtitle: `$${monthlyNum}/mo · earning yield on Kamino`,
+          ? t("add_kid.toast.title.named", { name: nameInput.trim() })
+          : t("add_kid.toast.title.unnamed"),
+        subtitle: t("add_kid.toast.subtitle", { monthly: monthlyNum }),
       });
       onCreated();
     } catch (e: unknown) {
@@ -245,13 +248,16 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
         return;
       }
       if (msg.includes("already in use")) {
-        setSubmitError("This kid already has an allowance set up.");
+        setSubmitError(t("add_kid.error.in_use"));
       } else if (msg.includes("InvalidStreamRate")) {
         setSubmitError(
-          `Stream rate must be between $${MIN_STREAM_USD} and $${MAX_STREAM_USD}/mo.`
+          t("add_kid.error.bad_rate", {
+            min: MIN_STREAM_USD,
+            max: MAX_STREAM_USD,
+          })
         );
       } else if (msg.includes("VaultPaused")) {
-        setSubmitError("The vault is paused. Try again later.");
+        setSubmitError(t("add_kid.error.paused"));
       } else {
         setSubmitError(msg);
       }
@@ -281,17 +287,20 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
       >
         <div className="dash-col" style={{ gap: 10 }}>
           <span className="dash-eyebrow">
-            <span className="rule" /> new family
+            <span className="rule" /> {t("add_kid.eyebrow")}
           </span>
           <h2
             className="dash-serif"
             style={{ fontSize: 40, lineHeight: 1, margin: 0 }}
           >
-            add a <span className="dash-italic">kid</span>.
+            <TItalic
+              tplKey="add_kid.title.line"
+              italicKey="add_kid.title.italic"
+            />
           </h2>
         </div>
         <button className="dash-btn-link" onClick={onCancel}>
-          close ✕
+          {t("add_kid.close")}
         </button>
       </div>
 
@@ -303,7 +312,7 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
         <div className="dash-addkid-grid">
           <div className="dash-col">
             <label className="dash-field-label">
-              name{" "}
+              {t("add_kid.name.label")}{" "}
               <span
                 style={{
                   textTransform: "none",
@@ -311,21 +320,23 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
                   color: "var(--ink-3)",
                 }}
               >
-                (optional · for you)
+                {t("add_kid.name.optional")}
               </span>
             </label>
             <input
               type="text"
-              placeholder="Maria"
+              placeholder={t("add_kid.name.placeholder")}
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
             />
           </div>
           <div className="dash-col">
-            <label className="dash-field-label">kid wallet address</label>
+            <label className="dash-field-label">
+              {t("add_kid.kid_pubkey.label")}
+            </label>
             <input
               className="dash-mono-input"
-              placeholder="e.g. 7xKX...J9pQ"
+              placeholder={t("add_kid.kid_pubkey.placeholder")}
               value={pubkeyInput}
               onChange={(e) => setPubkeyInput(e.target.value)}
             />
@@ -348,7 +359,7 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
           </div>
           <div className="dash-col">
             <label className="dash-field-label">
-              monthly · min ${MIN_STREAM_USD}
+              {t("add_kid.monthly.label", { min: MIN_STREAM_USD })}
             </label>
             <input
               className="dash-mono-input"
@@ -358,6 +369,22 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
               value={monthlyInput}
               onChange={(e) => setMonthlyInput(e.target.value)}
             />
+            {/* Currency clarifier — PT-BR only. Brazilian users read "$"
+                as R$ by reflex, so we explicitly disambiguate. EN readers
+                map "$" to USD instinctively; the note would be condescending. */}
+            {locale === "pt-BR" && (
+              <span
+                className="dash-mono"
+                style={{
+                  fontSize: 10,
+                  color: "var(--ink-3)",
+                  marginTop: 6,
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {t("add_kid.monthly.currency_note")}
+              </span>
+            )}
             {rateValidationError && (
               <span
                 className="dash-mono"
@@ -378,9 +405,11 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
                     lineHeight: 1.5,
                   }}
                 >
-                  recommended deposit · ${(monthlyNum * 24).toLocaleString()}{" "}
-                  upfront → ${(monthlyNum * 12).toLocaleString()} covers the
-                  year, ${(monthlyNum * 12).toLocaleString()} earns the bonus
+                  {t("add_kid.monthly.recommended", {
+                    total: (monthlyNum * 24).toLocaleString(),
+                    cover: (monthlyNum * 12).toLocaleString(),
+                    bonus: (monthlyNum * 12).toLocaleString(),
+                  })}
                 </span>
               )}
           </div>
@@ -422,14 +451,14 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
             type="submit"
             disabled={submitDisabled}
           >
-            {submitting ? "creating…" : "add kid"}{" "}
+            {submitting ? t("add_kid.creating") : t("add_kid.submit")}{" "}
             <ArrowR color="currentColor" />
           </button>
           <span
             className="dash-mono"
             style={{ fontSize: 11, color: "var(--ink-3)" }}
           >
-            opens phantom to sign · ~0.001 SOL fee
+            {t("add_kid.fee_note")}
           </span>
         </div>
 
@@ -449,7 +478,7 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
             className="dash-mono"
             style={{ fontSize: 11, color: "var(--ink-3)" }}
           >
-            need usdc?
+            {t("add_kid.faucets.label")}
           </span>
           <div className="dash-row" style={{ gap: 18 }}>
             <a
@@ -458,7 +487,7 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
               target="_blank"
               rel="noreferrer"
             >
-              SOL faucet ↗
+              {t("add_kid.faucets.sol")}
             </a>
             <a
               className="dash-btn-link"
@@ -466,7 +495,7 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
               target="_blank"
               rel="noreferrer"
             >
-              USDC faucet ↗
+              {t("add_kid.faucets.usdc")}
             </a>
           </div>
         </div>
@@ -514,6 +543,7 @@ function ModePicker({
   onHybridUpfrontChange: (v: string) => void;
   onHybridMonthlyChange: (v: string) => void;
 }) {
+  const { t } = useLocale();
   const modes: DepositMode[] = ["yearly", "hybrid", "monthly"];
 
   // Live hybrid config from the parent's typed values. Falls back to
@@ -560,7 +590,7 @@ function ModePicker({
           textTransform: "uppercase",
         }}
       >
-        deposit cadence
+        {t("mode.section.label")}
       </span>
       {/* Principle line — frames the cadence asymmetry as intentional
           design (seedling rewards time), not a limitation of monthly. */}
@@ -574,10 +604,8 @@ function ModePicker({
           letterSpacing: "-0.005em",
         }}
       >
-        Seedling rewards time —{" "}
-        <span className="dash-italic">
-          the longer money stays, the more the kid earns.
-        </span>
+        {t("mode.tagline.start")}{" "}
+        <span className="dash-italic">{t("mode.tagline.italic")}</span>
       </p>
       <div
         style={{
@@ -627,7 +655,7 @@ function ModePicker({
                   className="dash-serif"
                   style={{ fontSize: 18, lineHeight: 1.05 }}
                 >
-                  {modeLabel(m)}
+                  {t(`mode.${m}.label` as TranslationKey)}
                 </span>
                 {m === "yearly" && (
                   <span
@@ -647,7 +675,7 @@ function ModePicker({
                         : "1px solid var(--forest)",
                     }}
                   >
-                    recommended
+                    {t("mode.recommended_badge")}
                   </span>
                 )}
               </div>
@@ -660,7 +688,7 @@ function ModePicker({
                   marginBottom: 8,
                 }}
               >
-                {modeDescription(m)}
+                {t(`mode.${m}.desc` as TranslationKey)}
               </div>
               <div
                 style={{
@@ -675,19 +703,29 @@ function ModePicker({
               >
                 {m === "yearly" ? (
                   <>
-                    <span>≈ ${Math.round(total).toLocaleString()} upfront</span>
+                    <span>
+                      {t("mode.yearly.upfront_line", {
+                        total: Math.round(total).toLocaleString(),
+                      })}
+                    </span>
                     <span style={{ opacity: 0.85 }}>
-                      ≈ ${(streamRateUsd * 12).toLocaleString()} back to you + ≈
-                      ${yearly.toFixed(2)} kid bonus
+                      {t("mode.yearly.return_line", {
+                        back: (streamRateUsd * 12).toLocaleString(),
+                        bonus: yearly.toFixed(2),
+                      })}
                     </span>
                   </>
                 ) : (
                   <>
                     <span>
-                      ≈ ${Math.round(total).toLocaleString()} / year you put in
+                      {t("mode.year_total_line", {
+                        total: Math.round(total).toLocaleString(),
+                      })}
                     </span>
                     <span style={{ opacity: 0.85 }}>
-                      ≈ ${yearly.toFixed(2)} kid bonus at year-end
+                      {t("mode.year_bonus_line", {
+                        bonus: yearly.toFixed(2),
+                      })}
                     </span>
                   </>
                 )}
@@ -724,7 +762,7 @@ function ModePicker({
                 className="dash-field-label"
                 style={{ fontSize: 10, marginBottom: 6 }}
               >
-                upfront deposit
+                {t("mode.hybrid.upfront_label")}
               </label>
               <input
                 className="dash-mono-input"
@@ -740,7 +778,7 @@ function ModePicker({
                 className="dash-field-label"
                 style={{ fontSize: 10, marginBottom: 6 }}
               >
-                monthly top-up · for 11 months
+                {t("mode.hybrid.monthly_label")}
               </label>
               <input
                 className="dash-mono-input"
@@ -766,12 +804,17 @@ function ModePicker({
             }}
           >
             <span>
-              total over the year: ≈ ${Math.round(hybridTotal).toLocaleString()}{" "}
-              · kid receives ${(streamRateUsd * 12).toLocaleString()}
+              {t("mode.hybrid.total_line", {
+                total: Math.round(hybridTotal).toLocaleString(),
+                kid: (streamRateUsd * 12).toLocaleString(),
+              })}
             </span>
             <span>
-              estimated bonus: ≈ ${hybridYield.toFixed(2)} ({hybridRecovery}% of
-              yearly&apos;s ${yearlyYield.toFixed(2)})
+              {t("mode.hybrid.bonus_line", {
+                bonus: hybridYield.toFixed(2),
+                pct: hybridRecovery,
+                yearly: yearlyYield.toFixed(2),
+              })}
             </span>
           </div>
 
@@ -795,8 +838,7 @@ function ModePicker({
                 lineHeight: 1.5,
               }}
             >
-              upfront is $0 → that&apos;s monthly, not hybrid. tap to switch to
-              the monthly cadence (cleaner setup).
+              {t("mode.hybrid.zero_upfront")}
             </button>
           )}
           {liveHybrid.upfrontUsd > 0 && liveHybrid.monthlyUsd === 0 && (
@@ -816,8 +858,7 @@ function ModePicker({
                 lineHeight: 1.5,
               }}
             >
-              monthly top-up is $0 → that&apos;s yearly, not hybrid. tap to
-              switch to the yearly cadence (one deposit, max yield).
+              {t("mode.hybrid.zero_monthly")}
             </button>
           )}
 
@@ -835,11 +876,11 @@ function ModePicker({
                   border: "1px solid rgba(176, 71, 58, 0.25)",
                 }}
               >
-                your deposits cover ${Math.round(hybridTotal).toLocaleString()},
-                but the kid needs ${minCommitment.toLocaleString()} over the
-                year. the allowance will pause $
-                {Math.round(hybridShortfall).toLocaleString()} short unless you
-                add more.
+                {t("mode.hybrid.shortfall", {
+                  total: Math.round(hybridTotal).toLocaleString(),
+                  need: minCommitment.toLocaleString(),
+                  short: Math.round(hybridShortfall).toLocaleString(),
+                })}
               </div>
             )}
         </div>
@@ -863,9 +904,7 @@ function ModePicker({
           lineHeight: 1.5,
         }}
       >
-        we don&apos;t auto-debit your wallet. you commit to depositing on your
-        chosen cadence; missed top-ups pause the kid&apos;s allowance until you
-        catch up. funds you&apos;ve deposited are always safe in the vault.
+        {t("mode.disclosure")}
       </div>
     </div>
   );

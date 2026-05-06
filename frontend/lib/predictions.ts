@@ -48,11 +48,21 @@ export function previousCycleKey(currentCycle: string): string {
   return `${py}-${String(pm).padStart(2, "0")}`;
 }
 
-/** Human label for a cycle key — "May 2026" / "June 2026". */
-export function cycleLabel(cycleKey: string): string {
+/** Human label for a cycle key — "May 2026" / "Maio de 2026". Locale-aware. */
+export function cycleLabel(cycleKey: string, locale: string = "en-US"): string {
   const [yy, mm] = cycleKey.split("-");
   const d = new Date(Number(yy), Number(mm) - 1, 1);
-  return d.toLocaleString("en-US", { month: "long", year: "numeric" });
+  return d.toLocaleString(locale, { month: "long", year: "numeric" });
+}
+
+/** Just the month name from a cycle key — "April" / "Abril". Locale-aware. */
+export function cycleMonthLabel(
+  cycleKey: string,
+  locale: string = "en-US"
+): string {
+  const [yy, mm] = cycleKey.split("-");
+  const d = new Date(Number(yy), Number(mm) - 1, 1);
+  return d.toLocaleString(locale, { month: "long" });
 }
 
 /** Days in the calendar month identified by cycleKey. */

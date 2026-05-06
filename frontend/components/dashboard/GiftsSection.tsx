@@ -21,6 +21,7 @@ import {
   timeAgo,
 } from "@/lib/giftNames";
 import { useToast } from "@/components/Toast";
+import { useLocale } from "@/lib/i18n";
 
 const SEEN_KEY_PREFIX = "seedling-gift-seen-";
 
@@ -68,6 +69,7 @@ export function GiftsSection({
   const seenRef = useRef<Set<string>>(new Set());
   const initializedRef = useRef(false);
   const { showToast } = useToast();
+  const { t } = useLocale();
 
   // Initial state from localStorage.
   useEffect(() => {
@@ -98,11 +100,18 @@ export function GiftsSection({
             seenRef.current.add(g.sig);
             dirty = true;
             // Three-tier name resolution mirrors the kid view.
-            const who = g.fromName ?? currentNames[g.depositor] ?? "Someone";
-            const recipient = kidName ?? "your family";
+            const who =
+              g.fromName ??
+              currentNames[g.depositor] ??
+              t("gifts.fallback.someone");
+            const recipient = kidName ?? t("gifts.fallback.recipient");
             showToast({
-              title: `${who} gifted $${g.amountUsd.toFixed(2)} to ${recipient}`,
-              subtitle: "GIFT · SEEDLING",
+              title: t("gifts.toast.title", {
+                who,
+                amount: g.amountUsd.toFixed(2),
+                recipient,
+              }),
+              subtitle: t("gifts.toast.subtitle"),
             });
           }
         } else {
@@ -188,13 +197,15 @@ export function GiftsSection({
             color: "var(--ink-3)",
           }}
         >
-          gifts received
+          {t("gifts.section.received")}
         </span>
         <span
           className="dash-mono"
           style={{ fontSize: 10, color: "var(--ink-3)" }}
         >
-          {giftsLoading ? "loading…" : `${gifts.length} total`}
+          {giftsLoading
+            ? t("gifts.section.loading")
+            : t("gifts.section.total", { n: gifts.length })}
         </span>
       </div>
 
@@ -270,7 +281,7 @@ export function GiftsSection({
                       className="dash-rename-input"
                       style={{ fontSize: 14, flex: 1 }}
                       value={draft}
-                      placeholder="Grandma, Uncle Tom, …"
+                      placeholder={t("gifts.name_input.placeholder")}
                       onChange={(e) => setDraft(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") saveName();
@@ -285,7 +296,7 @@ export function GiftsSection({
                       onClick={saveName}
                       style={{ fontSize: 11 }}
                     >
-                      save
+                      {t("gifts.save")}
                     </button>
                   </div>
                 ) : display ? (
@@ -302,10 +313,10 @@ export function GiftsSection({
                     }}
                     title={
                       overrideName
-                        ? "click to rename"
+                        ? t("gifts.tip.rename")
                         : g.fromName
-                        ? "name supplied by the gifter — click to override"
-                        : "click to name"
+                        ? t("gifts.tip.override")
+                        : t("gifts.tip.name")
                     }
                   >
                     {display}
@@ -321,7 +332,9 @@ export function GiftsSection({
                       padding: 0,
                     }}
                   >
-                    name {shortPubkey(g.depositor)}
+                    {t("gifts.name_button", {
+                      pubkey: shortPubkey(g.depositor),
+                    })}
                   </button>
                 )}
               </div>

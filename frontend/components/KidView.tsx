@@ -7,11 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Connection } from "@solana/web3.js";
 import { DEVNET_ADDRESSES, DEVNET_RPC } from "@/lib/program";
-import {
-  cycleLabel,
-  fetchFamilyByPda,
-  fetchVaultClock,
-} from "@/lib/fetchFamilyByPda";
+import { fetchFamilyByPda, fetchVaultClock } from "@/lib/fetchFamilyByPda";
 import type { FamilyView } from "@/lib/fetchFamilies";
 import { getSavingsGoals, type SavingsGoal } from "@/lib/savingsGoals";
 import { Tree, stageForMonths, monthsSince } from "@/components/Tree";
@@ -22,6 +18,8 @@ import {
   type HybridConfig,
 } from "@/lib/depositMode";
 import { GiftModal } from "@/components/GiftModal";
+import { PixGiftModal } from "@/components/PixGiftModal";
+import { LocaleToggle } from "@/components/LocaleToggle";
 import { PredictionCard } from "@/components/PredictionCard";
 import { YearRecap } from "@/components/YearRecap";
 import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
@@ -33,6 +31,8 @@ import {
 } from "@/lib/predictions";
 import { useToast } from "@/components/Toast";
 import { celebrateDeposit } from "@/lib/celebrate";
+import { useLocale } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/i18n";
 
 const ESTIMATED_APY = 0.08;
 const YEAR_SECONDS = 365 * 86_400;
@@ -80,7 +80,26 @@ function computeFamilyAssetsBaseUnits(
   return (shares * totalAssets) / totalShares;
 }
 
+// Map cycle months to a locale-aware label key. Mirrors the EN-only
+// helper `cycleLabel` from fetchFamilyByPda.ts but routes through the
+// translation dict so PT-BR readers get "anual" / "semestral" instead.
+function cycleKey(cycleMonths: number): TranslationKey {
+  switch (cycleMonths) {
+    case 6:
+      return "cycle.semi_annual";
+    case 12:
+      return "cycle.annual";
+    case 18:
+      return "cycle.eighteen_month";
+    case 24:
+      return "cycle.biennial";
+    default:
+      return "cycle.n_month";
+  }
+}
+
 export function KidView({ family, initialClock, kidName }: Props) {
+  const { t } = useLocale();
   // ───── ticker (share-math + 8% projection between recalibrations) ─────
   const initialFamilyAssets = computeFamilyAssetsBaseUnits(
     BigInt(family.shares.toString()),
@@ -189,9 +208,10 @@ export function KidView({ family, initialClock, kidName }: Props) {
     family.lastBonusPeriodId < initialClock.currentPeriodId;
 
   const ticker = fmtTicker(displayUsd);
-  const greetingName = kidName ?? "friend";
+  const greetingName = kidName ?? t("kid.greeting.fallback");
 
   const [giftOpen, setGiftOpen] = useState(false);
+  const [pixGiftOpen, setPixGiftOpen] = useState(false);
 
   // Predict-and-reveal: hide the "earned in yield" stat tile UNLESS the
   // CURRENT month's prediction is locked (or no prior month is awaiting
@@ -263,10 +283,16 @@ export function KidView({ family, initialClock, kidName }: Props) {
           for (const g of list) {
             if (seenGiftSigs.current.has(g.sig)) continue;
             seenGiftSigs.current.add(g.sig);
-            const who = g.fromName ?? currentNames[g.depositor] ?? "Someone";
+            const who =
+              g.fromName ??
+              currentNames[g.depositor] ??
+              t("kid.gift_toast.fallback_who");
             showToast({
-              title: `${who} sent you $${g.amountUsd.toFixed(2)}`,
-              subtitle: "A GIFT JUST LANDED",
+              title: t("kid.gift_toast.title", {
+                who,
+                amount: g.amountUsd.toFixed(2),
+              }),
+              subtitle: t("kid.gift_toast.subtitle"),
             });
             // Celebrate from upper-center — the kid is on their own page
             // looking at the tree, so the burst falls over the page like
@@ -297,12 +323,15 @@ export function KidView({ family, initialClock, kidName }: Props) {
       <style dangerouslySetInnerHTML={{ __html: KID_VIEW_STYLES }} />
       <div className="kv-frame">
         <header className="kv-header">
-          <div className="kv-eyebrow">
-            <span className="kv-pulse"></span>
-            kid · seedling
+          <div className="kv-header-top">
+            <div className="kv-eyebrow">
+              <span className="kv-pulse"></span>
+              {t("kid.eyebrow")}
+            </div>
+            <LocaleToggle />
           </div>
           <h1 className="kv-greeting">
-            hi <em>{greetingName}</em>
+            {t("kid.greeting")} <em>{greetingName}</em>
           </h1>
         </header>
 
@@ -321,7 +350,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
         {/* Ticker FIRST — it's the kid's most important on-screen number.
             Tree comes second as the celebratory visual, not the lead. */}
         <section className="kv-ticker">
-          <div className="kv-ticker-label">your money, right now</div>
+          <div className="kv-ticker-label">{t("kid.ticker.label")}</div>
           <div className="kv-ticker-num">
             <span className="kv-ticker-whole">{ticker.whole}</span>
             {hideYield ? (
@@ -332,9 +361,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
           </div>
           <div className="kv-ticker-sub">
             <span className="kv-tick-dot"></span>
-            {hideYield
-              ? "make your guess to see the cents"
-              : "estimated 8% APY · ticking on Solana"}
+            {hideYield ? t("kid.ticker.sub.guess") : t("kid.ticker.sub.live")}
           </div>
         </section>
 
@@ -344,12 +371,12 @@ export function KidView({ family, initialClock, kidName }: Props) {
 
         <section className="kv-stats">
           <div className="kv-stat">
-            <div className="kv-stat-label">your savings</div>
+            <div className="kv-stat-label">{t("kid.stat.savings")}</div>
             <div className="kv-stat-value">{fmt2(principalUsd)}</div>
-            <div className="kv-stat-foot">from your family</div>
+            <div className="kv-stat-foot">{t("kid.stat.savings.foot")}</div>
           </div>
           <div className="kv-stat">
-            <div className="kv-stat-label">earned in yield</div>
+            <div className="kv-stat-label">{t("kid.stat.yield")}</div>
             <div className="kv-stat-value">
               {hideYield ? (
                 <span className="kv-stat-hidden">— · —</span>
@@ -358,24 +385,30 @@ export function KidView({ family, initialClock, kidName }: Props) {
               )}
             </div>
             <div className="kv-stat-foot">
-              {hideYield ? "make your guess first" : "since you started"}
+              {hideYield
+                ? t("kid.stat.yield.foot.guess")
+                : t("kid.stat.yield.foot.live")}
             </div>
           </div>
         </section>
 
         <section className="kv-card kv-countdowns">
-          <div className="kv-card-eyebrow">what&apos;s coming</div>
+          <div className="kv-card-eyebrow">{t("kid.coming.eyebrow")}</div>
 
           <div className="kv-countdown-row">
             <div className="kv-cd-left">
-              <div className="kv-cd-label">next allowance</div>
+              <div className="kv-cd-label">
+                {t("kid.coming.next_allowance")}
+              </div>
               <div className="kv-cd-hint">
-                {fmt2(monthlyAllowanceUsd)} on the 1st
+                {t("kid.coming.next_allowance.hint", {
+                  amount: fmt2(monthlyAllowanceUsd),
+                })}
               </div>
             </div>
             <div className="kv-cd-time">
               {monthlyReady ? (
-                <span className="kv-cd-num">ready!</span>
+                <span className="kv-cd-num">{t("kid.coming.ready")}</span>
               ) : (
                 <>
                   <span className="kv-cd-num">{monthlyDays}</span>
@@ -391,12 +424,14 @@ export function KidView({ family, initialClock, kidName }: Props) {
 
           <div className="kv-countdown-row">
             <div className="kv-cd-left">
-              <div className="kv-cd-label">annual bonus</div>
-              <div className="kv-cd-hint">year-end yield gift</div>
+              <div className="kv-cd-label">{t("kid.coming.annual_bonus")}</div>
+              <div className="kv-cd-hint">
+                {t("kid.coming.annual_bonus.hint")}
+              </div>
             </div>
             <div className="kv-cd-time">
               {bonusReady ? (
-                <span className="kv-cd-num">ready!</span>
+                <span className="kv-cd-num">{t("kid.coming.ready")}</span>
               ) : (
                 <>
                   <span className="kv-cd-num">{bonusDays}</span>
@@ -444,8 +479,25 @@ export function KidView({ family, initialClock, kidName }: Props) {
             </svg>
           </span>
           <span className="kv-gift-text">
-            <span className="kv-gift-line">send a gift</span>
-            <span className="kv-gift-hint">grandma · auntie · anyone</span>
+            <span className="kv-gift-line">{t("kid.gift_cta.line")}</span>
+            <span className="kv-gift-hint">{t("kid.gift_cta.hint")}</span>
+          </span>
+          <span className="kv-gift-arrow" aria-hidden="true">
+            →
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="kv-pix-cta"
+          onClick={() => setPixGiftOpen(true)}
+        >
+          <span className="kv-pix-flag" aria-hidden="true">
+            🇧🇷
+          </span>
+          <span className="kv-pix-text">
+            <span className="kv-pix-line">{t("kid.gift_pix.line")}</span>
+            <span className="kv-pix-hint">{t("kid.gift_pix.hint")}</span>
           </span>
           <span className="kv-gift-arrow" aria-hidden="true">
             →
@@ -454,7 +506,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
 
         {(giftsLoading || gifts.length > 0) && (
           <section className="kv-card kv-gift-wall">
-            <div className="kv-card-eyebrow">gifts received</div>
+            <div className="kv-card-eyebrow">{t("kid.gifts_received")}</div>
             <ul className="kv-wall-list">
               {giftsLoading
                 ? // Skeleton placeholder rows during the initial fetch — keeps
@@ -517,6 +569,13 @@ export function KidView({ family, initialClock, kidName }: Props) {
           onClose={() => setGiftOpen(false)}
         />
 
+        <PixGiftModal
+          familyPda={familyKey}
+          kidName={kidName}
+          open={pixGiftOpen}
+          onClose={() => setPixGiftOpen(false)}
+        />
+
         <footer className="kv-footer">
           <div className="kv-foot-mark">
             <span className="kv-foot-leaf">
@@ -527,10 +586,15 @@ export function KidView({ family, initialClock, kidName }: Props) {
                 />
               </svg>
             </span>
-            powered by <span className="kv-foot-name">seedling</span>
+            {t("kid.footer.powered")}{" "}
+            <span className="kv-foot-name">seedling</span>
           </div>
           <div className="kv-foot-meta">
-            {cycleLabel(initialClock.cycleMonths)} bonus · on Solana
+            {t("kid.footer.meta", {
+              cycle: t(cycleKey(initialClock.cycleMonths), {
+                n: initialClock.cycleMonths,
+              }),
+            })}
           </div>
         </footer>
       </div>
@@ -545,11 +609,12 @@ function GoalCard({
   goal: SavingsGoal;
   balanceUsd: number;
 }) {
+  const { t } = useLocale();
   const [imgOk, setImgOk] = useState(true);
   const pct = Math.min(100, (balanceUsd / goal.amountUsd) * 100);
   return (
     <section className="kv-card kv-goal">
-      <div className="kv-card-eyebrow">saving toward</div>
+      <div className="kv-card-eyebrow">{t("kid.goal.eyebrow")}</div>
       <div className="kv-goal-body">
         <div className="kv-goal-img">
           {goal.photoUrl && imgOk ? (
@@ -578,7 +643,9 @@ function GoalCard({
           <div className="kv-goal-progress">
             <span className="kv-goal-num">{fmt2(balanceUsd)}</span>
             <span className="kv-goal-of">
-              of ${goal.amountUsd.toLocaleString()}
+              {t("kid.goal.of", {
+                amount: goal.amountUsd.toLocaleString(),
+              })}
             </span>
             <span className="kv-goal-pct">{Math.round(pct)}%</span>
           </div>
@@ -626,6 +693,10 @@ const KID_VIEW_STYLES = `
   }
 
   .kv-header { display: flex; flex-direction: column; gap: 14px; padding-top: 8px; }
+  .kv-header-top {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
   .kv-eyebrow {
     font-family: var(--mono);
     font-size: 13px;
@@ -897,6 +968,43 @@ const KID_VIEW_STYLES = `
     transition: transform 200ms ease;
   }
   .kv-gift-cta:hover .kv-gift-arrow { transform: translateX(3px); }
+
+  .kv-pix-cta {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px;
+    margin-top: 8px;
+    background: transparent;
+    border: 1px dashed var(--stone-200);
+    border-radius: 14px;
+    color: var(--green-900);
+    cursor: pointer; text-align: left;
+    font-family: var(--sans);
+    transition: all 180ms ease;
+  }
+  .kv-pix-cta:hover {
+    border-color: var(--green-600);
+    border-style: solid;
+    background: var(--stone-50);
+  }
+  .kv-pix-flag {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--stone-50); border: 1px solid var(--stone-200);
+    flex-shrink: 0; font-size: 22px;
+  }
+  .kv-pix-text {
+    display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;
+  }
+  .kv-pix-line {
+    font-family: var(--serif); font-size: 18px; line-height: 1.15;
+    letter-spacing: -0.005em; color: var(--green-900);
+  }
+  .kv-pix-hint {
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.06em; color: var(--ink-muted);
+  }
+  .kv-pix-cta:hover .kv-gift-arrow { transform: translateX(3px); }
 
   .kv-wall-list {
     list-style: none; padding: 0; margin: 0;

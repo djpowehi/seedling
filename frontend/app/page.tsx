@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { MainnetNotify } from "./MainnetNotify";
 import { LocaleToggle } from "@/components/LocaleToggle";
-import { useLocale } from "@/lib/i18n";
-import type { TranslationKey } from "@/lib/i18n";
+import { useLocale, TItalic } from "@/lib/i18n";
 
 // Landing page — sourced from a Claude Design pass on Day 10 evening.
 // All styles are scoped to landing-* class names + the `landing-root`
@@ -16,28 +15,6 @@ import type { TranslationKey } from "@/lib/i18n";
 // "use client" because the locale toggle + t() use React Context state.
 // The page has no server-side data dependencies, so the cost is just
 // hydration of static JSX — negligible.
-
-// Render a templated string with an `{italic}` placeholder, swapping
-// the placeholder for an <em>-wrapped translation. Used by hero
-// headline + dashboard headlines that have a single italicized word.
-function TItalic({
-  tplKey,
-  italicKey,
-}: {
-  tplKey: TranslationKey;
-  italicKey: TranslationKey;
-}) {
-  const { t } = useLocale();
-  const tmpl = t(tplKey);
-  const [pre, post = ""] = tmpl.split("{italic}");
-  return (
-    <>
-      {pre}
-      <em>{t(italicKey)}</em>
-      {post}
-    </>
-  );
-}
 
 const STYLES = `
   .landing-root {

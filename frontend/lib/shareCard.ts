@@ -10,12 +10,23 @@
 
 type ShareCardData = {
   kidName: string;
-  monthLabel: string; // "April"
+  monthLabel: string; // "April" / "Abril"
   guessUsd: number;
   actualUsd: number;
   goalLabel?: string; // "Nintendo Switch"
   goalProgressUsd?: number;
   goalTargetUsd?: number;
+  /** Localized strings rendered into the PNG. Caller (PredictionCard)
+   *  passes these through `t()`. Defaults to EN if omitted so legacy
+   *  callers keep working. */
+  labels?: {
+    eyebrow: string; // already-rendered "APRIL · MARIA'S SEEDLING"
+    myPrediction: string; // "my prediction" / "meu palpite"
+    actual: string; // "actual" / "real"
+    diffSpotOn: string; // "spot on." / "exato."
+    diffOffBy: string; // already-rendered "off by 12¢."
+    savingToward: string; // "SAVING TOWARD" / "GUARDANDO PARA"
+  };
 };
 
 const W = 1080;
@@ -40,11 +51,15 @@ function fmtCents(d: number): string {
   return "$" + d.toFixed(2);
 }
 
-function diffWord(guess: number, actual: number): string {
+function diffWord(
+  guess: number,
+  actual: number,
+  spotOn: string,
+  offBy: string
+): string {
   const diff = Math.abs(guess - actual);
-  if (diff < 0.01) return "spot on.";
-  const cents = Math.round(diff * 100);
-  return `off by ${cents}¢.`;
+  if (diff < 0.01) return spotOn;
+  return offBy; // caller already substituted {cents} in
 }
 
 export async function renderShareCard(data: ShareCardData): Promise<Blob> {
@@ -82,14 +97,19 @@ export async function renderShareCard(data: ShareCardData): Promise<Blob> {
   ctx.fillStyle = C.green600;
   ctx.fill();
   ctx.fillStyle = C.inkMuted;
-  const eyebrow = `${data.monthLabel.toUpperCase()} · ${data.kidName.toUpperCase()}'S SEEDLING`;
+  // Localized eyebrow rendered into the PNG. Caller (PredictionCard) builds
+  // the upper-cased version via t("share_card.eyebrow", { month, name }).
+  // Falls back to the EN order if no labels passed (legacy callers).
+  const eyebrow =
+    data.labels?.eyebrow ??
+    `${data.monthLabel.toUpperCase()} · ${data.kidName.toUpperCase()}'S SEEDLING`;
   ctx.fillText(eyebrow, PAD + 30, PAD);
 
   // ── headline: my prediction ──
   let y = PAD + 72;
   ctx.fillStyle = C.ink;
   ctx.font = "400 60px Iowan Old Style, Georgia, serif";
-  ctx.fillText("my prediction", PAD, y);
+  ctx.fillText(data.labels?.myPrediction ?? "my prediction", PAD, y);
 
   y += 78;
   ctx.fillStyle = C.green900;
@@ -109,7 +129,7 @@ export async function renderShareCard(data: ShareCardData): Promise<Blob> {
   y += 36;
   ctx.fillStyle = C.ink;
   ctx.font = "400 60px Iowan Old Style, Georgia, serif";
-  ctx.fillText("actual", PAD, y);
+  ctx.fillText(data.labels?.actual ?? "actual", PAD, y);
 
   y += 78;
   ctx.fillStyle = C.green700;
@@ -120,14 +140,28 @@ export async function renderShareCard(data: ShareCardData): Promise<Blob> {
   y += 168;
   ctx.fillStyle = C.inkSoft;
   ctx.font = "400 36px Iowan Old Style, Georgia, serif";
-  ctx.fillText(diffWord(data.guessUsd, data.actualUsd), PAD, y);
+  ctx.fillText(
+    diffWord(
+      data.guessUsd,
+      data.actualUsd,
+      data.labels?.diffSpotOn ?? "spot on.",
+      data.labels?.diffOffBy ??
+        `off by ${Math.round(Math.abs(data.guessUsd - data.actualUsd) * 100)}¢.`
+    ),
+    PAD,
+    y
+  );
 
   // ── savings goal block (optional) ──
   if (data.goalLabel && data.goalTargetUsd && data.goalProgressUsd != null) {
     y += 96;
     ctx.fillStyle = C.inkMuted;
     ctx.font = "500 22px ui-monospace, JetBrains Mono, monospace";
-    ctx.fillText("SAVING TOWARD", PAD, y);
+    ctx.fillText(
+      (data.labels?.savingToward ?? "saving toward").toUpperCase(),
+      PAD,
+      y
+    );
 
     y += 38;
     ctx.fillStyle = C.green900;

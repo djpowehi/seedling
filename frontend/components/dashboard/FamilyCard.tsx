@@ -29,9 +29,10 @@ import {
 import {
   depositForMonth,
   getDepositMode,
-  modeLabel,
   type DepositMode,
 } from "@/lib/depositMode";
+import { useLocale } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/i18n";
 import {
   getSavingsGoals,
   removeSavingsGoal,
@@ -40,6 +41,8 @@ import {
 import type { FamilyView } from "@/lib/fetchFamilies";
 import { useToast } from "@/components/Toast";
 import { DepositForm } from "@/components/DepositForm";
+import { PixDepositForm } from "@/components/PixDepositForm";
+import { PixOfframpForm } from "@/components/PixOfframpForm";
 import { WithdrawForm } from "@/components/WithdrawForm";
 import { ArrowUR, Copy, Plus } from "./icons";
 import { GoalRow } from "./GoalRow";
@@ -79,24 +82,35 @@ function truncatePub(pubkey: PublicKey): string {
   return s.slice(0, 4) + "…" + s.slice(-4);
 }
 
-function fmtAgo(seconds: number): string {
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+// Locale-aware "ago" + "countdown" formatters. Need t() at call site so
+// they update when the user toggles language. Hooked into useLocale via
+// the makeFmt helpers below.
+function makeFmtAgo(
+  t: (k: TranslationKey, vars?: Record<string, string | number>) => string
+) {
+  return (seconds: number): string => {
+    if (seconds < 60) return t("card.ago.just_now");
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return t("card.ago.minutes", { n: minutes });
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return t("card.ago.hours", { n: hours });
+    const days = Math.floor(hours / 24);
+    return t("card.ago.days", { n: days });
+  };
 }
 
-function fmtCountdown(seconds: number): string {
-  if (seconds <= 0) return "ready";
-  const totalH = Math.floor(seconds / 3600);
-  const d = Math.floor(totalH / 24);
-  const h = totalH % 24;
-  if (d > 0) return `${d}d ${h}h`;
-  const m = Math.floor((seconds % 3600) / 60);
-  return `${h}h ${m}m`;
+function makeFmtCountdown(
+  t: (k: TranslationKey, vars?: Record<string, string | number>) => string
+) {
+  return (seconds: number): string => {
+    if (seconds <= 0) return t("card.countdown.ready");
+    const totalH = Math.floor(seconds / 3600);
+    const d = Math.floor(totalH / 24);
+    const h = totalH % 24;
+    if (d > 0) return t("card.countdown.dh", { d, h });
+    const m = Math.floor((seconds % 3600) / 60);
+    return t("card.countdown.hm", { h, m });
+  };
 }
 
 /** Compact display for big share counts. Past ~100K the extra digits are
@@ -120,6 +134,9 @@ export function FamilyCard({
 }: Props) {
   const wallet = useWallet();
   const client = new SeedlingQuasarClient();
+  const { t } = useLocale();
+  const fmtAgo = makeFmtAgo(t);
+  const fmtCountdown = makeFmtCountdown(t);
   const familyKey = family.pubkey.toBase58();
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   const [renaming, setRenaming] = useState(false);
@@ -131,7 +148,9 @@ export function FamilyCard({
   // chapter is closing" instead of a hard pop.
   const [closing, setClosing] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
+  const [showPixDeposit, setShowPixDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showPixOfframp, setShowPixOfframp] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [addingGoal, setAddingGoal] = useState(false);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
@@ -192,7 +211,7 @@ export function FamilyCard({
 
   const copyKidPubkey = async () => {
     await navigator.clipboard?.writeText(family.kid.toBase58());
-    showToast({ title: "kid pubkey copied" });
+    showToast({ title: t("card.toast.kid_copied") });
   };
 
   const buildKidPageUrl = () => {
@@ -205,12 +224,12 @@ export function FamilyCard({
 
   const copyKidPageLink = async () => {
     await navigator.clipboard?.writeText(buildKidPageUrl());
-    showToast({ title: "kid's page link copied" });
+    showToast({ title: t("card.toast.link_copied") });
   };
 
   const shareKidPageLink = async () => {
     const url = buildKidPageUrl();
-    const kidLabel = getKidName(familyKey) ?? "your kid";
+    const kidLabel = getKidName(familyKey) ?? t("card.share.fallback_kid");
     // Native share sheet on mobile + supported desktop browsers; clipboard
     // fallback elsewhere so the button is never a dead end.
     if (
@@ -219,8 +238,8 @@ export function FamilyCard({
     ) {
       try {
         await navigator.share({
-          title: `${kidLabel}'s seedling page`,
-          text: `${kidLabel}'s growing savings on seedling.`,
+          title: t("card.share.title", { name: kidLabel }),
+          text: t("card.share.text", { name: kidLabel }),
           url,
         });
         return;
@@ -229,7 +248,7 @@ export function FamilyCard({
       }
     }
     await navigator.clipboard?.writeText(url);
-    showToast({ title: "share unavailable here · link copied instead" });
+    showToast({ title: t("card.toast.share_fallback") });
   };
 
   // ───── chain handlers ─────
@@ -311,9 +330,11 @@ export function FamilyCard({
       celebrateMonthly();
       showToast({
         variant: "monthly",
-        title: `Sent to ${name ?? "your kid"}`,
+        title: name
+          ? t("card.toast.monthly_title.named", { name })
+          : t("card.toast.monthly_title.fallback"),
         countUpUsd: streamUsd,
-        subtitle: "monthly allowance · on chain",
+        subtitle: t("card.toast.monthly_subtitle"),
       });
       onMutated();
     } catch (e: unknown) {
@@ -322,9 +343,9 @@ export function FamilyCard({
         onMutated();
         return;
       }
-      if (msg.includes("DistributionTooSoon")) setError("Not eligible yet.");
-      else if (msg.includes("VaultPaused"))
-        setError("Vault paused. Try again later.");
+      if (msg.includes("DistributionTooSoon"))
+        setError(t("card.error.not_eligible"));
+      else if (msg.includes("VaultPaused")) setError(t("card.error.paused"));
       else setError(msg);
     } finally {
       setSubmitting(null);
@@ -360,9 +381,11 @@ export function FamilyCard({
       celebrateBonus();
       showToast({
         variant: "bonus",
-        title: `${name ?? "Your kid"}'s annual bonus arrived`,
+        title: name
+          ? t("card.toast.bonus_title.named", { name })
+          : t("card.toast.bonus_title.fallback"),
         countUpUsd: bonusUsd > 0 ? bonusUsd : undefined,
-        subtitle: "year-end yield · sent on chain",
+        subtitle: t("card.toast.bonus_subtitle"),
       });
       onMutated();
     } catch (e: unknown) {
@@ -372,18 +395,15 @@ export function FamilyCard({
         return;
       }
       if (msg.includes("BonusPeriodNotEnded") || msg.includes("PeriodNotEnded"))
-        setError("Annual bonus not ready yet.");
+        setError(t("card.error.bonus_not_ready"));
       else if (
         msg.includes("BonusAlreadyPaid") ||
         msg.includes("BonusAlreadyClaimed")
       )
-        setError("Bonus already distributed for this period.");
+        setError(t("card.error.bonus_already"));
       else if (msg.includes("BelowDustThreshold"))
-        setError(
-          "No yield to distribute yet — the vault hasn't earned enough on Kamino. Try again next month."
-        );
-      else if (msg.includes("VaultPaused"))
-        setError("Vault paused. Try again later.");
+        setError(t("card.error.no_yield"));
+      else if (msg.includes("VaultPaused")) setError(t("card.error.paused"));
       else setError(msg);
     } finally {
       setSubmitting(null);
@@ -394,9 +414,9 @@ export function FamilyCard({
     if (submitting) return;
     if (
       !window.confirm(
-        `Remove ${
-          name ?? "this kid"
-        }? Any remaining USDC will be sent to your wallet, and the on-chain accounts close.`
+        name
+          ? t("card.remove_confirm.named", { name })
+          : t("card.remove_confirm.unnamed")
       )
     )
       return;
@@ -448,8 +468,10 @@ export function FamilyCard({
       removeSavingsGoal(familyKey);
       showToast({
         variant: "info",
-        title: name ? `${name}'s vault is closed` : "vault closed",
-        subtitle: "remaining USDC returned · accounts closed",
+        title: name
+          ? t("card.toast.closed_title.named", { name })
+          : t("card.toast.closed_title.fallback"),
+        subtitle: t("card.toast.closed_subtitle"),
       });
       setClosing(true);
       setTimeout(() => onMutated(), 600);
@@ -525,9 +547,9 @@ export function FamilyCard({
                 setNameDraft(name ?? "");
                 setRenaming(true);
               }}
-              title="click to rename"
+              title={t("card.rename.tooltip")}
             >
-              {name ?? "unnamed"}
+              {name ?? t("card.unnamed")}
             </h2>
           )}
           <div
@@ -545,7 +567,7 @@ export function FamilyCard({
               style={{ padding: 0, fontSize: 10 }}
               onClick={copyKidPubkey}
             >
-              <Copy /> copy
+              <Copy /> {t("generic.copy")}
             </button>
           </div>
         </div>
@@ -564,7 +586,7 @@ export function FamilyCard({
               whiteSpace: "nowrap",
             }}
           >
-            {modeLabel(depositMode)} cadence
+            {t(`mode.${depositMode}.plan` as TranslationKey)}
           </span>
           <span
             className="dash-mono"
@@ -574,7 +596,7 @@ export function FamilyCard({
               whiteSpace: "nowrap",
             }}
           >
-            created {fmtAgo(now - createdAtSec)}
+            {t("card.created_ago", { ago: fmtAgo(now - createdAtSec) })}
           </span>
         </div>
       </div>
@@ -592,22 +614,22 @@ export function FamilyCard({
         }}
       >
         <StatCell
-          label="Stream"
-          value={`$${streamUsd.toFixed(0)}/mo`}
-          sub="usdc"
+          label={t("card.stat.stream")}
+          value={t("card.stat.stream_value", { amount: streamUsd.toFixed(0) })}
+          sub={t("card.stat.stream_sub")}
         />
         <StatCell
-          label="Principal"
+          label={t("card.stat.principal")}
           value={fmtUSD(principalUsd)}
-          sub="locked in vault"
+          sub={t("card.stat.principal_sub")}
         />
         <StatCell
-          label="Shares"
+          label={t("card.stat.shares")}
           value={fmtShares(sharesInt)}
-          sub="of vault total"
+          sub={t("card.stat.shares_sub")}
         />
         <StatCell
-          label="Yield earned"
+          label={t("card.stat.yield")}
           value={fmtUSD(yieldUsd)}
           sub={`+${yieldPct.toFixed(2)}%`}
         />
@@ -627,7 +649,7 @@ export function FamilyCard({
           className="dash-mono"
           style={{ fontSize: 11, color: "var(--ink-3)" }}
         >
-          last paid {fmtAgo(now - lastDistSec)}
+          {t("card.last_paid", { ago: fmtAgo(now - lastDistSec) })}
         </span>
         <span
           style={{
@@ -638,7 +660,7 @@ export function FamilyCard({
           }}
         />
         <button className="dash-btn-link" onClick={shareKidPageLink}>
-          share link
+          {t("card.share_link")}
         </button>
         <span
           style={{
@@ -649,7 +671,7 @@ export function FamilyCard({
           }}
         />
         <button className="dash-btn-link" onClick={copyKidPageLink}>
-          copy link
+          {t("card.copy_link")}
         </button>
         <span
           style={{
@@ -666,7 +688,7 @@ export function FamilyCard({
           rel="noreferrer"
           style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
         >
-          kid&apos;s page <ArrowUR />
+          {t("card.kids_page")} <ArrowUR />
         </a>
       </div>
 
@@ -679,21 +701,47 @@ export function FamilyCard({
           className="dash-btn dash-btn-primary"
           onClick={() => {
             setShowWithdraw(false);
+            setShowPixDeposit(false);
             setShowDeposit((v) => !v);
           }}
           disabled={submitting !== null}
         >
-          <Plus /> deposit
+          <Plus /> {t("card.deposit")}
+        </button>
+        <button
+          className="dash-btn dash-btn-ghost"
+          onClick={() => {
+            setShowDeposit(false);
+            setShowWithdraw(false);
+            setShowPixDeposit((v) => !v);
+          }}
+          disabled={submitting !== null}
+        >
+          <span aria-hidden="true">⚡</span> {t("card.pay_pix")}
         </button>
         <button
           className="dash-btn dash-btn-ghost"
           disabled={family.shares.isZero() || submitting !== null}
           onClick={() => {
             setShowDeposit(false);
+            setShowPixDeposit(false);
+            setShowPixOfframp(false);
             setShowWithdraw((v) => !v);
           }}
         >
-          withdraw
+          {t("card.withdraw")}
+        </button>
+        <button
+          className="dash-btn dash-btn-ghost"
+          disabled={family.shares.isZero() || submitting !== null}
+          onClick={() => {
+            setShowDeposit(false);
+            setShowPixDeposit(false);
+            setShowWithdraw(false);
+            setShowPixOfframp((v) => !v);
+          }}
+        >
+          <span aria-hidden="true">⚡</span> {t("card.withdraw_pix")}
         </button>
         <button
           className={`dash-btn ${
@@ -703,15 +751,19 @@ export function FamilyCard({
           onClick={handleMonthly}
           title={
             monthlyReady
-              ? "send this month's allowance"
-              : `available in ${fmtCountdown(monthlySecondsLeft)}`
+              ? t("card.tip.send_monthly")
+              : t("card.tip.available_in", {
+                  countdown: fmtCountdown(monthlySecondsLeft),
+                })
           }
         >
           {submitting === "monthly"
-            ? "sending…"
+            ? t("card.sending")
             : monthlyReady
-            ? "Send monthly"
-            : `Monthly in ${fmtCountdown(monthlySecondsLeft)}`}
+            ? t("card.send_monthly")
+            : t("card.monthly_in", {
+                countdown: fmtCountdown(monthlySecondsLeft),
+              })}
         </button>
         <button
           className={`dash-btn ${
@@ -721,20 +773,24 @@ export function FamilyCard({
           onClick={handleBonus}
           title={
             bonusReady
-              ? "send the year-end bonus"
+              ? t("card.tip.send_bonus")
               : vaultClock
-              ? `available in ${fmtCountdown(bonusSecondsLeft)}`
-              : "loading…"
+              ? t("card.tip.available_in", {
+                  countdown: fmtCountdown(bonusSecondsLeft),
+                })
+              : t("card.tip.loading")
           }
         >
           <span aria-hidden="true">🎁</span>{" "}
           {submitting === "bonus"
-            ? "sending…"
+            ? t("card.sending")
             : bonusReady
-            ? "Send bonus"
+            ? t("card.send_bonus")
             : vaultClock
-            ? `Bonus in ${fmtCountdown(bonusSecondsLeft)}`
-            : "Bonus in …"}
+            ? t("card.bonus_in", {
+                countdown: fmtCountdown(bonusSecondsLeft),
+              })
+            : t("card.bonus_loading")}
         </button>
       </div>
 
@@ -766,6 +822,20 @@ export function FamilyCard({
         </div>
       )}
 
+      {showPixDeposit && (
+        <div style={{ marginTop: 16 }}>
+          <PixDepositForm
+            parent={parent}
+            family={family}
+            onCancel={() => setShowPixDeposit(false)}
+            onCredited={() => {
+              setShowPixDeposit(false);
+              onMutated();
+            }}
+          />
+        </div>
+      )}
+
       {showWithdraw && (
         <div style={{ marginTop: 16 }}>
           <WithdrawForm
@@ -775,6 +845,21 @@ export function FamilyCard({
             onCancel={() => setShowWithdraw(false)}
             onWithdrawn={() => {
               setShowWithdraw(false);
+              onMutated();
+            }}
+          />
+        </div>
+      )}
+
+      {showPixOfframp && (
+        <div style={{ marginTop: 16 }}>
+          <PixOfframpForm
+            connection={connection}
+            parent={parent}
+            family={family}
+            onCancel={() => setShowPixOfframp(false)}
+            onWithdrawn={() => {
+              setShowPixOfframp(false);
               onMutated();
             }}
           />
@@ -823,7 +908,9 @@ export function FamilyCard({
                     color: "var(--forest-deep)",
                   }}
                 >
-                  {modeLabel(depositMode)} cadence · this month
+                  {t("card.cadence_topup_eyebrow", {
+                    plan: t(`mode.${depositMode}.plan` as TranslationKey),
+                  })}
                 </span>
                 <span
                   className="dash-serif"
@@ -833,7 +920,9 @@ export function FamilyCard({
                     letterSpacing: "-0.005em",
                   }}
                 >
-                  deposit ${expectedDeposit.toFixed(2)} to keep yield growing
+                  {t("card.cadence_topup_title", {
+                    amount: expectedDeposit.toFixed(2),
+                  })}
                 </span>
               </div>
               <button
@@ -844,7 +933,7 @@ export function FamilyCard({
                   setShowDeposit(true);
                 }}
               >
-                + top up
+                {t("card.cadence_topup_cta")}
               </button>
             </div>
           );
@@ -861,7 +950,7 @@ export function FamilyCard({
           }}
         >
           <span className="dash-field-label" style={{ marginBottom: 0 }}>
-            Savings goals
+            {t("card.goals.label")}
           </span>
           <span
             className="dash-mono"
@@ -871,7 +960,7 @@ export function FamilyCard({
               letterSpacing: "0.04em",
             }}
           >
-            {goals.length} active
+            {t("card.goals.active_count", { n: goals.length })}
           </span>
         </div>
         <div className="dash-col">
@@ -906,7 +995,7 @@ export function FamilyCard({
               }}
               onClick={() => setAddingGoal(true)}
             >
-              + add another goal
+              {t("card.goals.add_another")}
             </button>
           )}
         </div>
@@ -929,7 +1018,7 @@ export function FamilyCard({
           onClick={handleRemove}
           disabled={submitting !== null}
         >
-          {submitting === "remove" ? "removing…" : "remove kid"}
+          {submitting === "remove" ? t("card.removing") : t("card.remove_kid")}
         </button>
       </div>
     </article>

@@ -7,6 +7,7 @@ import {
   removeSavingsGoal,
   updateSavingsGoal,
 } from "@/lib/savingsGoals";
+import { useLocale } from "@/lib/i18n";
 import { GOAL_ILLOS, type GoalIlloKey } from "./icons";
 
 type Props = {
@@ -34,6 +35,7 @@ export function GoalRow({
   onEditEnd,
   onChange,
 }: Props) {
+  const { t } = useLocale();
   const [labelDraft, setLabelDraft] = useState(goal.label);
   const [targetDraft, setTargetDraft] = useState(goal.amountUsd.toString());
   const [photoDraft, setPhotoDraft] = useState(goal.photoUrl ?? "");
@@ -83,7 +85,7 @@ export function GoalRow({
   };
 
   const remove = () => {
-    if (window.confirm(`Remove the "${goal.label}" goal?`)) {
+    if (window.confirm(t("goal.delete_confirm", { label: goal.label }))) {
       removeSavingsGoal(familyPubkey, goal.id);
       onChange();
       onEditEnd();
@@ -211,7 +213,7 @@ export function GoalRow({
               letterSpacing: "0.04em",
             }}
           >
-            {Math.round(pct)}% saved
+            {t("goal.pct_saved", { pct: Math.round(pct) })}
           </span>
           <span
             className="dash-mono"
@@ -221,7 +223,7 @@ export function GoalRow({
               letterSpacing: "0.04em",
             }}
           >
-            {editing ? "press enter to save" : "click to edit"}
+            {editing ? t("goal.press_enter") : t("goal.click_to_edit")}
           </span>
         </div>
 
@@ -244,10 +246,10 @@ export function GoalRow({
                 className="dash-btn-link"
               >
                 {uploading
-                  ? "uploading…"
+                  ? t("goal.uploading")
                   : photoDraft
-                  ? "change photo"
-                  : "+ add photo"}
+                  ? t("goal.change_photo")
+                  : t("goal.add_photo")}
               </button>
               {photoDraft && !uploading && (
                 <button
@@ -256,7 +258,7 @@ export function GoalRow({
                   className="dash-btn-link"
                   style={{ color: "var(--ink-3)" }}
                 >
-                  remove photo
+                  {t("goal.remove_photo")}
                 </button>
               )}
               <input
@@ -282,7 +284,7 @@ export function GoalRow({
                 className="dash-btn dash-btn-primary"
                 style={{ fontSize: 12, padding: "8px 12px" }}
               >
-                save
+                {t("goal.save")}
               </button>
               <button
                 type="button"
@@ -290,7 +292,7 @@ export function GoalRow({
                 className="dash-btn dash-btn-quiet"
                 style={{ fontSize: 12 }}
               >
-                cancel
+                {t("goal.cancel")}
               </button>
               <button
                 type="button"
@@ -298,7 +300,7 @@ export function GoalRow({
                 className="dash-btn-link dash-btn-link-danger"
                 style={{ marginLeft: "auto" }}
               >
-                delete this goal
+                {t("goal.delete")}
               </button>
             </div>
           </div>
