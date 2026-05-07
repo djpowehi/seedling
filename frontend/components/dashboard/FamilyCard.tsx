@@ -14,10 +14,10 @@ import {
 } from "@solana/web3.js";
 import type { Connection } from "@solana/web3.js";
 import { useSeedlingWallet } from "@/lib/wallet";
-import { DEVNET_ADDRESSES, PROGRAM_ID } from "@/lib/program";
+import { DEVNET_ADDRESSES, PROGRAM_ID, SPONSOR_WALLET } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { kidViewPda as deriveKidViewPda } from "@/lib/quasarPdas";
-import { sendQuasarIx } from "@/lib/sendQuasarIx";
+import { sendQuasarIxSponsored } from "@/lib/sendQuasarIx";
 import { celebrateBonus, celebrateMonthly } from "@/lib/celebrate";
 import { fetchFamilyByPda } from "@/lib/fetchFamilyByPda";
 import {
@@ -320,10 +320,11 @@ export function FamilyCard({
       const ix = client.createDistributeMonthlyAllowanceInstruction(
         buildSharedDistributeAccounts()
       );
-      const sig = await sendQuasarIx(
+      const sig = await sendQuasarIxSponsored(
         [...distributePreIxs(), ix],
         connection,
         wallet,
+        SPONSOR_WALLET,
         { commitment: "confirmed" }
       );
       console.log(`[distribute_monthly] tx ${sig}`);
@@ -361,10 +362,11 @@ export function FamilyCard({
       const ix = client.createDistributeBonusInstruction(
         buildSharedDistributeAccounts()
       );
-      const sig = await sendQuasarIx(
+      const sig = await sendQuasarIxSponsored(
         [...distributePreIxs(), ix],
         connection,
         wallet,
+        SPONSOR_WALLET,
         { commitment: "confirmed" }
       );
       console.log(`[distribute_bonus] tx ${sig}`);
@@ -451,7 +453,7 @@ export function FamilyCard({
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       });
-      const sig = await sendQuasarIx(
+      const sig = await sendQuasarIxSponsored(
         [
           ComputeBudgetProgram.setComputeUnitLimit({ units: 350_000 }),
           ataIx,
@@ -459,6 +461,7 @@ export function FamilyCard({
         ],
         connection,
         wallet,
+        SPONSOR_WALLET,
         { commitment: "confirmed" }
       );
       // Soft fade-out of the card itself BEFORE removal. localStorage is

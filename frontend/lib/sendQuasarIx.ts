@@ -109,7 +109,7 @@ export async function sendQuasarIx(
  * fee_payer account in the instruction's keys.
  */
 export async function sendQuasarIxSponsored(
-  ix: TransactionInstruction,
+  ixs: TransactionInstruction | TransactionInstruction[],
   connection: Connection,
   wallet: SigningWallet,
   sponsorPubkey: PublicKey,
@@ -119,7 +119,12 @@ export async function sendQuasarIxSponsored(
     throw new Error("Wallet not connected");
   }
 
-  const tx = new Transaction().add(ix);
+  const tx = new Transaction();
+  if (Array.isArray(ixs)) {
+    ixs.forEach((ix) => tx.add(ix));
+  } else {
+    tx.add(ixs);
+  }
   tx.feePayer = sponsorPubkey;
   const { blockhash } = await connection.getLatestBlockhash();
   tx.recentBlockhash = blockhash;
