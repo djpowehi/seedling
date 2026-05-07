@@ -74,6 +74,10 @@ const ALLOWED_HELPER_PROGRAMS = new Set<string>([
 ]);
 
 export const dynamic = "force-dynamic";
+// Vercel default function timeout is 10s on Hobby. Broadcast itself is
+// fast, but `sendRawTransaction` with `skipPreflight: false` simulates
+// first which adds a few seconds — give it headroom.
+export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -200,13 +204,17 @@ export async function POST(req: NextRequest) {
   const sponsorKp = getHotWalletKeypair();
   tx.partialSign(sponsorKp);
 
+  // Broadcast only — don't `confirmTransaction` here. Devnet finalization
+  // takes 15-30s, which exceeds Vercel's serverless function timeout and
+  // returns an empty body to the client (→ "Unexpected end of JSON input"
+  // when the client tries `await res.json()`). The client confirms after
+  // it receives the signature back.
   let signature: string;
   try {
     signature = await connection.sendRawTransaction(tx.serialize(), {
       skipPreflight: false,
       preflightCommitment: "confirmed",
     });
-    await connection.confirmTransaction(signature, "confirmed");
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
