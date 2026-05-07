@@ -60,10 +60,15 @@ const ALLOWED_DISCRIMINATORS = new Set<number>([1, 3, 4, 5, 6, 10, 11]);
 
 // Helper-program IDs that can ride along with the Quasar instruction.
 // Withdraw bundles ComputeBudget + ATA creation; distribute may bundle
-// ComputeBudget. Anything outside this set + Quasar program is rejected.
+// ComputeBudget; payout_kid bundles ATA + Token transfer. Anything
+// outside this set + Quasar program is rejected.
+//
+// SystemProgram deliberately omitted: none of our flows need a top-level
+// SystemProgram instruction (ATA-create CPIs into it internally), and a
+// rogue SystemProgram::transfer with sponsor as `from` would let a
+// malicious parent siphon SOL from the sponsor wallet.
 const ALLOWED_HELPER_PROGRAMS = new Set<string>([
   ComputeBudgetProgram.programId.toBase58(),
-  SystemProgram.programId.toBase58(),
   TOKEN_PROGRAM_ID.toBase58(),
   ASSOCIATED_TOKEN_PROGRAM_ID.toBase58(),
 ]);
@@ -122,19 +127,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Every non-Quasar instruction must target a known helper program. An
-  // unrecognized program in the bundle could siphon SOL or attempt other
-  // mischief — refuse rather than try to enumerate every threat.
-  for (const helper of tx.instructions) {
-    const pid = helper.programId.toBase58();
-    if (pid !== PROGRAM_ID.toBase58() && !ALLOWED_HELPER_PROGRAMS.has(pid)) {
-      return NextResponse.json(
-        { error: `bundled instruction targets non-allowlisted program ${pid}` },
-        { status: 400 }
-      );
-    }
-  }
-
   // ---- validation: fee_payer is our sponsor wallet
   const sponsor = getHotWalletPubkey();
   if (!tx.feePayer || tx.feePayer.toBase58() !== sponsor.toBase58()) {
@@ -142,6 +134,41 @@ export async function POST(req: NextRequest) {
       { error: "fee_payer is not the sponsor wallet" },
       { status: 400 }
     );
+  }
+  const sponsorB58 = sponsor.toBase58();
+  const ataProgramB58 = ASSOCIATED_TOKEN_PROGRAM_ID.toBase58();
+
+  // Every non-Quasar instruction must target a known helper program AND
+  // must not reference the sponsor wallet — except as the rent payer
+  // (slot 0) of an AssociatedToken create-ATA call.
+  //
+  // Why: once we add the sponsor signature at message level, it
+  // authorizes the sponsor in EVERY instruction that lists them. A
+  // rogue Token::transfer with `authority = sponsor` would drain the
+  // hot wallet's USDC. Block sponsor from appearing anywhere except
+  // the one slot we explicitly need them in.
+  for (const helper of tx.instructions) {
+    const pid = helper.programId.toBase58();
+    if (pid === PROGRAM_ID.toBase58()) continue;
+    if (!ALLOWED_HELPER_PROGRAMS.has(pid)) {
+      return NextResponse.json(
+        { error: `bundled instruction targets non-allowlisted program ${pid}` },
+        { status: 400 }
+      );
+    }
+    const isCreateATA = pid === ataProgramB58;
+    for (let i = 0; i < helper.keys.length; i++) {
+      const meta = helper.keys[i];
+      if (meta.pubkey.toBase58() !== sponsorB58) continue;
+      // Sponsor is referenced. Only legal slot: createATA payer (index 0).
+      if (isCreateATA && i === 0) continue;
+      return NextResponse.json(
+        {
+          error: `helper ${pid} references sponsor wallet at slot ${i} — not allowed`,
+        },
+        { status: 400 }
+      );
+    }
   }
 
   // ---- validation: parent's signature already attached
