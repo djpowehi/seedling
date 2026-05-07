@@ -133,6 +133,8 @@ export const ptBR: Translations = {
   "card.remove_kid": "remover filho",
   "card.removing": "removendo…",
   "card.edit_kid": "editar",
+  "card.pix.label": "chave Pix do filho",
+  "card.pix.empty": "+ adicionar chave Pix",
   "card.edit.eyebrow": "editar família",
   "card.edit.close": "fechar ✕",
   "card.edit.name.label": "nome",

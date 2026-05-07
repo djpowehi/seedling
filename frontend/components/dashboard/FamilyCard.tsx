@@ -26,7 +26,12 @@ import {
   removeKidName,
   setKidName,
 } from "@/lib/kidNames";
-import { getKidPixKey, removeKidPixKey, setKidPixKey } from "@/lib/kidPix";
+import {
+  formatPixKeyForDisplay,
+  getKidPixKey,
+  removeKidPixKey,
+  setKidPixKey,
+} from "@/lib/kidPix";
 import { isValidCpf, isValidEmail } from "@/lib/pixProfile";
 import {
   depositForMonth,
@@ -46,7 +51,7 @@ import { DepositForm } from "@/components/DepositForm";
 import { PixDepositForm } from "@/components/PixDepositForm";
 import { PixOfframpForm } from "@/components/PixOfframpForm";
 import { WithdrawForm } from "@/components/WithdrawForm";
-import { ArrowUR, Copy, Plus } from "./icons";
+import { ArrowUR, Plus } from "./icons";
 import { GoalRow } from "./GoalRow";
 import { AddGoalInline } from "./AddGoalInline";
 import { GiftsSection } from "./GiftsSection";
@@ -77,11 +82,6 @@ function fmtUSD(n: number): string {
       maximumFractionDigits: 2,
     })
   );
-}
-
-function truncatePub(pubkey: PublicKey): string {
-  const s = pubkey.toBase58();
-  return s.slice(0, 4) + "…" + s.slice(-4);
 }
 
 // Locale-aware "ago" + "countdown" formatters. Need t() at call site so
@@ -144,6 +144,7 @@ export function FamilyCard({
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
+  const [pixKey, setPixKey] = useState<string | null>(null);
   const renameRef = useRef<HTMLInputElement>(null);
   // Full-edit panel state. Distinct from inline-rename above — that's a
   // quick-tap to fix a typo; this one bundles name + Pix key + monthly
@@ -173,6 +174,7 @@ export function FamilyCard({
   const [depositMode, setLocalDepositMode] = useState<DepositMode>("yearly");
   useEffect(() => {
     setName(getKidName(familyKey));
+    setPixKey(getKidPixKey(familyKey));
     setGoals(getSavingsGoals(familyKey));
     setLocalDepositMode(getDepositMode(familyKey));
   }, [familyKey]);
@@ -218,11 +220,6 @@ export function FamilyCard({
   };
 
   const refreshGoals = () => setGoals(getSavingsGoals(familyKey));
-
-  const copyKidPubkey = async () => {
-    await navigator.clipboard?.writeText(family.kid.toBase58());
-    showToast({ title: t("card.toast.kid_copied") });
-  };
 
   const buildKidPageUrl = () => {
     // Bake the kid's name into the link so the receiving device sees
@@ -504,6 +501,7 @@ export function FamilyCard({
       else removeKidPixKey(familyKey);
 
       setName(trimmedName || null);
+      setPixKey(pixTrimmed || null);
       setEditing(false);
       showToast({
         variant: "monthly",
@@ -666,19 +664,23 @@ export function FamilyCard({
             className="dash-row"
             style={{ alignItems: "center", gap: 8, marginTop: 8 }}
           >
-            <span
-              className="dash-mono"
-              style={{ fontSize: 11, color: "var(--ink-3)" }}
-            >
-              {truncatePub(family.kid)}
-            </span>
-            <button
-              className="dash-btn-link"
-              style={{ padding: 0, fontSize: 10 }}
-              onClick={copyKidPubkey}
-            >
-              <Copy /> {t("generic.copy")}
-            </button>
+            {pixKey ? (
+              <span
+                className="dash-mono"
+                style={{ fontSize: 11, color: "var(--ink-3)" }}
+                title={t("card.pix.label")}
+              >
+                ⚡ {formatPixKeyForDisplay(pixKey)}
+              </span>
+            ) : (
+              <button
+                className="dash-btn-link"
+                style={{ padding: 0, fontSize: 11, color: "var(--ink-3)" }}
+                onClick={openEdit}
+              >
+                {t("card.pix.empty")}
+              </button>
+            )}
           </div>
         </div>
         <div className="dash-col" style={{ alignItems: "flex-end", gap: 6 }}>

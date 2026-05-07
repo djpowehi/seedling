@@ -56,3 +56,40 @@ export function removeKidPixKey(familyPubkey: string): void {
   delete map[familyPubkey];
   write(map);
 }
+
+/** Detected Pix-key kind. Used to decide which display formatter applies. */
+export type PixKeyKind = "cpf" | "email" | "phone" | "unknown";
+
+export function detectPixKeyKind(raw: string): PixKeyKind {
+  const trimmed = raw.trim();
+  if (trimmed.includes("@")) return "email";
+  if (trimmed.startsWith("+")) return "phone";
+  // No @ and no + — treat as CPF if it's 11 digits after stripping mask.
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length === 11) return "cpf";
+  return "unknown";
+}
+
+/** Render a Pix key for display: format CPFs as XXX.XXX.XXX-XX, leave
+ *  emails and phones as-is. Truncate long emails so they don't blow
+ *  the card layout. */
+export function formatPixKeyForDisplay(raw: string): string {
+  const trimmed = raw.trim();
+  switch (detectPixKeyKind(trimmed)) {
+    case "cpf": {
+      const digits = trimmed.replace(/\D/g, "");
+      // Reuse existing formatter via dynamic import path — the inline
+      // version is identical to formatCpfForDisplay in pixProfile.ts.
+      return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(
+        6,
+        9
+      )}-${digits.slice(9)}`;
+    }
+    case "email":
+      return trimmed.length > 28 ? trimmed.slice(0, 25) + "…" : trimmed;
+    case "phone":
+      return trimmed;
+    default:
+      return trimmed;
+  }
+}

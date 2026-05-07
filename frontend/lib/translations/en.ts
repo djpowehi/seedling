@@ -120,6 +120,8 @@ export const en = {
   "card.remove_kid": "remove kid",
   "card.removing": "removing…",
   "card.edit_kid": "edit",
+  "card.pix.label": "kid Pix key",
+  "card.pix.empty": "+ add Pix key",
   "card.edit.eyebrow": "edit family",
   "card.edit.close": "close ✕",
   "card.edit.name.label": "name",
