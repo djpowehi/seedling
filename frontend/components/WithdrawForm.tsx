@@ -132,7 +132,7 @@ export function WithdrawForm({
       );
 
       const ataIx = createAssociatedTokenAccountIdempotentInstruction(
-        parent,
+        SPONSOR_WALLET,
         parentUsdcAta,
         parent,
         DEVNET_ADDRESSES.usdcMint

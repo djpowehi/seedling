@@ -208,20 +208,21 @@ export function PixOfframpForm({
       // + kid_pool ATA all exist. createATA can be called with payer ≠
       // owner — payer just covers rent. kid_pool ATA might also have been
       // created during the first distribute_*; this is the safety net.
+      // Sponsor pays for all three ATA rents. Parent has no SOL.
       const parentAtaIx = createAssociatedTokenAccountIdempotentInstruction(
-        parent,
+        SPONSOR_WALLET,
         parentUsdcAta,
         parent,
         DEVNET_ADDRESSES.usdcMint
       );
       const receiverAtaIx = createAssociatedTokenAccountIdempotentInstruction(
-        parent,
+        SPONSOR_WALLET,
         receiverUsdcAta,
         receiverWallet,
         DEVNET_ADDRESSES.usdcMint
       );
       const kidPoolAtaIx = createAssociatedTokenAccountIdempotentInstruction(
-        parent,
+        SPONSOR_WALLET,
         kidPoolAta,
         family.pubkey,
         DEVNET_ADDRESSES.usdcMint
