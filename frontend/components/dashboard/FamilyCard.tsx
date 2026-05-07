@@ -306,8 +306,11 @@ export function FamilyCard({
     );
     return [
       ComputeBudgetProgram.setComputeUnitLimit({ units: 350_000 }),
+      // Sponsor pays the ATA rent (~$0.20). Parent wallet has 0 SOL by
+      // design — Solana would otherwise reject the inner SystemProgram
+      // transfer with "insufficient lamports".
       createAssociatedTokenAccountIdempotentInstruction(
-        parent,
+        SPONSOR_WALLET,
         kidPoolAta,
         family.pubkey,
         DEVNET_ADDRESSES.usdcMint
@@ -435,7 +438,7 @@ export function FamilyCard({
       );
       const kidView = deriveKidViewPda(parent, family.kid);
       const ataIx = createAssociatedTokenAccountIdempotentInstruction(
-        parent,
+        SPONSOR_WALLET,
         parentUsdcAta,
         parent,
         DEVNET_ADDRESSES.usdcMint
