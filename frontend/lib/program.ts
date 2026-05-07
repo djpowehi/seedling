@@ -52,6 +52,14 @@ export const DEVNET_ADDRESSES = {
   oraclePyth: new PublicKey("Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX"),
 };
 
+// Sponsor wallet that pays rent + tx fees for users without SOL (Privy
+// embedded wallets, all create_family relays). Pubkey is public-safe;
+// the corresponding secret lives only in server env (SEEDLING_HOT_WALLET_*).
+// Kept in sync with .env.local SEEDLING_HOT_WALLET_PUBKEY.
+export const SPONSOR_WALLET = new PublicKey(
+  "53Jn8XAG9nhkekz6NP2a4qYWcGxJBBoDqLJMUvHkKyc4"
+);
+
 export function getProgram(provider: AnchorProvider): Program<Seedling> {
   return new Program(idl as Idl, provider) as unknown as Program<Seedling>;
 }

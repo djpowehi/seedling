@@ -1,11 +1,12 @@
 "use client";
 
 import { PublicKey, SystemProgram } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useSeedlingWallet } from "@/lib/wallet";
 import { useEffect, useRef, useState } from "react";
 import type { Connection } from "@solana/web3.js";
 import { celebratePlant } from "@/lib/celebrate";
 import { setKidName } from "@/lib/kidNames";
+import { SPONSOR_WALLET } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { useToast } from "@/components/Toast";
 import {
@@ -13,7 +14,7 @@ import {
   kidViewPda,
   vaultConfigPda,
 } from "@/lib/quasarPdas";
-import { sendQuasarIx } from "@/lib/sendQuasarIx";
+import { sendQuasarIxSponsored } from "@/lib/sendQuasarIx";
 import {
   defaultHybridConfig,
   estimatedAnnualYield,
@@ -41,7 +42,7 @@ type Props = {
 };
 
 export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
-  const wallet = useWallet();
+  const wallet = useSeedlingWallet();
   const { showToast } = useToast();
   const { t, locale } = useLocale();
   // Section ref so the planting confetti fires FROM the form's location
@@ -176,6 +177,7 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
       const kidViewAddr = kidViewPda(parent, parsedKid);
 
       const ix = client.createCreateFamilyInstruction({
+        feePayer: SPONSOR_WALLET,
         parent,
         vaultConfig: vaultConfigPda(),
         familyPosition: familyPda,
@@ -184,9 +186,13 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
         kid: parsedKid,
         streamRate: BigInt(streamRateBaseUnits),
       });
-      const sig = await sendQuasarIx(ix, connection, wallet, {
-        commitment: "confirmed",
-      });
+      const sig = await sendQuasarIxSponsored(
+        ix,
+        connection,
+        wallet,
+        SPONSOR_WALLET,
+        { commitment: "confirmed" }
+      );
       if (nameInput.trim()) {
         setKidName(familyPda.toBase58(), nameInput);
       }
