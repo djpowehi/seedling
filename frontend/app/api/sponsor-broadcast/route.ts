@@ -1,4 +1,4 @@
-// Sponsor relayer for create_family.
+// Sponsor relayer for parent-signed actions (create_family, distribute, etc.).
 //
 // Why this exists: parents who sign in via Privy email/Google have no
 // SOL on their embedded wallet. Solana requires rent-exempt lamports
