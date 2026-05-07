@@ -176,14 +176,22 @@ export function PixOfframpForm({
         setEditingProfile(false);
       }
 
-      // 2. Build the combined transaction — withdraw + transfer to 4P.
-      const sharesToBurn = BigInt(json.sharesToBurn);
+      // 2. Build the combined transaction — payout_kid + transfer to 4P.
+      // v3: source is the kid_pool (family-PDA-owned ATA), not the vault.
+      // Parent doesn't burn shares — they move USDC that the family vault
+      // already distributed to the kid pool via distribute_monthly/bonus.
       const minAssetsOut = BigInt(json.minAssetsOut);
       const amountBaseUnits = minAssetsOut; // exact requested amount
 
       const parentUsdcAta = getAssociatedTokenAddressSync(
         DEVNET_ADDRESSES.usdcMint,
         parent
+      );
+
+      const kidPoolAta = getAssociatedTokenAddressSync(
+        DEVNET_ADDRESSES.usdcMint,
+        family.pubkey,
+        true // family_position is a PDA — allow off-curve owner
       );
 
       const receiverWallet = new PublicKey(json.receiverWallet);
@@ -196,14 +204,10 @@ export function PixOfframpForm({
         true
       );
 
-      const [lendingMarketAuthority] = PublicKey.findProgramAddressSync(
-        [Buffer.from("lma"), DEVNET_ADDRESSES.kaminoMarket.toBuffer()],
-        DEVNET_ADDRESSES.klendProgram
-      );
-
-      // Idempotent ATA-creates: ensure both parent's USDC ATA and 4P's
-      // USDC ATA exist before the transfer. createAssociatedTokenAccount
-      // can be called with payer ≠ owner — payer just covers rent.
+      // Idempotent ATA-creates: ensure parent's USDC ATA + 4P receiver ATA
+      // + kid_pool ATA all exist. createATA can be called with payer ≠
+      // owner — payer just covers rent. kid_pool ATA might also have been
+      // created during the first distribute_*; this is the safety net.
       const parentAtaIx = createAssociatedTokenAccountIdempotentInstruction(
         parent,
         parentUsdcAta,
@@ -216,31 +220,23 @@ export function PixOfframpForm({
         receiverWallet,
         DEVNET_ADDRESSES.usdcMint
       );
-
-      const withdrawIx = client.createWithdrawInstruction({
-        familyPosition: family.pubkey,
+      const kidPoolAtaIx = createAssociatedTokenAccountIdempotentInstruction(
         parent,
-        parentUsdcAta,
-        vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
-        vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
-        treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
+        kidPoolAta,
+        family.pubkey,
+        DEVNET_ADDRESSES.usdcMint
+      );
+
+      const payoutIx = client.createPayoutKidInstruction({
+        feePayer: SPONSOR_WALLET,
+        parent,
+        familyPosition: family.pubkey,
+        kidPoolAta,
+        destinationAta: parentUsdcAta,
         vaultConfig: DEVNET_ADDRESSES.vaultConfig,
         usdcMint: DEVNET_ADDRESSES.usdcMint,
-        ctokenMint: DEVNET_ADDRESSES.ctokenMint,
-        kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
-        lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
-        lendingMarketAuthority,
-        reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
-        oraclePyth: DEVNET_ADDRESSES.oraclePyth,
-        oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
-        oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
-        oracleScopeConfig: DEVNET_ADDRESSES.klendProgram,
-        kaminoProgram: DEVNET_ADDRESSES.klendProgram,
-        instructionSysvar: SYSVAR_INSTRUCTIONS,
         tokenProgram: TOKEN_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-        sharesToBurn,
-        minAssetsOut,
+        amount: amountBaseUnits,
       });
 
       const transferIx = createTransferCheckedInstruction(
@@ -254,10 +250,11 @@ export function PixOfframpForm({
 
       const sig = await sendQuasarIxSponsored(
         [
-          ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 }),
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
           parentAtaIx,
           receiverAtaIx,
-          withdrawIx,
+          kidPoolAtaIx,
+          payoutIx,
           transferIx,
         ],
         connection,

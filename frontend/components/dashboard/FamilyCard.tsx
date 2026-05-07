@@ -274,16 +274,18 @@ export function FamilyCard({
 
   const buildSharedDistributeAccounts = () => {
     const kidView = deriveKidViewPda(parent, family.kid);
-    const kidUsdcAta = getAssociatedTokenAddressSync(
+    // v3: kid pool ATA is owned by the family_position PDA, not the kid.
+    // allowOwnerOffCurve=true because family_position is a PDA (off-curve).
+    const kidPoolAta = getAssociatedTokenAddressSync(
       DEVNET_ADDRESSES.usdcMint,
-      family.kid
+      family.pubkey,
+      true
     );
     return {
       keeper: parent,
       familyPosition: family.pubkey,
       kidView,
-      kidUsdcAta,
-      kidOwner: family.kid,
+      kidPoolAta,
       vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
       vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
       treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
@@ -297,16 +299,17 @@ export function FamilyCard({
   };
 
   const distributePreIxs = () => {
-    const kidUsdcAta = getAssociatedTokenAddressSync(
+    const kidPoolAta = getAssociatedTokenAddressSync(
       DEVNET_ADDRESSES.usdcMint,
-      family.kid
+      family.pubkey,
+      true
     );
     return [
       ComputeBudgetProgram.setComputeUnitLimit({ units: 350_000 }),
       createAssociatedTokenAccountIdempotentInstruction(
         parent,
-        kidUsdcAta,
-        family.kid,
+        kidPoolAta,
+        family.pubkey,
         DEVNET_ADDRESSES.usdcMint
       ),
     ];

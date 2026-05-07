@@ -52,6 +52,7 @@ export const SET_FAMILY_LAST_DISTRIBUTION_INSTRUCTION_DISCRIMINATOR =
   new Uint8Array([7]);
 export const ROLL_PERIOD_INSTRUCTION_DISCRIMINATOR = new Uint8Array([8]);
 export const SET_PAUSED_INSTRUCTION_DISCRIMINATOR = new Uint8Array([9]);
+export const PAYOUT_KID_INSTRUCTION_DISCRIMINATOR = new Uint8Array([10]);
 
 /* Manually emitted (Quasar codegen bug — composite arg structs aren't
  * auto-generated). Mirrors InitializeVaultArgs in initialize_vault.rs. */
@@ -292,8 +293,8 @@ export interface DistributeMonthlyAllowanceInstructionInput {
   keeper: Address;
   familyPosition: Address;
   kidView: Address;
-  kidUsdcAta: Address;
-  kidOwner: Address;
+  /** Family-PDA-owned USDC pool. v3 cutover: replaces kidUsdcAta. */
+  kidPoolAta: Address;
   vaultUsdcAta: Address;
   vaultCtokenAta: Address;
   treasuryUsdcAta: Address;
@@ -318,8 +319,8 @@ export interface DistributeBonusInstructionInput {
   keeper: Address;
   familyPosition: Address;
   kidView: Address;
-  kidUsdcAta: Address;
-  kidOwner: Address;
+  /** Family-PDA-owned USDC pool. v3 cutover: replaces kidUsdcAta. */
+  kidPoolAta: Address;
   vaultUsdcAta: Address;
   vaultCtokenAta: Address;
   treasuryUsdcAta: Address;
@@ -382,6 +383,20 @@ export interface SetPausedInstructionInput {
   vaultConfig: Address;
   authority: Address;
   paused: boolean;
+}
+
+export interface PayoutKidInstructionInput {
+  feePayer: Address;
+  parent: Address;
+  familyPosition: Address;
+  /** Family-PDA-owned USDC pool that holds distributed allowance. */
+  kidPoolAta: Address;
+  /** Where the USDC lands. Program enforces destinationAta.owner == parent. */
+  destinationAta: Address;
+  vaultConfig: Address;
+  usdcMint: Address;
+  tokenProgram: Address;
+  amount: bigint;
 }
 
 /* Codecs */
@@ -920,8 +935,7 @@ export class SeedlingQuasarClient {
         { pubkey: input.keeper, isSigner: true, isWritable: true },
         { pubkey: input.familyPosition, isSigner: false, isWritable: true },
         { pubkey: input.kidView, isSigner: false, isWritable: false },
-        { pubkey: input.kidUsdcAta, isSigner: false, isWritable: true },
-        { pubkey: input.kidOwner, isSigner: false, isWritable: false },
+        { pubkey: input.kidPoolAta, isSigner: false, isWritable: true },
         { pubkey: input.vaultUsdcAta, isSigner: false, isWritable: true },
         { pubkey: input.vaultCtokenAta, isSigner: false, isWritable: true },
         { pubkey: input.treasuryUsdcAta, isSigner: false, isWritable: true },
@@ -980,8 +994,7 @@ export class SeedlingQuasarClient {
         { pubkey: input.keeper, isSigner: true, isWritable: true },
         { pubkey: input.familyPosition, isSigner: false, isWritable: true },
         { pubkey: input.kidView, isSigner: false, isWritable: false },
-        { pubkey: input.kidUsdcAta, isSigner: false, isWritable: true },
-        { pubkey: input.kidOwner, isSigner: false, isWritable: false },
+        { pubkey: input.kidPoolAta, isSigner: false, isWritable: true },
         { pubkey: input.vaultUsdcAta, isSigner: false, isWritable: true },
         { pubkey: input.vaultCtokenAta, isSigner: false, isWritable: true },
         { pubkey: input.treasuryUsdcAta, isSigner: false, isWritable: true },
@@ -1139,6 +1152,30 @@ export class SeedlingQuasarClient {
       data,
     });
   }
+
+  createPayoutKidInstruction(
+    input: PayoutKidInstructionInput
+  ): TransactionInstruction {
+    const argsCodec = getStructCodec([["amount", getU64Codec()]]);
+    const data = Buffer.from([
+      10,
+      ...argsCodec.encode({ amount: input.amount }),
+    ]);
+    return new TransactionInstruction({
+      programId: SeedlingQuasarClient.programId,
+      keys: [
+        { pubkey: input.feePayer, isSigner: true, isWritable: true },
+        { pubkey: input.parent, isSigner: true, isWritable: false },
+        { pubkey: input.familyPosition, isSigner: false, isWritable: false },
+        { pubkey: input.kidPoolAta, isSigner: false, isWritable: true },
+        { pubkey: input.destinationAta, isSigner: false, isWritable: true },
+        { pubkey: input.vaultConfig, isSigner: false, isWritable: false },
+        { pubkey: input.usdcMint, isSigner: false, isWritable: false },
+        { pubkey: input.tokenProgram, isSigner: false, isWritable: false },
+      ],
+      data,
+    });
+  }
 }
 
 /* Errors */
@@ -1165,4 +1202,5 @@ export const PROGRAM_ERRORS: Record<number, { name: string; msg?: string }> = {
   19: { name: "InvalidKaminoAccount" },
   20: { name: "InvalidOracle" },
   21: { name: "BelowDustThreshold" },
+  22: { name: "InsufficientFunds" },
 };

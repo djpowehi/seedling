@@ -218,6 +218,11 @@ export const en = {
   "add_kid.kid_pubkey.placeholder": "e.g. 7xKX...J9pQ",
   "add_kid.kid_pubkey.invalid": "not a valid Solana address",
   "add_kid.kid_pubkey.duplicate": "you already have a seedling for this kid",
+  "add_kid.pix_key.label": "kid Pix key",
+  "add_kid.pix_key.optional": "(optional · for payouts)",
+  "add_kid.pix_key.placeholder": "CPF, phone, or email",
+  "add_kid.pix_key.hint":
+    "where allowance arrives when you send it. yours if the kid doesn't have a Pix key yet.",
   "add_kid.monthly.label": "monthly · USDC · min ${min}",
   // Only rendered in PT-BR mode (Brazilian users read "$" as R$ by
   // reflex). Kept as an EN key so the type-check stays in lockstep.

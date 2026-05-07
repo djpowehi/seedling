@@ -10,12 +10,12 @@
 import { PublicKey } from "@solana/web3.js";
 import { PROGRAM_ID } from "./program";
 
-// All v2 seeds — the canonical program address has stale Anchor-format
-// data at the v1 PDAs (vault_config, family, kid_view) from the original
-// Anchor deployment. v2 gives us fresh PDAs at the same canonical
-// program ID without needing a centralized force-close instruction.
-const FAMILY_SEED = Buffer.from("family_v2");
-const KID_SEED = Buffer.from("kid_v2");
+// v3 cutover (2026-05-06): kid pubkey is no longer a wallet — it's a
+// random 32-byte client-generated identifier. The family vault custodies
+// kid USDC via a PDA-owned token account (kid_pool_ata). v2 PDAs are
+// abandoned. VaultConfig stays at v2 since its struct hasn't changed.
+const FAMILY_SEED = Buffer.from("family_v3");
+const KID_SEED = Buffer.from("kid_v3");
 const VAULT_CONFIG_SEED = Buffer.from("vault_config_v2");
 
 export function vaultConfigPda(programId: PublicKey = PROGRAM_ID) {
