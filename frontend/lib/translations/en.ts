@@ -223,6 +223,9 @@ export const en = {
   "add_kid.pix_key.placeholder": "CPF, phone, or email",
   "add_kid.pix_key.hint":
     "where allowance arrives when you send it. yours if the kid doesn't have a Pix key yet.",
+  "add_kid.pix_key.error.cpf": "not a valid CPF",
+  "add_kid.pix_key.error.email": "not a valid email",
+  "add_kid.pix_key.error.phone": "phone must be E.164 (e.g. +5511999998888)",
   "add_kid.monthly.label": "monthly · USDC · min ${min}",
   // Only rendered in PT-BR mode (Brazilian users read "$" as R$ by
   // reflex). Kept as an EN key so the type-check stays in lockstep.
