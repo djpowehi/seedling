@@ -26,6 +26,8 @@ import {
   removeKidName,
   setKidName,
 } from "@/lib/kidNames";
+import { getKidPixKey, removeKidPixKey, setKidPixKey } from "@/lib/kidPix";
+import { isValidCpf, isValidEmail } from "@/lib/pixProfile";
 import {
   depositForMonth,
   getDepositMode,
@@ -143,6 +145,14 @@ export function FamilyCard({
   const [name, setName] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const renameRef = useRef<HTMLInputElement>(null);
+  // Full-edit panel state. Distinct from inline-rename above — that's a
+  // quick-tap to fix a typo; this one bundles name + Pix key + monthly
+  // (which involves an on-chain `set_stream_rate` tx).
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPix, setEditPix] = useState("");
+  const [editMonthly, setEditMonthly] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
   // Once true, the card animates out (opacity + scale) before we call
   // onMutated() to remove it from the parent's list. Reads as "this kid's
   // chapter is closing" instead of a hard pop.
@@ -155,7 +165,7 @@ export function FamilyCard({
   const [addingGoal, setAddingGoal] = useState(false);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [submitting, setSubmitting] = useState<
-    "monthly" | "bonus" | "remove" | null
+    "monthly" | "bonus" | "remove" | "edit" | null
   >(null);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
@@ -413,6 +423,97 @@ export function FamilyCard({
         setError(t("card.error.no_yield"));
       else if (msg.includes("VaultPaused")) setError(t("card.error.paused"));
       else setError(msg);
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const openEdit = () => {
+    setEditName(name ?? "");
+    setEditPix(getKidPixKey(familyKey) ?? "");
+    setEditMonthly(
+      (Number(family.streamRate.toString()) / 1_000_000).toFixed(0)
+    );
+    setEditError(null);
+    setEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (submitting) return;
+
+    // Validate Pix key (if non-empty). Mirrors AddKidForm logic — same
+    // detector + same validators.
+    const pixTrimmed = editPix.trim();
+    if (pixTrimmed.length > 0) {
+      let pixOk = true;
+      if (pixTrimmed.includes("@")) pixOk = isValidEmail(pixTrimmed);
+      else if (pixTrimmed.startsWith("+")) {
+        const digits = pixTrimmed.slice(1).replace(/\D/g, "");
+        pixOk = digits.length >= 10 && digits.length <= 15;
+      } else {
+        pixOk = isValidCpf(pixTrimmed);
+      }
+      if (!pixOk) {
+        setEditError(t("card.edit.error.pix"));
+        return;
+      }
+    }
+
+    // Validate monthly (required, in [1, 100_000]).
+    const monthlyNum = parseFloat(editMonthly);
+    if (
+      !Number.isFinite(monthlyNum) ||
+      monthlyNum < 1 ||
+      monthlyNum > 100_000
+    ) {
+      setEditError(t("card.edit.error.monthly"));
+      return;
+    }
+
+    setEditError(null);
+    setSubmitting("edit");
+
+    try {
+      // 1. On-chain update if monthly changed.
+      const newRateBaseUnits = BigInt(Math.round(monthlyNum * 1_000_000));
+      const currentRateBaseUnits = BigInt(family.streamRate.toString());
+      if (newRateBaseUnits !== currentRateBaseUnits) {
+        const ix = client.createSetStreamRateInstruction({
+          feePayer: SPONSOR_WALLET,
+          parent,
+          familyPosition: family.pubkey,
+          vaultConfig: DEVNET_ADDRESSES.vaultConfig,
+          newStreamRate: newRateBaseUnits,
+        });
+        const sig = await sendQuasarIxSponsored(
+          ix,
+          connection,
+          wallet,
+          SPONSOR_WALLET,
+          { commitment: "confirmed" }
+        );
+        console.log(`[set_stream_rate] tx ${sig}`);
+      }
+
+      // 2. Off-chain updates (idempotent — safe to call even if unchanged).
+      const trimmedName = editName.trim();
+      if (trimmedName) setKidName(familyKey, trimmedName);
+      else removeKidName(familyKey);
+
+      if (pixTrimmed) setKidPixKey(familyKey, pixTrimmed);
+      else removeKidPixKey(familyKey);
+
+      setName(trimmedName || null);
+      setEditing(false);
+      showToast({
+        variant: "monthly",
+        title: t("card.edit.toast.title"),
+        subtitle: t("card.edit.toast.subtitle"),
+      });
+      onMutated();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setEditError(msg);
     } finally {
       setSubmitting(null);
     }
@@ -1017,11 +1118,127 @@ export function FamilyCard({
         connection={connection}
       />
 
-      {/* Remove */}
+      {/* Edit panel */}
+      {editing && (
+        <div
+          className="dash-card"
+          style={{
+            marginTop: 24,
+            padding: "24px 28px",
+            background: "var(--stone-2)",
+          }}
+        >
+          <div
+            className="dash-row"
+            style={{
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 18,
+            }}
+          >
+            <span className="dash-eyebrow">
+              <span className="rule" /> {t("card.edit.eyebrow")}
+            </span>
+            <button
+              className="dash-btn-link"
+              onClick={() => {
+                setEditing(false);
+                setEditError(null);
+              }}
+            >
+              {t("card.edit.close")}
+            </button>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: 16,
+            }}
+          >
+            <div className="dash-col">
+              <label className="dash-field-label">
+                {t("card.edit.name.label")}
+              </label>
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder={t("card.edit.name.placeholder")}
+              />
+            </div>
+            <div className="dash-col">
+              <label className="dash-field-label">
+                {t("card.edit.pix.label")}
+              </label>
+              <input
+                className="dash-mono-input"
+                value={editPix}
+                onChange={(e) => setEditPix(e.target.value)}
+                placeholder={t("card.edit.pix.placeholder")}
+              />
+            </div>
+            <div className="dash-col">
+              <label className="dash-field-label">
+                {t("card.edit.monthly.label")}
+              </label>
+              <input
+                className="dash-mono-input"
+                type="number"
+                min={1}
+                max={100_000}
+                value={editMonthly}
+                onChange={(e) => setEditMonthly(e.target.value)}
+              />
+            </div>
+          </div>
+          {editError && (
+            <span
+              className="dash-mono"
+              style={{
+                fontSize: 11,
+                color: "var(--rose)",
+                marginTop: 12,
+                display: "block",
+              }}
+            >
+              {editError}
+            </span>
+          )}
+          <div
+            className="dash-row"
+            style={{ justifyContent: "flex-end", gap: 12, marginTop: 18 }}
+          >
+            <button
+              className="dash-btn dash-btn-primary"
+              onClick={handleSaveEdit}
+              disabled={submitting !== null}
+            >
+              {submitting === "edit"
+                ? t("card.edit.saving")
+                : t("card.edit.save")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit + Remove */}
       <div
         className="dash-row"
-        style={{ marginTop: 28, justifyContent: "flex-end" }}
+        style={{
+          marginTop: 28,
+          justifyContent: "flex-end",
+          gap: 16,
+        }}
       >
+        {!editing && (
+          <button
+            className="dash-btn-link"
+            onClick={openEdit}
+            disabled={submitting !== null}
+          >
+            {t("card.edit_kid")}
+          </button>
+        )}
         <button
           className="dash-btn-link dash-btn-link-danger"
           onClick={handleRemove}

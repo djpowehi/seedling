@@ -53,6 +53,7 @@ export const SET_FAMILY_LAST_DISTRIBUTION_INSTRUCTION_DISCRIMINATOR =
 export const ROLL_PERIOD_INSTRUCTION_DISCRIMINATOR = new Uint8Array([8]);
 export const SET_PAUSED_INSTRUCTION_DISCRIMINATOR = new Uint8Array([9]);
 export const PAYOUT_KID_INSTRUCTION_DISCRIMINATOR = new Uint8Array([10]);
+export const SET_STREAM_RATE_INSTRUCTION_DISCRIMINATOR = new Uint8Array([11]);
 
 /* Manually emitted (Quasar codegen bug — composite arg structs aren't
  * auto-generated). Mirrors InitializeVaultArgs in initialize_vault.rs. */
@@ -397,6 +398,14 @@ export interface PayoutKidInstructionInput {
   usdcMint: Address;
   tokenProgram: Address;
   amount: bigint;
+}
+
+export interface SetStreamRateInstructionInput {
+  feePayer: Address;
+  parent: Address;
+  familyPosition: Address;
+  vaultConfig: Address;
+  newStreamRate: bigint;
 }
 
 /* Codecs */
@@ -1172,6 +1181,26 @@ export class SeedlingQuasarClient {
         { pubkey: input.vaultConfig, isSigner: false, isWritable: false },
         { pubkey: input.usdcMint, isSigner: false, isWritable: false },
         { pubkey: input.tokenProgram, isSigner: false, isWritable: false },
+      ],
+      data,
+    });
+  }
+
+  createSetStreamRateInstruction(
+    input: SetStreamRateInstructionInput
+  ): TransactionInstruction {
+    const argsCodec = getStructCodec([["newStreamRate", getU64Codec()]]);
+    const data = Buffer.from([
+      11,
+      ...argsCodec.encode({ newStreamRate: input.newStreamRate }),
+    ]);
+    return new TransactionInstruction({
+      programId: SeedlingQuasarClient.programId,
+      keys: [
+        { pubkey: input.feePayer, isSigner: true, isWritable: true },
+        { pubkey: input.parent, isSigner: true, isWritable: false },
+        { pubkey: input.familyPosition, isSigner: false, isWritable: true },
+        { pubkey: input.vaultConfig, isSigner: false, isWritable: false },
       ],
       data,
     });

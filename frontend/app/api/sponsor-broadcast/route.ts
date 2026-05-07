@@ -50,12 +50,13 @@ import { DEVNET_RPC, PROGRAM_ID } from "@/lib/program";
 //   10 = payout_kid      (parent-custody v3 — moves USDC from kid_pool
 //                         to parent's USDC ATA; destination ownership
 //                         enforced program-side)
+//   11 = set_stream_rate (parent edits the family's monthly amount)
 //
 // Deposit (2) deliberately not here — Privy users deposit via Pix only,
 // which is server-signed by the hot wallet directly through the 4P
 // webhook handler. Letting the client request a deposit relay would
 // open a vector for billing the sponsor for arbitrary value transfers.
-const ALLOWED_DISCRIMINATORS = new Set<number>([1, 3, 4, 5, 6, 10]);
+const ALLOWED_DISCRIMINATORS = new Set<number>([1, 3, 4, 5, 6, 10, 11]);
 
 // Helper-program IDs that can ride along with the Quasar instruction.
 // Withdraw bundles ComputeBudget + ATA creation; distribute may bundle
