@@ -2,11 +2,32 @@
 
 import {
   Connection,
+  PublicKey,
   Transaction,
   TransactionInstruction,
+  VersionedTransaction,
 } from "@solana/web3.js";
-import type { WalletContextState } from "@solana/wallet-adapter-react";
 import { PROGRAM_ERRORS } from "./quasar-client";
+
+// Wallet shape sendQuasarIx needs — kept local so this module isn't tied
+// to any specific wallet provider (used to depend on wallet-adapter's
+// WalletContextState; now satisfied by `useSeedlingWallet()`).
+type SendingWallet = {
+  publicKey: PublicKey | null;
+  sendTransaction: (
+    tx: Transaction | VersionedTransaction,
+    connection: Connection
+  ) => Promise<string>;
+};
+
+// Wallet shape for the sponsored relay path — needs sign-only (no
+// broadcast). Server adds the sponsor signature and broadcasts.
+type SigningWallet = {
+  publicKey: PublicKey | null;
+  signTransaction: <T extends Transaction | VersionedTransaction>(
+    tx: T
+  ) => Promise<T>;
+};
 
 /**
  * Wrap a Quasar TransactionInstruction in a Transaction, send via the
@@ -20,7 +41,7 @@ import { PROGRAM_ERRORS } from "./quasar-client";
 export async function sendQuasarIx(
   ixs: TransactionInstruction | TransactionInstruction[],
   connection: Connection,
-  wallet: Pick<WalletContextState, "publicKey" | "sendTransaction">,
+  wallet: SendingWallet,
   opts: { commitment?: "confirmed" | "finalized" } = {}
 ): Promise<string> {
   if (!wallet.publicKey || !wallet.sendTransaction) {
@@ -72,6 +93,70 @@ export async function sendQuasarIx(
   }
   await connection.confirmTransaction(sig, opts.commitment ?? "finalized");
   return sig;
+}
+
+/**
+ * Sponsored relay variant: instead of having the user pay rent + gas,
+ * we set the fee_payer to a sponsor wallet, the user signs as parent,
+ * and the server adds the sponsor signature and broadcasts.
+ *
+ * Use for any tx the user can't pay for themselves (Privy embedded
+ * wallets with no SOL). For now the relay only accepts `create_family`
+ * — extend the server allowlist before adding more instructions here.
+ *
+ * The caller passes `sponsorPubkey` so this helper doesn't need to
+ * import server-only env. It's also forwarded to the program's
+ * fee_payer account in the instruction's keys.
+ */
+export async function sendQuasarIxSponsored(
+  ixs: TransactionInstruction | TransactionInstruction[],
+  connection: Connection,
+  wallet: SigningWallet,
+  sponsorPubkey: PublicKey,
+  opts: { commitment?: "confirmed" | "finalized" } = {}
+): Promise<string> {
+  if (!wallet.publicKey || !wallet.signTransaction) {
+    throw new Error("Wallet not connected");
+  }
+
+  const tx = new Transaction();
+  if (Array.isArray(ixs)) {
+    ixs.forEach((ix) => tx.add(ix));
+  } else {
+    tx.add(ixs);
+  }
+  tx.feePayer = sponsorPubkey;
+  const { blockhash } = await connection.getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+
+  // Sign as the user. Privy fills only the user's signature slot,
+  // leaving the sponsor's slot empty for the server to fill.
+  const partial = await wallet.signTransaction(tx);
+
+  const res = await fetch("/api/sponsor-broadcast", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tx: Buffer.from(
+        partial.serialize({
+          requireAllSignatures: false,
+          verifySignatures: false,
+        })
+      ).toString("base64"),
+    }),
+  });
+
+  const json = (await res.json()) as { signature: string } | { error: string };
+  if (!res.ok || "error" in json) {
+    const msg = "error" in json ? json.error : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+
+  await connection.confirmTransaction(
+    json.signature,
+    opts.commitment ?? "confirmed"
+  );
+  return json.signature;
 }
 
 /**

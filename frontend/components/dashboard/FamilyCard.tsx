@@ -13,11 +13,11 @@ import {
   SystemProgram,
 } from "@solana/web3.js";
 import type { Connection } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { DEVNET_ADDRESSES, PROGRAM_ID } from "@/lib/program";
+import { useSeedlingWallet } from "@/lib/wallet";
+import { DEVNET_ADDRESSES, PROGRAM_ID, SPONSOR_WALLET } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { kidViewPda as deriveKidViewPda } from "@/lib/quasarPdas";
-import { sendQuasarIx } from "@/lib/sendQuasarIx";
+import { sendQuasarIxSponsored } from "@/lib/sendQuasarIx";
 import { celebrateBonus, celebrateMonthly } from "@/lib/celebrate";
 import { fetchFamilyByPda } from "@/lib/fetchFamilyByPda";
 import {
@@ -26,6 +26,13 @@ import {
   removeKidName,
   setKidName,
 } from "@/lib/kidNames";
+import {
+  formatPixKeyForDisplay,
+  getKidPixKey,
+  removeKidPixKey,
+  setKidPixKey,
+} from "@/lib/kidPix";
+import { isValidCpf, isValidEmail } from "@/lib/pixProfile";
 import {
   depositForMonth,
   getDepositMode,
@@ -44,7 +51,7 @@ import { DepositForm } from "@/components/DepositForm";
 import { PixDepositForm } from "@/components/PixDepositForm";
 import { PixOfframpForm } from "@/components/PixOfframpForm";
 import { WithdrawForm } from "@/components/WithdrawForm";
-import { ArrowUR, Copy, Plus } from "./icons";
+import { ArrowUR, Plus } from "./icons";
 import { GoalRow } from "./GoalRow";
 import { AddGoalInline } from "./AddGoalInline";
 import { GiftsSection } from "./GiftsSection";
@@ -75,11 +82,6 @@ function fmtUSD(n: number): string {
       maximumFractionDigits: 2,
     })
   );
-}
-
-function truncatePub(pubkey: PublicKey): string {
-  const s = pubkey.toBase58();
-  return s.slice(0, 4) + "…" + s.slice(-4);
 }
 
 // Locale-aware "ago" + "countdown" formatters. Need t() at call site so
@@ -132,7 +134,7 @@ export function FamilyCard({
   vaultClock,
   onMutated,
 }: Props) {
-  const wallet = useWallet();
+  const wallet = useSeedlingWallet();
   const client = new SeedlingQuasarClient();
   const { t } = useLocale();
   const fmtAgo = makeFmtAgo(t);
@@ -142,7 +144,16 @@ export function FamilyCard({
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
+  const [pixKey, setPixKey] = useState<string | null>(null);
   const renameRef = useRef<HTMLInputElement>(null);
+  // Full-edit panel state. Distinct from inline-rename above — that's a
+  // quick-tap to fix a typo; this one bundles name + Pix key + monthly
+  // (which involves an on-chain `set_stream_rate` tx).
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPix, setEditPix] = useState("");
+  const [editMonthly, setEditMonthly] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
   // Once true, the card animates out (opacity + scale) before we call
   // onMutated() to remove it from the parent's list. Reads as "this kid's
   // chapter is closing" instead of a hard pop.
@@ -155,7 +166,7 @@ export function FamilyCard({
   const [addingGoal, setAddingGoal] = useState(false);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [submitting, setSubmitting] = useState<
-    "monthly" | "bonus" | "remove" | null
+    "monthly" | "bonus" | "remove" | "edit" | null
   >(null);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
@@ -163,6 +174,7 @@ export function FamilyCard({
   const [depositMode, setLocalDepositMode] = useState<DepositMode>("yearly");
   useEffect(() => {
     setName(getKidName(familyKey));
+    setPixKey(getKidPixKey(familyKey));
     setGoals(getSavingsGoals(familyKey));
     setLocalDepositMode(getDepositMode(familyKey));
   }, [familyKey]);
@@ -208,11 +220,6 @@ export function FamilyCard({
   };
 
   const refreshGoals = () => setGoals(getSavingsGoals(familyKey));
-
-  const copyKidPubkey = async () => {
-    await navigator.clipboard?.writeText(family.kid.toBase58());
-    showToast({ title: t("card.toast.kid_copied") });
-  };
 
   const buildKidPageUrl = () => {
     // Bake the kid's name into the link so the receiving device sees
@@ -274,16 +281,18 @@ export function FamilyCard({
 
   const buildSharedDistributeAccounts = () => {
     const kidView = deriveKidViewPda(parent, family.kid);
-    const kidUsdcAta = getAssociatedTokenAddressSync(
+    // v3: kid pool ATA is owned by the family_position PDA, not the kid.
+    // allowOwnerOffCurve=true because family_position is a PDA (off-curve).
+    const kidPoolAta = getAssociatedTokenAddressSync(
       DEVNET_ADDRESSES.usdcMint,
-      family.kid
+      family.pubkey,
+      true
     );
     return {
       keeper: parent,
       familyPosition: family.pubkey,
       kidView,
-      kidUsdcAta,
-      kidOwner: family.kid,
+      kidPoolAta,
       vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
       vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
       treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
@@ -297,16 +306,20 @@ export function FamilyCard({
   };
 
   const distributePreIxs = () => {
-    const kidUsdcAta = getAssociatedTokenAddressSync(
+    const kidPoolAta = getAssociatedTokenAddressSync(
       DEVNET_ADDRESSES.usdcMint,
-      family.kid
+      family.pubkey,
+      true
     );
     return [
       ComputeBudgetProgram.setComputeUnitLimit({ units: 350_000 }),
+      // Sponsor pays the ATA rent (~$0.20). Parent wallet has 0 SOL by
+      // design — Solana would otherwise reject the inner SystemProgram
+      // transfer with "insufficient lamports".
       createAssociatedTokenAccountIdempotentInstruction(
-        parent,
-        kidUsdcAta,
-        family.kid,
+        SPONSOR_WALLET,
+        kidPoolAta,
+        family.pubkey,
         DEVNET_ADDRESSES.usdcMint
       ),
     ];
@@ -320,10 +333,11 @@ export function FamilyCard({
       const ix = client.createDistributeMonthlyAllowanceInstruction(
         buildSharedDistributeAccounts()
       );
-      const sig = await sendQuasarIx(
+      const sig = await sendQuasarIxSponsored(
         [...distributePreIxs(), ix],
         connection,
         wallet,
+        SPONSOR_WALLET,
         { commitment: "confirmed" }
       );
       console.log(`[distribute_monthly] tx ${sig}`);
@@ -361,10 +375,11 @@ export function FamilyCard({
       const ix = client.createDistributeBonusInstruction(
         buildSharedDistributeAccounts()
       );
-      const sig = await sendQuasarIx(
+      const sig = await sendQuasarIxSponsored(
         [...distributePreIxs(), ix],
         connection,
         wallet,
+        SPONSOR_WALLET,
         { commitment: "confirmed" }
       );
       console.log(`[distribute_bonus] tx ${sig}`);
@@ -410,6 +425,98 @@ export function FamilyCard({
     }
   };
 
+  const openEdit = () => {
+    setEditName(name ?? "");
+    setEditPix(getKidPixKey(familyKey) ?? "");
+    setEditMonthly(
+      (Number(family.streamRate.toString()) / 1_000_000).toFixed(0)
+    );
+    setEditError(null);
+    setEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (submitting) return;
+
+    // Validate Pix key (if non-empty). Mirrors AddKidForm logic — same
+    // detector + same validators.
+    const pixTrimmed = editPix.trim();
+    if (pixTrimmed.length > 0) {
+      let pixOk = true;
+      if (pixTrimmed.includes("@")) pixOk = isValidEmail(pixTrimmed);
+      else if (pixTrimmed.startsWith("+")) {
+        const digits = pixTrimmed.slice(1).replace(/\D/g, "");
+        pixOk = digits.length >= 10 && digits.length <= 15;
+      } else {
+        pixOk = isValidCpf(pixTrimmed);
+      }
+      if (!pixOk) {
+        setEditError(t("card.edit.error.pix"));
+        return;
+      }
+    }
+
+    // Validate monthly (required, in [1, 100_000]).
+    const monthlyNum = parseFloat(editMonthly);
+    if (
+      !Number.isFinite(monthlyNum) ||
+      monthlyNum < 1 ||
+      monthlyNum > 100_000
+    ) {
+      setEditError(t("card.edit.error.monthly"));
+      return;
+    }
+
+    setEditError(null);
+    setSubmitting("edit");
+
+    try {
+      // 1. On-chain update if monthly changed.
+      const newRateBaseUnits = BigInt(Math.round(monthlyNum * 1_000_000));
+      const currentRateBaseUnits = BigInt(family.streamRate.toString());
+      if (newRateBaseUnits !== currentRateBaseUnits) {
+        const ix = client.createSetStreamRateInstruction({
+          feePayer: SPONSOR_WALLET,
+          parent,
+          familyPosition: family.pubkey,
+          vaultConfig: DEVNET_ADDRESSES.vaultConfig,
+          newStreamRate: newRateBaseUnits,
+        });
+        const sig = await sendQuasarIxSponsored(
+          ix,
+          connection,
+          wallet,
+          SPONSOR_WALLET,
+          { commitment: "confirmed" }
+        );
+        console.log(`[set_stream_rate] tx ${sig}`);
+      }
+
+      // 2. Off-chain updates (idempotent — safe to call even if unchanged).
+      const trimmedName = editName.trim();
+      if (trimmedName) setKidName(familyKey, trimmedName);
+      else removeKidName(familyKey);
+
+      if (pixTrimmed) setKidPixKey(familyKey, pixTrimmed);
+      else removeKidPixKey(familyKey);
+
+      setName(trimmedName || null);
+      setPixKey(pixTrimmed || null);
+      setEditing(false);
+      showToast({
+        variant: "monthly",
+        title: t("card.edit.toast.title"),
+        subtitle: t("card.edit.toast.subtitle"),
+      });
+      onMutated();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setEditError(msg);
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
   const handleRemove = async () => {
     if (submitting) return;
     if (
@@ -430,7 +537,7 @@ export function FamilyCard({
       );
       const kidView = deriveKidViewPda(parent, family.kid);
       const ataIx = createAssociatedTokenAccountIdempotentInstruction(
-        parent,
+        SPONSOR_WALLET,
         parentUsdcAta,
         parent,
         DEVNET_ADDRESSES.usdcMint
@@ -451,7 +558,7 @@ export function FamilyCard({
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       });
-      const sig = await sendQuasarIx(
+      const sig = await sendQuasarIxSponsored(
         [
           ComputeBudgetProgram.setComputeUnitLimit({ units: 350_000 }),
           ataIx,
@@ -459,6 +566,7 @@ export function FamilyCard({
         ],
         connection,
         wallet,
+        SPONSOR_WALLET,
         { commitment: "confirmed" }
       );
       // Soft fade-out of the card itself BEFORE removal. localStorage is
@@ -556,19 +664,23 @@ export function FamilyCard({
             className="dash-row"
             style={{ alignItems: "center", gap: 8, marginTop: 8 }}
           >
-            <span
-              className="dash-mono"
-              style={{ fontSize: 11, color: "var(--ink-3)" }}
-            >
-              {truncatePub(family.kid)}
-            </span>
-            <button
-              className="dash-btn-link"
-              style={{ padding: 0, fontSize: 10 }}
-              onClick={copyKidPubkey}
-            >
-              <Copy /> {t("generic.copy")}
-            </button>
+            {pixKey ? (
+              <span
+                className="dash-mono"
+                style={{ fontSize: 11, color: "var(--ink-3)" }}
+                title={t("card.pix.label")}
+              >
+                ⚡ {formatPixKeyForDisplay(pixKey)}
+              </span>
+            ) : (
+              <button
+                className="dash-btn-link"
+                style={{ padding: 0, fontSize: 11, color: "var(--ink-3)" }}
+                onClick={openEdit}
+              >
+                {t("card.pix.empty")}
+              </button>
+            )}
           </div>
         </div>
         <div className="dash-col" style={{ alignItems: "flex-end", gap: 6 }}>
@@ -1008,11 +1120,127 @@ export function FamilyCard({
         connection={connection}
       />
 
-      {/* Remove */}
+      {/* Edit panel */}
+      {editing && (
+        <div
+          className="dash-card"
+          style={{
+            marginTop: 24,
+            padding: "24px 28px",
+            background: "var(--stone-2)",
+          }}
+        >
+          <div
+            className="dash-row"
+            style={{
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 18,
+            }}
+          >
+            <span className="dash-eyebrow">
+              <span className="rule" /> {t("card.edit.eyebrow")}
+            </span>
+            <button
+              className="dash-btn-link"
+              onClick={() => {
+                setEditing(false);
+                setEditError(null);
+              }}
+            >
+              {t("card.edit.close")}
+            </button>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: 16,
+            }}
+          >
+            <div className="dash-col">
+              <label className="dash-field-label">
+                {t("card.edit.name.label")}
+              </label>
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder={t("card.edit.name.placeholder")}
+              />
+            </div>
+            <div className="dash-col">
+              <label className="dash-field-label">
+                {t("card.edit.pix.label")}
+              </label>
+              <input
+                className="dash-mono-input"
+                value={editPix}
+                onChange={(e) => setEditPix(e.target.value)}
+                placeholder={t("card.edit.pix.placeholder")}
+              />
+            </div>
+            <div className="dash-col">
+              <label className="dash-field-label">
+                {t("card.edit.monthly.label")}
+              </label>
+              <input
+                className="dash-mono-input"
+                type="number"
+                min={1}
+                max={100_000}
+                value={editMonthly}
+                onChange={(e) => setEditMonthly(e.target.value)}
+              />
+            </div>
+          </div>
+          {editError && (
+            <span
+              className="dash-mono"
+              style={{
+                fontSize: 11,
+                color: "var(--rose)",
+                marginTop: 12,
+                display: "block",
+              }}
+            >
+              {editError}
+            </span>
+          )}
+          <div
+            className="dash-row"
+            style={{ justifyContent: "flex-end", gap: 12, marginTop: 18 }}
+          >
+            <button
+              className="dash-btn dash-btn-primary"
+              onClick={handleSaveEdit}
+              disabled={submitting !== null}
+            >
+              {submitting === "edit"
+                ? t("card.edit.saving")
+                : t("card.edit.save")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit + Remove */}
       <div
         className="dash-row"
-        style={{ marginTop: 28, justifyContent: "flex-end" }}
+        style={{
+          marginTop: 28,
+          justifyContent: "flex-end",
+          gap: 16,
+        }}
       >
+        {!editing && (
+          <button
+            className="dash-btn-link"
+            onClick={openEdit}
+            disabled={submitting !== null}
+          >
+            {t("card.edit_kid")}
+          </button>
+        )}
         <button
           className="dash-btn-link dash-btn-link-danger"
           onClick={handleRemove}

@@ -56,7 +56,7 @@ const GIFT_MEMO_PREFIX = "seedling-gift:";
 // the env var doesn't change during a deployment's lifetime.
 let cachedKeypair: Keypair | null = null;
 
-function getHotWalletKeypair(): Keypair {
+export function getHotWalletKeypair(): Keypair {
   if (cachedKeypair) return cachedKeypair;
 
   const secret = process.env.SEEDLING_HOT_WALLET_SECRET_KEY;

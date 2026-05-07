@@ -10,12 +10,12 @@ import {
   PublicKey,
   SystemProgram,
 } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useSeedlingWallet } from "@/lib/wallet";
 import { useRef, useState } from "react";
 import type { Connection } from "@solana/web3.js";
-import { DEVNET_ADDRESSES } from "@/lib/program";
+import { DEVNET_ADDRESSES, SPONSOR_WALLET } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
-import { sendQuasarIx } from "@/lib/sendQuasarIx";
+import { sendQuasarIxSponsored } from "@/lib/sendQuasarIx";
 import { celebrateWithdraw } from "@/lib/celebrate";
 import { useToast } from "@/components/Toast";
 import { useLocale } from "@/lib/i18n";
@@ -40,7 +40,7 @@ export function WithdrawForm({
   onWithdrawn,
   onCancel,
 }: Props) {
-  const wallet = useWallet();
+  const wallet = useSeedlingWallet();
   const client = new SeedlingQuasarClient();
   const { showToast } = useToast();
   const { t, locale } = useLocale();
@@ -132,7 +132,7 @@ export function WithdrawForm({
       );
 
       const ataIx = createAssociatedTokenAccountIdempotentInstruction(
-        parent,
+        SPONSOR_WALLET,
         parentUsdcAta,
         parent,
         DEVNET_ADDRESSES.usdcMint
@@ -166,7 +166,7 @@ export function WithdrawForm({
         minAssetsOut: BigInt(0),
       });
 
-      const sig = await sendQuasarIx(
+      const sig = await sendQuasarIxSponsored(
         [
           ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 }),
           ataIx,
@@ -174,6 +174,7 @@ export function WithdrawForm({
         ],
         connection,
         wallet,
+        SPONSOR_WALLET,
         { commitment: "finalized" }
       );
       console.log(`[withdraw] tx ${sig}`);

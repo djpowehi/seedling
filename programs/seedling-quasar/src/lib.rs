@@ -88,4 +88,17 @@ mod seedling_quasar {
     pub fn set_paused(ctx: Ctx<SetPaused>, paused: bool) -> Result<(), ProgramError> {
         ctx.accounts.handler(paused)
     }
+
+    #[instruction(discriminator = 10)]
+    pub fn payout_kid(ctx: Ctx<PayoutKid>, amount: u64) -> Result<(), ProgramError> {
+        ctx.accounts.handler(amount)
+    }
+
+    #[instruction(discriminator = 11)]
+    pub fn set_stream_rate(
+        ctx: Ctx<SetStreamRate>,
+        new_stream_rate: u64,
+    ) -> Result<(), ProgramError> {
+        ctx.accounts.handler(new_stream_rate)
+    }
 }

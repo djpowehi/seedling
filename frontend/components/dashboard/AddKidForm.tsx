@@ -1,11 +1,14 @@
 "use client";
 
-import { PublicKey, SystemProgram } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import { useSeedlingWallet } from "@/lib/wallet";
 import { useEffect, useRef, useState } from "react";
 import type { Connection } from "@solana/web3.js";
 import { celebratePlant } from "@/lib/celebrate";
 import { setKidName } from "@/lib/kidNames";
+import { setKidPixKey } from "@/lib/kidPix";
+import { isValidCpf, isValidEmail } from "@/lib/pixProfile";
+import { SPONSOR_WALLET } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { useToast } from "@/components/Toast";
 import {
@@ -13,7 +16,7 @@ import {
   kidViewPda,
   vaultConfigPda,
 } from "@/lib/quasarPdas";
-import { sendQuasarIx } from "@/lib/sendQuasarIx";
+import { sendQuasarIxSponsored } from "@/lib/sendQuasarIx";
 import {
   defaultHybridConfig,
   estimatedAnnualYield,
@@ -41,22 +44,25 @@ type Props = {
 };
 
 export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
-  const wallet = useWallet();
+  const wallet = useSeedlingWallet();
   const { showToast } = useToast();
   const { t, locale } = useLocale();
   // Section ref so the planting confetti fires FROM the form's location
   // (not screen-center). Captured before onCreated unmounts us.
   const sectionRef = useRef<HTMLElement>(null);
   const [nameInput, setNameInput] = useState("");
-  const [pubkeyInput, setPubkeyInput] = useState("");
+  const [pixKeyInput, setPixKeyInput] = useState("");
   const [monthlyInput, setMonthlyInput] = useState("100");
+  // v3: kid is no longer a wallet input. We generate a random 32-byte
+  // identifier client-side that's used purely as a PDA seed. Stable for
+  // the lifetime of this form instance — never regenerated on re-render.
+  const [kidSeed] = useState<PublicKey>(() => Keypair.generate().publicKey);
   const [mode, setMode] = useState<DepositMode>("yearly");
   // Hybrid amounts the parent dialed in. Strings so the input fields can
   // stay editable mid-keystroke; we parse on render. Defaults to the
   // brand sweet-spot (8× upfront + 0.4× monthly) when hybrid is selected.
   const [hybridUpfrontInput, setHybridUpfrontInput] = useState("800");
   const [hybridMonthlyInput, setHybridMonthlyInput] = useState("40");
-  const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -86,15 +92,9 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
     setHybridMonthlyInput(String(def.monthlyUsd));
   }, [monthlyNumForHybridDefault, hybridTouched]);
 
-  let parsedKid: PublicKey | null = null;
-  let kidValidationError: string | null = null;
-  if (pubkeyInput.trim()) {
-    try {
-      parsedKid = new PublicKey(pubkeyInput.trim());
-    } catch {
-      kidValidationError = t("add_kid.kid_pubkey.invalid");
-    }
-  }
+  // v3: parsedKid is just the auto-generated kidSeed. No validation
+  // needed — the form always produces a fresh, valid Pubkey.
+  const parsedKid: PublicKey = kidSeed;
 
   const monthlyNum = parseFloat(monthlyInput);
   let rateValidationError: string | null = null;
@@ -112,35 +112,33 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
     });
   }
 
-  // Pre-flight duplicate check
-  useEffect(() => {
-    if (!parsedKid) {
-      setDuplicateError(null);
-      return;
-    }
-    let cancelled = false;
-    const check = async () => {
-      try {
-        // Use the helper so the seed version stays in sync with quasarPdas.ts
-        // (which now uses family_v2). Inlining `b"family"` here would drift
-        // and let the v1 stale-data PDA register as a duplicate.
-        const familyPda = familyPositionPda(parent, parsedKid!);
-        const info = await connection.getAccountInfo(familyPda);
-        if (cancelled) return;
-        // PDA derives from (parent, kid) — collisions only happen for
-        // THIS connected wallet + the same kid. A different parent wallet
-        // can have its own seedling for this kid simultaneously (e.g.
-        // divorced co-parents, grandparent + parent each running one).
-        setDuplicateError(info ? t("add_kid.kid_pubkey.duplicate") : null);
-      } catch {
-        // submit-time error will surface anything real
+  // Pix key validation. Optional field — empty is fine. If the parent
+  // typed something, we figure out which kind of key it is and run the
+  // matching validator. Wrong format here means 4P will reject the
+  // payout later; cheaper to catch it now.
+  let pixKeyError: string | null = null;
+  const pixTrimmed = pixKeyInput.trim();
+  if (pixTrimmed.length > 0) {
+    if (pixTrimmed.includes("@")) {
+      if (!isValidEmail(pixTrimmed)) {
+        pixKeyError = t("add_kid.pix_key.error.email");
       }
-    };
-    check();
-    return () => {
-      cancelled = true;
-    };
-  }, [parsedKid?.toBase58(), parent, connection]);
+    } else if (pixTrimmed.startsWith("+")) {
+      // E.164 phone: + then 10-15 digits.
+      const digits = pixTrimmed.slice(1).replace(/\D/g, "");
+      if (digits.length < 10 || digits.length > 15) {
+        pixKeyError = t("add_kid.pix_key.error.phone");
+      }
+    } else {
+      // No @, no +. Treat as CPF — must validate via mod-11 algorithm.
+      if (!isValidCpf(pixTrimmed)) {
+        pixKeyError = t("add_kid.pix_key.error.cpf");
+      }
+    }
+  }
+
+  // v3: no duplicate check — every family gets a fresh random seed,
+  // so the family_position PDA is unique by construction.
 
   // For hybrid mode: parent's deposits across the year must at least
   // cover the kid's allowance. Otherwise the kid's monthly distributes
@@ -155,10 +153,8 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
 
   const submitDisabled =
     submitting ||
-    !parsedKid ||
-    kidValidationError !== null ||
     rateValidationError !== null ||
-    duplicateError !== null ||
+    pixKeyError !== null ||
     !monthlyInput.trim() ||
     hybridShortfallBlocking;
 
@@ -176,6 +172,7 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
       const kidViewAddr = kidViewPda(parent, parsedKid);
 
       const ix = client.createCreateFamilyInstruction({
+        feePayer: SPONSOR_WALLET,
         parent,
         vaultConfig: vaultConfigPda(),
         familyPosition: familyPda,
@@ -184,11 +181,18 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
         kid: parsedKid,
         streamRate: BigInt(streamRateBaseUnits),
       });
-      const sig = await sendQuasarIx(ix, connection, wallet, {
-        commitment: "confirmed",
-      });
+      const sig = await sendQuasarIxSponsored(
+        ix,
+        connection,
+        wallet,
+        SPONSOR_WALLET,
+        { commitment: "confirmed" }
+      );
       if (nameInput.trim()) {
         setKidName(familyPda.toBase58(), nameInput);
+      }
+      if (pixKeyInput.trim()) {
+        setKidPixKey(familyPda.toBase58(), pixKeyInput);
       }
       // Persist deposit cadence right after the create succeeds — drives
       // the family card's reminder badge + the kid view's year recap.
@@ -223,6 +227,8 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
         if (parsedKid) {
           const familyPda = familyPositionPda(parent, parsedKid);
           if (nameInput.trim()) setKidName(familyPda.toBase58(), nameInput);
+          if (pixKeyInput.trim())
+            setKidPixKey(familyPda.toBase58(), pixKeyInput);
           setDepositMode(familyPda.toBase58(), mode);
           if (mode === "hybrid") {
             const upfront = parseFloat(hybridUpfrontInput);
@@ -332,28 +338,40 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
           </div>
           <div className="dash-col">
             <label className="dash-field-label">
-              {t("add_kid.kid_pubkey.label")}
+              {t("add_kid.pix_key.label")}{" "}
+              <span
+                style={{
+                  textTransform: "none",
+                  letterSpacing: 0,
+                  color: "var(--ink-3)",
+                }}
+              >
+                {t("add_kid.pix_key.optional")}
+              </span>
             </label>
             <input
               className="dash-mono-input"
-              placeholder={t("add_kid.kid_pubkey.placeholder")}
-              value={pubkeyInput}
-              onChange={(e) => setPubkeyInput(e.target.value)}
+              placeholder={t("add_kid.pix_key.placeholder")}
+              value={pixKeyInput}
+              onChange={(e) => setPixKeyInput(e.target.value)}
             />
-            {kidValidationError && pubkeyInput.trim() && (
+            {pixKeyError ? (
               <span
                 className="dash-mono"
                 style={{ fontSize: 11, color: "var(--rose)", marginTop: 6 }}
               >
-                {kidValidationError}
+                {pixKeyError}
               </span>
-            )}
-            {duplicateError && (
+            ) : (
               <span
-                className="dash-mono"
-                style={{ fontSize: 11, color: "var(--rose)", marginTop: 6 }}
+                style={{
+                  fontSize: 11,
+                  color: "var(--ink-3)",
+                  marginTop: 6,
+                  lineHeight: 1.4,
+                }}
               >
-                {duplicateError}
+                {t("add_kid.pix_key.hint")}
               </span>
             )}
           </div>

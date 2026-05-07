@@ -75,10 +75,16 @@ export const en = {
 
   // ---- connect gate ----
   "gate.eyebrow": "sign in",
-  "gate.title": "connect to see {italic}.",
+  "gate.title": "sign in to see {italic}.",
   "gate.title.italic": "your families",
   "gate.body":
-    "Seedling lives on Solana. Connect Phantom or Solflare to view your kids' positions, deposit USDC, and trigger distributions.",
+    "Seedling lives on Solana. Sign in with your email or Google to view your kids' positions, deposit USDC, and trigger distributions. Have Phantom or Solflare? Pick it from the same screen.",
+
+  // ---- auth (Privy) ----
+  "auth.loading": "loading…",
+  "auth.signin": "sign in",
+  "auth.signout": "sign out",
+  "auth.gate.cta": "get started",
 
   // ---- footer ----
   "footer.github": "github",
@@ -113,6 +119,22 @@ export const en = {
   "card.bonus_loading": "Bonus in …",
   "card.remove_kid": "remove kid",
   "card.removing": "removing…",
+  "card.edit_kid": "edit",
+  "card.pix.label": "kid Pix key",
+  "card.pix.empty": "+ add Pix key",
+  "card.edit.eyebrow": "edit family",
+  "card.edit.close": "close ✕",
+  "card.edit.name.label": "name",
+  "card.edit.name.placeholder": "Maria",
+  "card.edit.pix.label": "kid Pix key",
+  "card.edit.pix.placeholder": "CPF, phone, or email",
+  "card.edit.monthly.label": "monthly · USDC",
+  "card.edit.save": "save changes",
+  "card.edit.saving": "saving…",
+  "card.edit.error.pix": "Pix key format is invalid",
+  "card.edit.error.monthly": "monthly must be between $1 and $100,000",
+  "card.edit.toast.title": "family updated",
+  "card.edit.toast.subtitle": "your changes are saved",
   "card.cadence_topup_eyebrow": "{plan} · this month",
   "card.cadence_topup_title": "deposit ${amount} to keep yield growing",
   "card.cadence_topup_cta": "+ top up",
@@ -212,6 +234,14 @@ export const en = {
   "add_kid.kid_pubkey.placeholder": "e.g. 7xKX...J9pQ",
   "add_kid.kid_pubkey.invalid": "not a valid Solana address",
   "add_kid.kid_pubkey.duplicate": "you already have a seedling for this kid",
+  "add_kid.pix_key.label": "kid Pix key",
+  "add_kid.pix_key.optional": "(optional · for payouts)",
+  "add_kid.pix_key.placeholder": "CPF, phone, or email",
+  "add_kid.pix_key.hint":
+    "where allowance arrives when you send it. yours if the kid doesn't have a Pix key yet.",
+  "add_kid.pix_key.error.cpf": "not a valid CPF",
+  "add_kid.pix_key.error.email": "not a valid email",
+  "add_kid.pix_key.error.phone": "phone must be E.164 (e.g. +5511999998888)",
   "add_kid.monthly.label": "monthly · USDC · min ${min}",
   // Only rendered in PT-BR mode (Brazilian users read "$" as R$ by
   // reflex). Kept as an EN key so the type-check stays in lockstep.
@@ -223,7 +253,7 @@ export const en = {
     "recommended deposit · ${total} upfront → ${cover} covers the year, ${bonus} earns the bonus",
   "add_kid.submit": "add kid",
   "add_kid.creating": "creating…",
-  "add_kid.fee_note": "opens phantom to sign · ~0.001 SOL fee",
+  "add_kid.fee_note": "~0.001 SOL network fee",
   "add_kid.faucets.label": "need usdc?",
   "add_kid.faucets.sol": "SOL faucet ↗",
   "add_kid.faucets.usdc": "USDC faucet ↗",

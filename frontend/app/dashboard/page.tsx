@@ -1,31 +1,24 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useConnection } from "@solana/wallet-adapter-react";
 import { DEVNET_ADDRESSES } from "@/lib/program";
 import { fetchFamiliesForParent, type FamilyView } from "@/lib/fetchFamilies";
 import { fetchVaultClock, type VaultClock } from "@/lib/fetchFamilyByPda";
-import { useSeedlingProgram } from "@/lib/useSeedlingProgram";
+import { useSeedlingWallet } from "@/lib/wallet";
 import { AddKidForm } from "@/components/dashboard/AddKidForm";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { FamilyCard } from "@/components/dashboard/FamilyCard";
 import { Plus } from "@/components/dashboard/icons";
 import { DASHBOARD_STYLES } from "@/components/dashboard/styles";
 import { LocaleToggle } from "@/components/LocaleToggle";
+import { PrivyLoginButton } from "@/components/PrivyLoginButton";
 import { useLocale, TItalic } from "@/lib/i18n";
-
-const WalletMultiButton = dynamic(
-  async () =>
-    (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
-  { ssr: false }
-);
 
 export default function Dashboard() {
   const { connection } = useConnection();
-  const { publicKey, connected } = useWallet();
-  const seedling = useSeedlingProgram();
+  const { publicKey, connected } = useSeedlingWallet();
   const { t } = useLocale();
 
   const [families, setFamilies] = useState<FamilyView[] | null>(null);
@@ -35,7 +28,7 @@ export default function Dashboard() {
   const [showAddForm, setShowAddForm] = useState(false);
 
   const refetch = useCallback(async () => {
-    if (!seedling || !publicKey) return;
+    if (!publicKey) return;
     setLoading(true);
     setError(null);
     try {
@@ -50,12 +43,12 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [connection, seedling, publicKey]);
+  }, [connection, publicKey]);
 
   useEffect(() => {
-    if (connected && seedling) refetch();
+    if (connected) refetch();
     else setFamilies(null);
-  }, [connected, seedling, refetch]);
+  }, [connected, refetch]);
 
   return (
     <div className="dash-root">
@@ -84,7 +77,7 @@ export default function Dashboard() {
               <span className="dash-pulse-dot" />
               <span className="dash-nav-pulse-text">{t("nav.live.short")}</span>
             </span>
-            <WalletMultiButton />
+            <PrivyLoginButton variant="nav" />
           </div>
         </div>
       </nav>
@@ -181,49 +174,46 @@ export default function Dashboard() {
               families.length === 0 &&
               !showAddForm && <EmptyState onAdd={() => setShowAddForm(true)} />}
 
-            {families != null &&
-              families.length > 0 &&
-              seedling &&
-              publicKey && (
-                <>
+            {families != null && families.length > 0 && publicKey && (
+              <>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fill, minmax(min(100%, 520px), 1fr))",
+                    gap: 36,
+                  }}
+                >
+                  {families.map((family) => (
+                    <FamilyCard
+                      key={family.pubkey.toBase58()}
+                      family={family}
+                      connection={connection}
+                      parent={publicKey}
+                      vaultClock={vaultClock}
+                      onMutated={refetch}
+                    />
+                  ))}
+                </div>
+                {!showAddForm && (
                   <div
+                    className="dash-row"
                     style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        "repeat(auto-fill, minmax(min(100%, 520px), 1fr))",
-                      gap: 36,
+                      justifyContent: "center",
+                      marginTop: 56,
                     }}
                   >
-                    {families.map((family) => (
-                      <FamilyCard
-                        key={family.pubkey.toBase58()}
-                        family={family}
-                        connection={connection}
-                        parent={publicKey}
-                        vaultClock={vaultClock}
-                        onMutated={refetch}
-                      />
-                    ))}
-                  </div>
-                  {!showAddForm && (
-                    <div
-                      className="dash-row"
-                      style={{
-                        justifyContent: "center",
-                        marginTop: 56,
-                      }}
+                    <button
+                      className="dash-btn dash-btn-ghost"
+                      onClick={() => setShowAddForm(true)}
+                      style={{ padding: "14px 22px" }}
                     >
-                      <button
-                        className="dash-btn dash-btn-ghost"
-                        onClick={() => setShowAddForm(true)}
-                        style={{ padding: "14px 22px" }}
-                      >
-                        <Plus /> {t("dashboard.add_another")}
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
+                      <Plus /> {t("dashboard.add_another")}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
       </div>
@@ -319,6 +309,9 @@ function ConnectGate() {
         <p style={{ color: "var(--ink-2)", margin: 0, maxWidth: 460 }}>
           {t("gate.body")}
         </p>
+        <div style={{ marginTop: 8 }}>
+          <PrivyLoginButton variant="gate" />
+        </div>
       </div>
     </div>
   );

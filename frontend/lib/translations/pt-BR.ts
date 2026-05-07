@@ -53,7 +53,7 @@ export const ptBR: Translations = {
   "landing.section.product.sub": "Duas telas · uma família",
   "landing.shot.parent.tag": "tela 01 · pai/mãe",
   "landing.shot.parent.alt":
-    "Dashboard dos pais no Seedling com duas crianças guardando",
+    "Dashboard dos pais no Seedling com duas crianças poupando",
   "landing.shot.parent.caption": "Dashboard dos pais",
   "landing.shot.parent.caption_sub": "depositar · sacar · mesada · bônus",
   "landing.shot.kid.tag": "tela 02 · criança",
@@ -78,7 +78,7 @@ export const ptBR: Translations = {
   "dashboard.title.first": "comece a {italic}.",
   "dashboard.title.first.italic": "primeira",
   "dashboard.title.kids": "{count} {kidWord} {italic}.",
-  "dashboard.title.kids.italic": "guardando",
+  "dashboard.title.kids.italic": "poupando",
   "dashboard.title.word.kid": "filho",
   "dashboard.title.word.kids": "filhos",
   "dashboard.subtitle": "tudo rodando na Solana",
@@ -88,10 +88,16 @@ export const ptBR: Translations = {
 
   // ---- connect gate ----
   "gate.eyebrow": "entrar",
-  "gate.title": "conecte para ver {italic}.",
+  "gate.title": "entre para ver {italic}.",
   "gate.title.italic": "suas famílias",
   "gate.body":
-    "Seedling vive na Solana. Conecte Phantom ou Solflare para ver as posições dos seus filhos, depositar USDC e enviar mesadas.",
+    "Seedling vive na Solana. Entre com seu email ou Google para ver as posições dos seus filhos, depositar USDC e enviar mesadas. Tem Phantom ou Solflare? Pode escolher na mesma tela.",
+
+  // ---- auth (Privy) ----
+  "auth.loading": "carregando…",
+  "auth.signin": "entrar",
+  "auth.signout": "sair",
+  "auth.gate.cta": "começar",
 
   // ---- footer ----
   "footer.github": "github",
@@ -126,6 +132,22 @@ export const ptBR: Translations = {
   "card.bonus_loading": "Bônus em …",
   "card.remove_kid": "remover filho",
   "card.removing": "removendo…",
+  "card.edit_kid": "editar",
+  "card.pix.label": "chave Pix do filho",
+  "card.pix.empty": "+ adicionar chave Pix",
+  "card.edit.eyebrow": "editar família",
+  "card.edit.close": "fechar ✕",
+  "card.edit.name.label": "nome",
+  "card.edit.name.placeholder": "Maria",
+  "card.edit.pix.label": "chave Pix do filho",
+  "card.edit.pix.placeholder": "CPF, telefone ou email",
+  "card.edit.monthly.label": "mensal · USDC",
+  "card.edit.save": "salvar alterações",
+  "card.edit.saving": "salvando…",
+  "card.edit.error.pix": "formato da chave Pix inválido",
+  "card.edit.error.monthly": "mensal precisa estar entre $1 e $100.000",
+  "card.edit.toast.title": "família atualizada",
+  "card.edit.toast.subtitle": "suas alterações foram salvas",
   "card.cadence_topup_eyebrow": "{plan} · este mês",
   "card.cadence_topup_title":
     "deposite ${amount} para o rendimento continuar crescendo",
@@ -218,6 +240,14 @@ export const ptBR: Translations = {
   "add_kid.kid_pubkey.placeholder": "ex. 7xKX...J9pQ",
   "add_kid.kid_pubkey.invalid": "não é um endereço Solana válido",
   "add_kid.kid_pubkey.duplicate": "você já tem um seedling para esse filho",
+  "add_kid.pix_key.label": "chave Pix do filho",
+  "add_kid.pix_key.optional": "(opcional · para os repasses)",
+  "add_kid.pix_key.placeholder": "CPF, telefone ou email",
+  "add_kid.pix_key.hint":
+    "para onde a mesada vai quando você manda. a sua se o filho ainda não tem chave Pix.",
+  "add_kid.pix_key.error.cpf": "CPF inválido",
+  "add_kid.pix_key.error.email": "email inválido",
+  "add_kid.pix_key.error.phone": "use formato E.164 (ex. +5511999998888)",
   "add_kid.monthly.label": "mensal · USDC · mín ${min}",
   "add_kid.monthly.currency_note":
     "USDC ≈ dólar americano · paridade 1:1 · não é BRL",
@@ -228,7 +258,7 @@ export const ptBR: Translations = {
     "depósito recomendado · ${total} de uma vez → ${cover} cobre o ano, ${bonus} rende o bônus",
   "add_kid.submit": "adicionar filho",
   "add_kid.creating": "criando…",
-  "add_kid.fee_note": "abre o phantom pra assinar · taxa ~0,001 SOL",
+  "add_kid.fee_note": "taxa de rede ~0,001 SOL",
   "add_kid.faucets.label": "precisa de usdc?",
   "add_kid.faucets.sol": "SOL faucet ↗",
   "add_kid.faucets.usdc": "USDC faucet ↗",
@@ -414,7 +444,7 @@ export const ptBR: Translations = {
   "kid.gift_pix.line": "presentear em BRL via Pix",
   "kid.gift_pix.hint": "sem precisar de carteira cripto",
   "kid.gifts_received": "presentes recebidos",
-  "kid.goal.eyebrow": "guardando para",
+  "kid.goal.eyebrow": "poupando para",
   "kid.goal.of": "de ${amount}",
   "kid.footer.powered": "feito com",
   "kid.footer.meta": "bônus {cycle} · na Solana",
@@ -484,7 +514,7 @@ export const ptBR: Translations = {
   "share_card.actual": "real",
   "share_card.spot_on": "exato.",
   "share_card.off_by": "diferença de {cents}¢.",
-  "share_card.saving_toward": "guardando para",
+  "share_card.saving_toward": "poupando para",
 
   // ---- year recap ----
   "year.cta.eyebrow.bonus": "bônus anual",

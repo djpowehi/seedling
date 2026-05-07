@@ -24,4 +24,5 @@ pub enum SeedlingError {
     InvalidKaminoAccount,
     InvalidOracle,
     BelowDustThreshold,
+    InsufficientFunds,
 }

@@ -46,15 +46,19 @@ pub struct DistributeMonthlyAllowance {
     )]
     pub kid_view: Account<KidView>,
 
-    /// Kid's USDC ATA. Owned by kid's pubkey directly so the kid can move
-    /// funds with their own wallet whenever they get one.
-    #[account(mut)]
-    pub kid_usdc_ata: InterfaceAccount<Token>,
-
-    /// Kid's actual pubkey, used as authority for kid_usdc_ata. Must equal
-    /// family_position.kid.
-    #[account(constraints(kid_owner.address().eq(&family_position.kid)) @ SeedlingError::InvalidAuthority)]
-    pub kid_owner: UncheckedAccount,
+    /// Kid's USDC pool. Owned by the family_position PDA — the family
+    /// vault custodies the kid's accumulated allowance until the parent
+    /// triggers a payout. Kid never holds a key.
+    #[account(
+        mut,
+        constraints(
+            kid_pool_ata.owner.eq(family_position.address())
+        ) @ SeedlingError::InvalidAuthority,
+        constraints(
+            kid_pool_ata.mint.eq(&vault_config.usdc_mint)
+        ) @ SeedlingError::MintMismatch,
+    )]
+    pub kid_pool_ata: InterfaceAccount<Token>,
 
     #[account(mut)]
     pub vault_usdc_ata: InterfaceAccount<Token>,
@@ -349,7 +353,7 @@ impl DistributeMonthlyAllowance {
                 .transfer_checked(
                     &self.vault_usdc_ata,
                     &self.usdc_mint,
-                    &self.kid_usdc_ata,
+                    &self.kid_pool_ata,
                     &self.vault_config,
                     kid_amount,
                     self.usdc_mint.decimals,

@@ -6,6 +6,7 @@ import {
   FAMILY_POSITION_DISCRIMINATOR,
   FamilyPositionCodec,
 } from "./quasar-client";
+import { familyPositionPda } from "./quasarPdas";
 
 /**
  * FamilyPosition account total size on-chain (Quasar layout):
@@ -68,21 +69,30 @@ export async function fetchFamiliesForParent(
     commitment: "confirmed",
   });
 
-  return accounts.map(({ pubkey, account }) => {
-    const decoded = FamilyPositionCodec.decode(account.data.subarray(1));
-    return {
-      pubkey,
-      parent: decoded.parent,
-      kid: decoded.kid,
-      shares: new BN(decoded.shares.toString()),
-      principalDeposited: new BN(decoded.principalDeposited.toString()),
-      principalRemaining: new BN(decoded.principalRemaining.toString()),
-      streamRate: new BN(decoded.streamRate.toString()),
-      createdAt: new BN(decoded.createdAt.toString()),
-      lastDistribution: new BN(decoded.lastDistribution.toString()),
-      lastBonusPeriodId: decoded.lastBonusPeriodId,
-      totalYieldEarned: new BN(decoded.totalYieldEarned.toString()),
-      bump: decoded.bump,
-    };
-  });
+  return accounts
+    .map(({ pubkey, account }) => {
+      const decoded = FamilyPositionCodec.decode(account.data.subarray(1));
+      return {
+        pubkey,
+        parent: decoded.parent,
+        kid: decoded.kid,
+        shares: new BN(decoded.shares.toString()),
+        principalDeposited: new BN(decoded.principalDeposited.toString()),
+        principalRemaining: new BN(decoded.principalRemaining.toString()),
+        streamRate: new BN(decoded.streamRate.toString()),
+        createdAt: new BN(decoded.createdAt.toString()),
+        lastDistribution: new BN(decoded.lastDistribution.toString()),
+        lastBonusPeriodId: decoded.lastBonusPeriodId,
+        totalYieldEarned: new BN(decoded.totalYieldEarned.toString()),
+        bump: decoded.bump,
+      };
+    })
+    .filter((family) => {
+      // v3 cutover filter: re-derive the family PDA from (parent, kid)
+      // using the current seeds (family_v3). Only families whose on-chain
+      // address matches the v3 derivation are valid; v2 zombies derive
+      // to a different PDA and get dropped from the dashboard.
+      const expected = familyPositionPda(family.parent, family.kid);
+      return expected.toBase58() === family.pubkey.toBase58();
+    });
 }

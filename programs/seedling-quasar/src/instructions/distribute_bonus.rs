@@ -38,11 +38,18 @@ pub struct DistributeBonus {
     )]
     pub kid_view: Account<KidView>,
 
-    #[account(mut)]
-    pub kid_usdc_ata: InterfaceAccount<Token>,
-
-    #[account(constraints(kid_owner.address().eq(&family_position.kid)) @ SeedlingError::InvalidAuthority)]
-    pub kid_owner: UncheckedAccount,
+    /// Kid's USDC pool. Owned by the family_position PDA — see
+    /// distribute_monthly_allowance for the parent-custody rationale.
+    #[account(
+        mut,
+        constraints(
+            kid_pool_ata.owner.eq(family_position.address())
+        ) @ SeedlingError::InvalidAuthority,
+        constraints(
+            kid_pool_ata.mint.eq(&vault_config.usdc_mint)
+        ) @ SeedlingError::MintMismatch,
+    )]
+    pub kid_pool_ata: InterfaceAccount<Token>,
 
     #[account(mut)]
     pub vault_usdc_ata: InterfaceAccount<Token>,
@@ -355,7 +362,7 @@ impl DistributeBonus {
                 .transfer_checked(
                     &self.vault_usdc_ata,
                     &self.usdc_mint,
-                    &self.kid_usdc_ata,
+                    &self.kid_pool_ata,
                     &self.vault_config,
                     kid_amount,
                     self.usdc_mint.decimals,
