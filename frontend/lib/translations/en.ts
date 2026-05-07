@@ -75,10 +75,16 @@ export const en = {
 
   // ---- connect gate ----
   "gate.eyebrow": "sign in",
-  "gate.title": "connect to see {italic}.",
+  "gate.title": "sign in to see {italic}.",
   "gate.title.italic": "your families",
   "gate.body":
-    "Seedling lives on Solana. Connect Phantom or Solflare to view your kids' positions, deposit USDC, and trigger distributions.",
+    "Seedling lives on Solana. Sign in with your email or Google to view your kids' positions, deposit USDC, and trigger distributions. Have Phantom or Solflare? Pick it from the same screen.",
+
+  // ---- auth (Privy) ----
+  "auth.loading": "loading…",
+  "auth.signin": "sign in",
+  "auth.signout": "sign out",
+  "auth.gate.cta": "get started",
 
   // ---- footer ----
   "footer.github": "github",
@@ -223,7 +229,7 @@ export const en = {
     "recommended deposit · ${total} upfront → ${cover} covers the year, ${bonus} earns the bonus",
   "add_kid.submit": "add kid",
   "add_kid.creating": "creating…",
-  "add_kid.fee_note": "opens phantom to sign · ~0.001 SOL fee",
+  "add_kid.fee_note": "~0.001 SOL network fee",
   "add_kid.faucets.label": "need usdc?",
   "add_kid.faucets.sol": "SOL faucet ↗",
   "add_kid.faucets.usdc": "USDC faucet ↗",

@@ -25,7 +25,7 @@ import {
   SystemProgram,
 } from "@solana/web3.js";
 import type { Connection } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useSeedlingWallet } from "@/lib/wallet";
 import { useEffect, useRef, useState } from "react";
 
 import { celebrateMonthly } from "@/lib/celebrate";
@@ -76,7 +76,7 @@ export function PixOfframpForm({
   onWithdrawn,
   onCancel,
 }: Props) {
-  const wallet = useWallet();
+  const wallet = useSeedlingWallet();
   const client = new SeedlingQuasarClient();
   const { showToast } = useToast();
   const { t, locale } = useLocale();

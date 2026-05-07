@@ -10,7 +10,7 @@ import {
   PublicKey,
   SystemProgram,
 } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useSeedlingWallet } from "@/lib/wallet";
 import { useRef, useState } from "react";
 import type { Connection } from "@solana/web3.js";
 import { DEVNET_ADDRESSES } from "@/lib/program";
@@ -40,7 +40,7 @@ export function WithdrawForm({
   onWithdrawn,
   onCancel,
 }: Props) {
-  const wallet = useWallet();
+  const wallet = useSeedlingWallet();
   const client = new SeedlingQuasarClient();
   const { showToast } = useToast();
   const { t, locale } = useLocale();
