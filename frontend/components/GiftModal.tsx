@@ -8,8 +8,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { Connection, Transaction } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useLogin } from "@privy-io/react-auth";
+import { useSeedlingWallet } from "@/lib/wallet";
 import { DEVNET_RPC } from "@/lib/program";
 import { useLocale } from "@/lib/i18n";
 
@@ -53,9 +53,9 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
   const [sendError, setSendError] = useState<string | null>(null);
   const [sentSig, setSentSig] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const wallet = useWallet();
+  const wallet = useSeedlingWallet();
   const { t, locale } = useLocale();
-  const { setVisible: setWalletModalVisible } = useWalletModal();
+  const { login } = useLogin();
 
   // Detect after mount — UA isn't available during SSR.
   useEffect(() => {
@@ -91,8 +91,8 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
   const handleSendFromThisDevice = async () => {
     setSendError(null);
     setSentSig(null);
-    if (!wallet.connected || !wallet.publicKey || !wallet.sendTransaction) {
-      setWalletModalVisible(true);
+    if (!wallet.connected || !wallet.publicKey) {
+      login();
       return;
     }
     setSending(true);

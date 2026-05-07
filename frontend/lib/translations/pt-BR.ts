@@ -88,10 +88,16 @@ export const ptBR: Translations = {
 
   // ---- connect gate ----
   "gate.eyebrow": "entrar",
-  "gate.title": "conecte para ver {italic}.",
+  "gate.title": "entre para ver {italic}.",
   "gate.title.italic": "suas famílias",
   "gate.body":
-    "Seedling vive na Solana. Conecte Phantom ou Solflare para ver as posições dos seus filhos, depositar USDC e enviar mesadas.",
+    "Seedling vive na Solana. Entre com seu email ou Google para ver as posições dos seus filhos, depositar USDC e enviar mesadas. Tem Phantom ou Solflare? Pode escolher na mesma tela.",
+
+  // ---- auth (Privy) ----
+  "auth.loading": "carregando…",
+  "auth.signin": "entrar",
+  "auth.signout": "sair",
+  "auth.gate.cta": "começar",
 
   // ---- footer ----
   "footer.github": "github",
@@ -228,7 +234,7 @@ export const ptBR: Translations = {
     "depósito recomendado · ${total} de uma vez → ${cover} cobre o ano, ${bonus} rende o bônus",
   "add_kid.submit": "adicionar filho",
   "add_kid.creating": "criando…",
-  "add_kid.fee_note": "abre o phantom pra assinar · taxa ~0,001 SOL",
+  "add_kid.fee_note": "taxa de rede ~0,001 SOL",
   "add_kid.faucets.label": "precisa de usdc?",
   "add_kid.faucets.sol": "SOL faucet ↗",
   "add_kid.faucets.usdc": "USDC faucet ↗",

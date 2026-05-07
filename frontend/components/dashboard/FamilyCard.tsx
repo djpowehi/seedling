@@ -13,7 +13,7 @@ import {
   SystemProgram,
 } from "@solana/web3.js";
 import type { Connection } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useSeedlingWallet } from "@/lib/wallet";
 import { DEVNET_ADDRESSES, PROGRAM_ID } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { kidViewPda as deriveKidViewPda } from "@/lib/quasarPdas";
@@ -132,7 +132,7 @@ export function FamilyCard({
   vaultClock,
   onMutated,
 }: Props) {
-  const wallet = useWallet();
+  const wallet = useSeedlingWallet();
   const client = new SeedlingQuasarClient();
   const { t } = useLocale();
   const fmtAgo = makeFmtAgo(t);
