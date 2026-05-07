@@ -53,7 +53,7 @@ export const ptBR: Translations = {
   "landing.section.product.sub": "Duas telas · uma família",
   "landing.shot.parent.tag": "tela 01 · pai/mãe",
   "landing.shot.parent.alt":
-    "Dashboard dos pais no Seedling com duas crianças guardando",
+    "Dashboard dos pais no Seedling com duas crianças poupando",
   "landing.shot.parent.caption": "Dashboard dos pais",
   "landing.shot.parent.caption_sub": "depositar · sacar · mesada · bônus",
   "landing.shot.kid.tag": "tela 02 · criança",
@@ -78,7 +78,7 @@ export const ptBR: Translations = {
   "dashboard.title.first": "comece a {italic}.",
   "dashboard.title.first.italic": "primeira",
   "dashboard.title.kids": "{count} {kidWord} {italic}.",
-  "dashboard.title.kids.italic": "guardando",
+  "dashboard.title.kids.italic": "poupando",
   "dashboard.title.word.kid": "filho",
   "dashboard.title.word.kids": "filhos",
   "dashboard.subtitle": "tudo rodando na Solana",
@@ -425,7 +425,7 @@ export const ptBR: Translations = {
   "kid.gift_pix.line": "presentear em BRL via Pix",
   "kid.gift_pix.hint": "sem precisar de carteira cripto",
   "kid.gifts_received": "presentes recebidos",
-  "kid.goal.eyebrow": "guardando para",
+  "kid.goal.eyebrow": "poupando para",
   "kid.goal.of": "de ${amount}",
   "kid.footer.powered": "feito com",
   "kid.footer.meta": "bônus {cycle} · na Solana",
@@ -495,7 +495,7 @@ export const ptBR: Translations = {
   "share_card.actual": "real",
   "share_card.spot_on": "exato.",
   "share_card.off_by": "diferença de {cents}¢.",
-  "share_card.saving_toward": "guardando para",
+  "share_card.saving_toward": "poupando para",
 
   // ---- year recap ----
   "year.cta.eyebrow.bonus": "bônus anual",
