@@ -7,6 +7,7 @@ import type { Connection } from "@solana/web3.js";
 import { celebratePlant } from "@/lib/celebrate";
 import { setKidName } from "@/lib/kidNames";
 import { setKidPixKey } from "@/lib/kidPix";
+import { isValidCpf, isValidEmail } from "@/lib/pixProfile";
 import { SPONSOR_WALLET } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { useToast } from "@/components/Toast";
@@ -111,6 +112,31 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
     });
   }
 
+  // Pix key validation. Optional field — empty is fine. If the parent
+  // typed something, we figure out which kind of key it is and run the
+  // matching validator. Wrong format here means 4P will reject the
+  // payout later; cheaper to catch it now.
+  let pixKeyError: string | null = null;
+  const pixTrimmed = pixKeyInput.trim();
+  if (pixTrimmed.length > 0) {
+    if (pixTrimmed.includes("@")) {
+      if (!isValidEmail(pixTrimmed)) {
+        pixKeyError = t("add_kid.pix_key.error.email");
+      }
+    } else if (pixTrimmed.startsWith("+")) {
+      // E.164 phone: + then 10-15 digits.
+      const digits = pixTrimmed.slice(1).replace(/\D/g, "");
+      if (digits.length < 10 || digits.length > 15) {
+        pixKeyError = t("add_kid.pix_key.error.phone");
+      }
+    } else {
+      // No @, no +. Treat as CPF — must validate via mod-11 algorithm.
+      if (!isValidCpf(pixTrimmed)) {
+        pixKeyError = t("add_kid.pix_key.error.cpf");
+      }
+    }
+  }
+
   // v3: no duplicate check — every family gets a fresh random seed,
   // so the family_position PDA is unique by construction.
 
@@ -128,6 +154,7 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
   const submitDisabled =
     submitting ||
     rateValidationError !== null ||
+    pixKeyError !== null ||
     !monthlyInput.trim() ||
     hybridShortfallBlocking;
 
@@ -328,16 +355,25 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
               value={pixKeyInput}
               onChange={(e) => setPixKeyInput(e.target.value)}
             />
-            <span
-              style={{
-                fontSize: 11,
-                color: "var(--ink-3)",
-                marginTop: 6,
-                lineHeight: 1.4,
-              }}
-            >
-              {t("add_kid.pix_key.hint")}
-            </span>
+            {pixKeyError ? (
+              <span
+                className="dash-mono"
+                style={{ fontSize: 11, color: "var(--rose)", marginTop: 6 }}
+              >
+                {pixKeyError}
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontSize: 11,
+                  color: "var(--ink-3)",
+                  marginTop: 6,
+                  lineHeight: 1.4,
+                }}
+              >
+                {t("add_kid.pix_key.hint")}
+              </span>
+            )}
           </div>
           <div className="dash-col">
             <label className="dash-field-label">

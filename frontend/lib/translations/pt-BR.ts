@@ -229,6 +229,9 @@ export const ptBR: Translations = {
   "add_kid.pix_key.placeholder": "CPF, telefone ou email",
   "add_kid.pix_key.hint":
     "para onde a mesada vai quando você manda. a sua se o filho ainda não tem chave Pix.",
+  "add_kid.pix_key.error.cpf": "CPF inválido",
+  "add_kid.pix_key.error.email": "email inválido",
+  "add_kid.pix_key.error.phone": "use formato E.164 (ex. +5511999998888)",
   "add_kid.monthly.label": "mensal · USDC · mín ${min}",
   "add_kid.monthly.currency_note":
     "USDC ≈ dólar americano · paridade 1:1 · não é BRL",
