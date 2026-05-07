@@ -146,7 +146,18 @@ export async function sendQuasarIxSponsored(
     }),
   });
 
-  const json = (await res.json()) as { signature: string } | { error: string };
+  // Read as text first so we can surface what actually came back when the
+  // response isn't valid JSON (e.g. Vercel function timeout returns an
+  // empty body, an HTML error page, or a stack trace). Calling .json()
+  // directly would throw "Unexpected end of JSON input" and hide the cause.
+  const raw = await res.text();
+  let json: { signature: string } | { error: string };
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    const snippet = raw.trim().slice(0, 200) || "<empty body>";
+    throw new Error(`Relay returned non-JSON (HTTP ${res.status}): ${snippet}`);
+  }
   if (!res.ok || "error" in json) {
     const msg = "error" in json ? json.error : `HTTP ${res.status}`;
     throw new Error(msg);
