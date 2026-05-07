@@ -18,16 +18,51 @@
 //        - parent's signature is already attached
 //   5. We add the hot-wallet signature, broadcast, return the sig
 //
-// Anything that doesn't match the allowlist is rejected. We only sponsor
-// create_family right now — extending to deposit/withdraw later means
-// adding their discriminators here, with a per-instruction validation.
+// Anything that doesn't match the allowlist is rejected. The allowlist
+// covers parent-signed user actions (create_family, withdraw, distribute
+// monthly/bonus, close_family). Deposit is intentionally NOT in the
+// allowlist — see ALLOWED_DISCRIMINATORS for why.
 
 import { NextRequest, NextResponse } from "next/server";
-import { Connection, Transaction } from "@solana/web3.js";
+import {
+  ComputeBudgetProgram,
+  Connection,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import { getHotWalletKeypair, getHotWalletPubkey } from "@/lib/hotWallet";
 import { DEVNET_RPC, PROGRAM_ID } from "@/lib/program";
 
-const CREATE_FAMILY_DISCRIMINATOR = 1;
+// Allowlist of Quasar instructions the relay will sponsor. Anything not
+// here gets rejected. Each entry is the 1-byte discriminator (Pinocchio
+// program uses single-byte discriminators).
+//
+//   1 = create_family   (program-level fee_payer change required this)
+//   3 = withdraw        (parent signs, no SOL — relay covers gas)
+//   4 = distribute_monthly_allowance
+//   5 = distribute_bonus
+//   6 = close_family
+//
+// Deposit (2) deliberately not here — Privy users deposit via Pix only,
+// which is server-signed by the hot wallet directly through the 4P
+// webhook handler. Letting the client request a deposit relay would
+// open a vector for billing the sponsor for arbitrary value transfers.
+const ALLOWED_DISCRIMINATORS = new Set<number>([1, 3, 4, 5, 6]);
+
+// Helper-program IDs that can ride along with the Quasar instruction.
+// Withdraw bundles ComputeBudget + ATA creation; distribute may bundle
+// ComputeBudget. Anything outside this set + Quasar program is rejected.
+const ALLOWED_HELPER_PROGRAMS = new Set<string>([
+  ComputeBudgetProgram.programId.toBase58(),
+  SystemProgram.programId.toBase58(),
+  TOKEN_PROGRAM_ID.toBase58(),
+  ASSOCIATED_TOKEN_PROGRAM_ID.toBase58(),
+]);
 
 export const dynamic = "force-dynamic";
 
@@ -61,28 +96,39 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ---- validation: exactly one instruction targeting Quasar create_family
-  if (tx.instructions.length !== 1) {
+  // ---- validation: exactly one instruction targets Quasar; the rest
+  // must be helper instructions (ComputeBudget / ATA-create / SystemProgram /
+  // SPL-token). This lets withdraw + bundled ATA creation pass the relay.
+  const quasarIxs = tx.instructions.filter(
+    (i) => i.programId.toBase58() === PROGRAM_ID.toBase58()
+  );
+  if (quasarIxs.length !== 1) {
     return NextResponse.json(
-      { error: `expected 1 instruction, got ${tx.instructions.length}` },
+      { error: `expected 1 Quasar instruction, got ${quasarIxs.length}` },
       { status: 400 }
     );
   }
 
-  const ix = tx.instructions[0];
+  const ix = quasarIxs[0];
 
-  if (ix.programId.toBase58() !== PROGRAM_ID.toBase58()) {
+  if (ix.data.length === 0 || !ALLOWED_DISCRIMINATORS.has(ix.data[0])) {
     return NextResponse.json(
-      { error: "instruction does not target Quasar program" },
+      { error: `discriminator ${ix.data[0]} not in relay allowlist` },
       { status: 400 }
     );
   }
 
-  if (ix.data.length === 0 || ix.data[0] !== CREATE_FAMILY_DISCRIMINATOR) {
-    return NextResponse.json(
-      { error: "instruction is not create_family" },
-      { status: 400 }
-    );
+  // Every non-Quasar instruction must target a known helper program. An
+  // unrecognized program in the bundle could siphon SOL or attempt other
+  // mischief — refuse rather than try to enumerate every threat.
+  for (const helper of tx.instructions) {
+    const pid = helper.programId.toBase58();
+    if (pid !== PROGRAM_ID.toBase58() && !ALLOWED_HELPER_PROGRAMS.has(pid)) {
+      return NextResponse.json(
+        { error: `bundled instruction targets non-allowlisted program ${pid}` },
+        { status: 400 }
+      );
+    }
   }
 
   // ---- validation: fee_payer is our sponsor wallet

@@ -31,9 +31,9 @@ import { useEffect, useRef, useState } from "react";
 import { celebrateMonthly } from "@/lib/celebrate";
 import { useToast } from "@/components/Toast";
 import { useLocale } from "@/lib/i18n";
-import { DEVNET_ADDRESSES } from "@/lib/program";
+import { DEVNET_ADDRESSES, SPONSOR_WALLET } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
-import { sendQuasarIx } from "@/lib/sendQuasarIx";
+import { sendQuasarIxSponsored } from "@/lib/sendQuasarIx";
 import {
   clearPixProfile,
   formatCpfForDisplay,
@@ -252,7 +252,7 @@ export function PixOfframpForm({
         6
       );
 
-      const sig = await sendQuasarIx(
+      const sig = await sendQuasarIxSponsored(
         [
           ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 }),
           parentAtaIx,
@@ -262,6 +262,7 @@ export function PixOfframpForm({
         ],
         connection,
         wallet,
+        SPONSOR_WALLET,
         { commitment: "confirmed" }
       );
       console.log(`[offramp] tx ${sig}`);
