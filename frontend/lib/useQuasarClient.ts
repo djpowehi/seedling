@@ -1,8 +1,9 @@
 "use client";
 
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useConnection } from "@solana/wallet-adapter-react";
 import { useMemo } from "react";
 import { SeedlingQuasarClient } from "./quasar-client";
+import { useSeedlingWallet } from "./wallet";
 
 /**
  * Quasar TS client + connected wallet. Returns null when no wallet is
@@ -15,10 +16,10 @@ import { SeedlingQuasarClient } from "./quasar-client";
  */
 export function useQuasarClient() {
   const { connection } = useConnection();
-  const wallet = useWallet();
+  const wallet = useSeedlingWallet();
 
   return useMemo(() => {
-    if (!wallet.connected || !wallet.publicKey || !wallet.sendTransaction) {
+    if (!wallet.connected || !wallet.publicKey) {
       return null;
     }
     const client = new SeedlingQuasarClient();
