@@ -224,6 +224,11 @@ export const ptBR: Translations = {
   "add_kid.kid_pubkey.placeholder": "ex. 7xKX...J9pQ",
   "add_kid.kid_pubkey.invalid": "não é um endereço Solana válido",
   "add_kid.kid_pubkey.duplicate": "você já tem um seedling para esse filho",
+  "add_kid.pix_key.label": "chave Pix do filho",
+  "add_kid.pix_key.optional": "(opcional · para os repasses)",
+  "add_kid.pix_key.placeholder": "CPF, telefone ou email",
+  "add_kid.pix_key.hint":
+    "para onde a mesada vai quando você manda. a sua se o filho ainda não tem chave Pix.",
   "add_kid.monthly.label": "mensal · USDC · mín ${min}",
   "add_kid.monthly.currency_note":
     "USDC ≈ dólar americano · paridade 1:1 · não é BRL",
