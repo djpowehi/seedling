@@ -225,6 +225,8 @@ export interface InitializeVaultInstructionInput {
 }
 
 export interface CreateFamilyInstructionInput {
+  /** Sponsor that funds rent + tx fee. Hot wallet for Privy/Phantom relay. */
+  feePayer: Address;
   parent: Address;
   vaultConfig: Address;
   familyPosition: Address;
@@ -753,7 +755,12 @@ export class SeedlingQuasarClient {
     return new TransactionInstruction({
       programId: SeedlingQuasarClient.programId,
       keys: [
-        { pubkey: input.parent, isSigner: true, isWritable: true },
+        // fee_payer FIRST — pays rent for both PDAs + tx fee. Writable
+        // because lamports are debited from this account.
+        { pubkey: input.feePayer, isSigner: true, isWritable: true },
+        // parent SIGNS but doesn't pay anything anymore — used to be
+        // the rent payer; that role moved to fee_payer.
+        { pubkey: input.parent, isSigner: true, isWritable: false },
         { pubkey: input.vaultConfig, isSigner: false, isWritable: false },
         { pubkey: input.familyPosition, isSigner: false, isWritable: true },
         { pubkey: input.kidView, isSigner: false, isWritable: true },
