@@ -80,6 +80,22 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handle(req);
+  } catch (e: unknown) {
+    // Catch-all so unhandled throws (env-var loading, keypair decode,
+    // tx.partialSign, etc.) return JSON instead of an empty 500 body.
+    const msg = e instanceof Error ? e.message : String(e);
+    const stack = e instanceof Error ? e.stack ?? "" : "";
+    console.error("[sponsor-broadcast] uncaught:", msg, stack);
+    return NextResponse.json(
+      { error: `relay crashed: ${msg}` },
+      { status: 500 }
+    );
+  }
+}
+
+async function handle(req: NextRequest) {
   let body: unknown;
   try {
     body = await req.json();
