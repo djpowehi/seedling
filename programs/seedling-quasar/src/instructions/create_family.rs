@@ -11,7 +11,15 @@ pub const MAX_STREAM_RATE: u64 = 1_000 * 1_000_000;
 #[derive(Accounts)]
 #[instruction(kid: Address, stream_rate: u64)]
 pub struct CreateFamily {
+    /// Sponsor that funds the rent for both PDAs + pays the tx fee. In
+    /// production this is the Seedling hot wallet; the parent never holds
+    /// SOL. Required to be writable + signer.
     #[account(mut)]
+    pub fee_payer: Signer,
+
+    /// Authority for the new family. Must sign so the parent's intent is
+    /// captured on-chain, but no longer pays anything (used to be the
+    /// rent payer; that's now `fee_payer`).
     pub parent: Signer,
 
     #[account(
@@ -23,7 +31,7 @@ pub struct CreateFamily {
     #[account(
         mut,
         init,
-        payer = parent,
+        payer = fee_payer,
         address = FamilyPosition::seeds(parent.address(), &kid),
     )]
     pub family_position: Account<FamilyPosition>,
@@ -31,7 +39,7 @@ pub struct CreateFamily {
     #[account(
         mut,
         init,
-        payer = parent,
+        payer = fee_payer,
         address = KidView::seeds(parent.address(), &kid),
     )]
     pub kid_view: Account<KidView>,

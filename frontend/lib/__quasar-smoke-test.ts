@@ -72,12 +72,13 @@ check(
   })
 );
 
-// 2. createFamily — disc 1, 5 accounts
+// 2. createFamily — disc 1, 6 accounts (added fee_payer for sponsor relay)
 check(
   "createFamily",
   1,
-  5,
+  6,
   client.createCreateFamilyInstruction({
+    feePayer: parent,
     parent,
     vaultConfig,
     familyPosition,
