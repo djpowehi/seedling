@@ -109,6 +109,7 @@ export const en = {
   "card.stat.yield": "Yield earned",
   "card.deposit": "deposit",
   "card.pay_pix": "pay with Pix",
+  "card.top_up": "top up account",
   "card.withdraw": "withdraw",
   "card.withdraw_pix": "withdraw to Pix",
   "card.send_monthly": "Send monthly",
@@ -399,6 +400,21 @@ export const en = {
   "pix.offramp.error.slippage":
     "Share price moved during withdrawal. Try again — buffer should cover it.",
   "pix.offramp.error.paused": "Vault is paused. Try again later.",
+
+  // ---- top-up account modal (fund Privy wallet with USDC directly) ----
+  "topup.title": "Top up your Seedling balance",
+  "topup.subtitle":
+    "Send USDC from any Solana wallet or exchange (Phantom, Coinbase, Binance) to the address below. Funds arrive in seconds — then tap Deposit to fund a kid.",
+  "topup.address.label": "Your address",
+  "topup.copy": "copy",
+  "topup.close": "close",
+  "topup.network": "Solana · Devnet",
+  "topup.warning":
+    "Solana network only. USDC sent from Ethereum, Polygon, or BSC will be lost.",
+  "topup.next_step":
+    "Once funds arrive, tap Deposit on any kid card to move them into the family vault.",
+  "topup.toast.copied": "Address copied",
+  "topup.toast.copy_failed": "Couldn't copy — please select and copy manually",
 
   // ---- pix gift modal ----
   "pix.gift.eyebrow": "give to · seedling · pix",

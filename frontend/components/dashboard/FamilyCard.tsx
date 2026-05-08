@@ -50,6 +50,7 @@ import { useToast } from "@/components/Toast";
 import { DepositForm } from "@/components/DepositForm";
 import { PixDepositForm } from "@/components/PixDepositForm";
 import { PixOfframpForm } from "@/components/PixOfframpForm";
+import { TopUpAccountModal } from "@/components/TopUpAccountModal";
 import { WithdrawForm } from "@/components/WithdrawForm";
 import { ArrowUR, Plus } from "./icons";
 import { GoalRow } from "./GoalRow";
@@ -162,6 +163,7 @@ export function FamilyCard({
   const [showPixDeposit, setShowPixDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showPixOfframp, setShowPixOfframp] = useState(false);
+  const [showTopUp, setShowTopUp] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [addingGoal, setAddingGoal] = useState(false);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
@@ -833,6 +835,13 @@ export function FamilyCard({
         </button>
         <button
           className="dash-btn dash-btn-ghost"
+          onClick={() => setShowTopUp(true)}
+          disabled={submitting !== null}
+        >
+          <span aria-hidden="true">↻</span> {t("card.top_up")}
+        </button>
+        <button
+          className="dash-btn dash-btn-ghost"
           disabled={family.shares.isZero() || submitting !== null}
           onClick={() => {
             setShowDeposit(false);
@@ -976,6 +985,13 @@ export function FamilyCard({
             }}
           />
         </div>
+      )}
+
+      {showTopUp && (
+        <TopUpAccountModal
+          walletPubkey={parent}
+          onClose={() => setShowTopUp(false)}
+        />
       )}
 
       {/* Deposit cadence reminder — only for hybrid + monthly families.

@@ -122,6 +122,7 @@ export const ptBR: Translations = {
   "card.stat.yield": "Rendimento",
   "card.deposit": "depositar",
   "card.pay_pix": "pagar com Pix",
+  "card.top_up": "recarregar conta",
   "card.withdraw": "sacar",
   "card.withdraw_pix": "sacar para o Pix",
   "card.send_monthly": "Enviar mesada",
@@ -401,6 +402,22 @@ export const ptBR: Translations = {
   "pix.offramp.error.slippage":
     "O preço da cota mudou durante o saque. Tente de novo — o buffer cobre.",
   "pix.offramp.error.paused": "O cofre está pausado. Tente mais tarde.",
+
+  // ---- top-up account modal (recarregar carteira Privy com USDC) ----
+  "topup.title": "Recarregue seu saldo Seedling",
+  "topup.subtitle":
+    "Envie USDC de qualquer carteira ou exchange Solana (Phantom, Coinbase, Binance) para o endereço abaixo. O saldo chega em segundos — depois é só tocar em Depositar pra mandar pra um filho.",
+  "topup.address.label": "Seu endereço",
+  "topup.copy": "copiar",
+  "topup.close": "fechar",
+  "topup.network": "Solana · Devnet",
+  "topup.warning":
+    "Apenas rede Solana. USDC enviado por Ethereum, Polygon ou BSC será perdido.",
+  "topup.next_step":
+    "Quando o saldo chegar, toque em Depositar no card de qualquer filho pra mover pro cofre da família.",
+  "topup.toast.copied": "Endereço copiado",
+  "topup.toast.copy_failed":
+    "Não foi possível copiar — selecione e copie manualmente",
 
   // ---- pix gift modal ----
   "pix.gift.eyebrow": "presentear · seedling · pix",
