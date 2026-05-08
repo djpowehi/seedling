@@ -37,6 +37,7 @@ export async function fetchFamilyByPda(
     lastBonusPeriodId: decoded.lastBonusPeriodId,
     totalYieldEarned: new BN(decoded.totalYieldEarned.toString()),
     bump: decoded.bump,
+    isDraft: false,
   };
 }
 

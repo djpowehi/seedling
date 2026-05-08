@@ -73,6 +73,14 @@ interface OnrampRequest {
   cpf: string;
   email: string;
   gifterName?: string;
+  /** Lazy-creation context. If present, the family doesn't exist on-chain
+   *  yet — webhook will prepend a create_family ix so the family is born
+   *  and funded atomically with the first deposit. */
+  lazyCreate?: {
+    parent: string; // base58
+    kid: string; // base58 — 32-byte client-generated identifier
+    streamRateBaseUnits: string; // u64 as decimal string (BigInt-safe over JSON)
+  };
 }
 
 function getOriginFromRequest(req: NextRequest): string {
@@ -136,29 +144,68 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "email is invalid" }, { status: 400 });
   }
 
+  // ---- validate lazyCreate (if provided) ----
+  let lazyCreate: {
+    parent: PublicKey;
+    kid: PublicKey;
+    streamRateBaseUnits: bigint;
+  } | null = null;
+  if (body.lazyCreate) {
+    try {
+      const parent = new PublicKey(body.lazyCreate.parent);
+      const kid = new PublicKey(body.lazyCreate.kid);
+      const streamRateBaseUnits = BigInt(body.lazyCreate.streamRateBaseUnits);
+      if (streamRateBaseUnits <= BigInt(0)) {
+        return NextResponse.json(
+          { error: "lazyCreate.streamRateBaseUnits must be > 0" },
+          { status: 400 }
+        );
+      }
+      lazyCreate = { parent, kid, streamRateBaseUnits };
+    } catch {
+      return NextResponse.json(
+        { error: "lazyCreate fields are malformed" },
+        { status: 400 }
+      );
+    }
+  }
+
   // ---- family existence check ----
-  // Same discriminator pattern the gift route uses. Saves us from
-  // creating a 4P order for a family that doesn't exist.
+  // Skip when lazyCreate is set — the family doesn't exist YET, but the
+  // webhook will create it atomically with the first deposit. For non-lazy
+  // calls (deposits to an already-existing family) we keep the early
+  // rejection so we don't take 4P money for a family the program would
+  // refuse to deposit into.
   const connection = new Connection(DEVNET_RPC, "confirmed");
-  const familyInfo = await connection.getAccountInfo(familyPda, "confirmed");
-  if (!familyInfo || familyInfo.data[0] !== FAMILY_POSITION_DISCRIMINATOR[0]) {
-    return NextResponse.json({ error: "family not found" }, { status: 404 });
+  if (!lazyCreate) {
+    const familyInfo = await connection.getAccountInfo(familyPda, "confirmed");
+    if (
+      !familyInfo ||
+      familyInfo.data[0] !== FAMILY_POSITION_DISCRIMINATOR[0]
+    ) {
+      return NextResponse.json({ error: "family not found" }, { status: 404 });
+    }
   }
 
   // ---- build customId so the webhook can route the credit ----
-  // Format: <kind>:<familyPda>:<gifterName?>:<random>
-  // The webhook splits on ":" to extract kind + familyPda + gifterName.
-  // Random suffix guarantees uniqueness even if the same parent submits
-  // twice in the same second.
+  // Base format: <kind>:<familyPda>:<gifterName?>:<random>
+  // Lazy-create suffix (optional): :lc:<parent>:<kid>:<streamRate>
+  // Webhook parses both halves to know whether to prepend a create_family
+  // ix to the deposit tx. Random suffix guarantees uniqueness even if the
+  // same parent submits twice in the same second.
   const random = crypto.randomUUID();
   const gifterSlug =
     body.kind === "gift" && body.gifterName
       ? sanitizeGifterName(body.gifterName).replace(/:/g, "_")
       : "";
-  const customId = `${body.kind}:${body.familyPda}:${gifterSlug}:${random}`;
+  const baseCustomId = `${body.kind}:${body.familyPda}:${gifterSlug}:${random}`;
+  const customId = lazyCreate
+    ? `${baseCustomId}:lc:${lazyCreate.parent.toBase58()}:${lazyCreate.kid.toBase58()}:${lazyCreate.streamRateBaseUnits.toString()}`
+    : baseCustomId;
 
-  // 4P custom_id max length is 255. Our format ≤ ~150 worst case
-  // (kind=6 + ":" + base58 pubkey 44 + ":" + name 32 + ":" + uuid 36).
+  // 4P custom_id max length is 255. Worst case with lazyCreate:
+  // kind(6) + ":" + pda(44) + ":" + gifterSlug(32) + ":" + uuid(36) +
+  // ":lc:" + parent(44) + ":" + kid(44) + ":" + rate(20) ≈ 240 chars.
   if (customId.length > 255) {
     return NextResponse.json(
       { error: "internal: customId exceeds 4P limit" },

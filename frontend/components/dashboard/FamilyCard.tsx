@@ -32,6 +32,7 @@ import {
   removeKidPixKey,
   setKidPixKey,
 } from "@/lib/kidPix";
+import { removeDraftFamily, updateDraftMonthly } from "@/lib/draftFamilies";
 import { isValidCpf, isValidEmail } from "@/lib/pixProfile";
 import {
   depositForMonth,
@@ -473,25 +474,36 @@ export function FamilyCard({
     setSubmitting("edit");
 
     try {
-      // 1. On-chain update if monthly changed.
+      // 1. On-chain update if monthly changed AND the family is real.
+      // Drafts haven't hit the chain yet — we just update the localStorage
+      // record and the new value will be passed to create_family at the
+      // moment of first deposit.
       const newRateBaseUnits = BigInt(Math.round(monthlyNum * 1_000_000));
       const currentRateBaseUnits = BigInt(family.streamRate.toString());
       if (newRateBaseUnits !== currentRateBaseUnits) {
-        const ix = client.createSetStreamRateInstruction({
-          feePayer: SPONSOR_WALLET,
-          parent,
-          familyPosition: family.pubkey,
-          vaultConfig: DEVNET_ADDRESSES.vaultConfig,
-          newStreamRate: newRateBaseUnits,
-        });
-        const sig = await sendQuasarIxSponsored(
-          ix,
-          connection,
-          wallet,
-          SPONSOR_WALLET,
-          { commitment: "confirmed" }
-        );
-        console.log(`[set_stream_rate] tx ${sig}`);
+        if (family.isDraft) {
+          updateDraftMonthly(
+            family.parent.toBase58(),
+            family.kid.toBase58(),
+            monthlyNum
+          );
+        } else {
+          const ix = client.createSetStreamRateInstruction({
+            feePayer: SPONSOR_WALLET,
+            parent,
+            familyPosition: family.pubkey,
+            vaultConfig: DEVNET_ADDRESSES.vaultConfig,
+            newStreamRate: newRateBaseUnits,
+          });
+          const sig = await sendQuasarIxSponsored(
+            ix,
+            connection,
+            wallet,
+            SPONSOR_WALLET,
+            { commitment: "confirmed" }
+          );
+          console.log(`[set_stream_rate] tx ${sig}`);
+        }
       }
 
       // 2. Off-chain updates (idempotent — safe to call even if unchanged).
@@ -529,6 +541,26 @@ export function FamilyCard({
       )
     )
       return;
+
+    // Draft families never went on-chain — sponsor never paid for the
+    // PDAs, so removal is purely a localStorage delete. Skip the close
+    // tx entirely; it would fail (no FamilyPosition account exists).
+    if (family.isDraft) {
+      removeDraftFamily(family.parent.toBase58(), family.kid.toBase58());
+      removeKidName(familyKey);
+      removeKidPixKey(familyKey);
+      removeSavingsGoal(familyKey);
+      showToast({
+        variant: "info",
+        title: name
+          ? t("card.toast.closed_title.named", { name })
+          : t("card.toast.closed_title.fallback"),
+        subtitle: t("card.toast.closed_subtitle"),
+      });
+      setClosing(true);
+      setTimeout(() => onMutated(), 600);
+      return;
+    }
 
     setSubmitting("remove");
     setError(null);
@@ -690,17 +722,24 @@ export function FamilyCard({
             className="dash-mono"
             style={{
               fontSize: 10,
-              color: "var(--forest)",
+              color: family.isDraft ? "#7A5A1F" : "var(--forest)",
               letterSpacing: "0.14em",
               textTransform: "uppercase",
               padding: "4px 8px",
-              border: "1px solid var(--forest-soft)",
+              border: family.isDraft
+                ? "1px solid rgba(197, 148, 74, 0.4)"
+                : "1px solid var(--forest-soft)",
               borderRadius: 99,
-              background: "var(--forest-soft)",
+              background: family.isDraft
+                ? "rgba(197, 148, 74, 0.18)"
+                : "var(--forest-soft)",
               whiteSpace: "nowrap",
             }}
+            title={family.isDraft ? t("card.draft.deposit_hint") : undefined}
           >
-            {t(`mode.${depositMode}.plan` as TranslationKey)}
+            {family.isDraft
+              ? t("card.draft.badge")
+              : t(`mode.${depositMode}.plan` as TranslationKey)}
           </span>
           <span
             className="dash-mono"
@@ -818,7 +857,8 @@ export function FamilyCard({
             setShowPixDeposit(false);
             setShowDeposit((v) => !v);
           }}
-          disabled={submitting !== null}
+          disabled={submitting !== null || family.isDraft}
+          title={family.isDraft ? t("card.draft.deposit_hint") : undefined}
         >
           <Plus /> {t("card.deposit")}
         </button>

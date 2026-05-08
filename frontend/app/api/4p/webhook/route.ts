@@ -40,11 +40,21 @@ interface ParsedCustomId {
   kind: "parent" | "gift";
   familyPda: PublicKey;
   gifterName: string | null;
+  /** Lazy-creation context. Present when the on-ramp request set lazyCreate;
+   *  webhook passes through to signAndSendDeposit so the family is created
+   *  atomically with the deposit. Absent for orders against existing
+   *  on-chain families. */
+  lazyCreate: {
+    parent: PublicKey;
+    kid: PublicKey;
+    streamRateBaseUnits: bigint;
+  } | null;
   raw: string;
 }
 
 function parseCustomId(raw: string): ParsedCustomId | null {
-  // Format: <kind>:<familyPda>:<gifterName?>:<uuid>
+  // Base format: <kind>:<familyPda>:<gifterName?>:<uuid>
+  // Lazy-create suffix (optional): :lc:<parent>:<kid>:<streamRate>
   const parts = raw.split(":");
   if (parts.length < 4) return null;
   const [kind, familyPdaStr, gifterSlug] = parts;
@@ -55,10 +65,29 @@ function parseCustomId(raw: string): ParsedCustomId | null {
   } catch {
     return null;
   }
+
+  // Lazy-create marker is at index 4. When present, indexes 5/6/7 carry
+  // parent / kid / streamRate. Anything else after index 4 is malformed.
+  let lazyCreate: ParsedCustomId["lazyCreate"] = null;
+  if (parts.length >= 8 && parts[4] === "lc") {
+    try {
+      lazyCreate = {
+        parent: new PublicKey(parts[5]),
+        kid: new PublicKey(parts[6]),
+        streamRateBaseUnits: BigInt(parts[7]),
+      };
+    } catch {
+      // Malformed lazy-create suffix — fail the parse rather than risk
+      // depositing into a family that won't get created.
+      return null;
+    }
+  }
+
   return {
     kind,
     familyPda,
     gifterName: kind === "gift" && gifterSlug ? gifterSlug : null,
+    lazyCreate,
     raw,
   };
 }
@@ -195,6 +224,7 @@ export async function POST(req: NextRequest) {
       amountBaseUnits,
       customId: parsed.raw,
       gifterName: parsed.gifterName,
+      lazyCreate: parsed.lazyCreate ?? undefined,
     });
     console.log(
       `[4p webhook] credited ${parsed.familyPda.toBase58()} amount=${

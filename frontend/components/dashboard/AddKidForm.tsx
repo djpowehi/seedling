@@ -1,22 +1,15 @@
 "use client";
 
-import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
-import { useSeedlingWallet } from "@/lib/wallet";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import { useEffect, useRef, useState } from "react";
 import type { Connection } from "@solana/web3.js";
 import { celebratePlant } from "@/lib/celebrate";
+import { addDraftFamily } from "@/lib/draftFamilies";
 import { setKidName } from "@/lib/kidNames";
 import { setKidPixKey } from "@/lib/kidPix";
 import { isValidCpf, isValidEmail } from "@/lib/pixProfile";
-import { SPONSOR_WALLET } from "@/lib/program";
-import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { useToast } from "@/components/Toast";
-import {
-  familyPositionPda,
-  kidViewPda,
-  vaultConfigPda,
-} from "@/lib/quasarPdas";
-import { sendQuasarIxSponsored } from "@/lib/sendQuasarIx";
+import { familyPositionPda } from "@/lib/quasarPdas";
 import {
   defaultHybridConfig,
   estimatedAnnualYield,
@@ -44,7 +37,6 @@ type Props = {
 };
 
 export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
-  const wallet = useSeedlingWallet();
   const { showToast } = useToast();
   const { t, locale } = useLocale();
   // Section ref so the planting confetti fires FROM the form's location
@@ -166,36 +158,20 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
     setSubmitError(null);
 
     try {
-      const streamRateBaseUnits = Math.round(monthlyNum * 1_000_000);
-      const client = new SeedlingQuasarClient();
+      // Lazy creation: nothing on-chain happens here. We persist the kid
+      // as a "draft family" in localStorage and let the first deposit
+      // create the FamilyPosition + KidView accounts atomically with the
+      // deposit instruction. Avoids the $0.62 sponsor-cost ghost-family
+      // subsidy when a parent adds a kid and never deposits.
       const familyPda = familyPositionPda(parent, parsedKid);
-      const kidViewAddr = kidViewPda(parent, parsedKid);
-
-      const ix = client.createCreateFamilyInstruction({
-        feePayer: SPONSOR_WALLET,
-        parent,
-        vaultConfig: vaultConfigPda(),
-        familyPosition: familyPda,
-        kidView: kidViewAddr,
-        systemProgram: SystemProgram.programId,
-        kid: parsedKid,
-        streamRate: BigInt(streamRateBaseUnits),
+      addDraftFamily({
+        parent: parent.toBase58(),
+        kid: parsedKid.toBase58(),
+        monthlyUsd: monthlyNum,
+        createdAt: Math.floor(Date.now() / 1000),
       });
-      const sig = await sendQuasarIxSponsored(
-        ix,
-        connection,
-        wallet,
-        SPONSOR_WALLET,
-        { commitment: "confirmed" }
-      );
-      if (nameInput.trim()) {
-        setKidName(familyPda.toBase58(), nameInput);
-      }
-      if (pixKeyInput.trim()) {
-        setKidPixKey(familyPda.toBase58(), pixKeyInput);
-      }
-      // Persist deposit cadence right after the create succeeds — drives
-      // the family card's reminder badge + the kid view's year recap.
+      if (nameInput.trim()) setKidName(familyPda.toBase58(), nameInput);
+      if (pixKeyInput.trim()) setKidPixKey(familyPda.toBase58(), pixKeyInput);
       setDepositMode(familyPda.toBase58(), mode);
       if (mode === "hybrid") {
         const upfront = parseFloat(hybridUpfrontInput);
@@ -208,9 +184,6 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
         }
       }
 
-      await connection.confirmTransaction(sig, "finalized");
-      console.log(`[create_family] tx ${sig}`);
-      // Plant celebration — capture origin BEFORE onCreated unmounts the form.
       const origin = computeOrigin(sectionRef.current);
       void celebratePlant(origin);
       showToast({
@@ -222,51 +195,11 @@ export function AddKidForm({ connection, parent, onCreated, onCancel }: Props) {
       });
       onCreated();
     } catch (e: unknown) {
+      // localStorage failure is the only failure mode now — quota or
+      // private-mode browsers. Surface the raw message so the user
+      // knows why the form didn't progress.
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.toLowerCase().includes("already been processed")) {
-        if (parsedKid) {
-          const familyPda = familyPositionPda(parent, parsedKid);
-          if (nameInput.trim()) setKidName(familyPda.toBase58(), nameInput);
-          if (pixKeyInput.trim())
-            setKidPixKey(familyPda.toBase58(), pixKeyInput);
-          setDepositMode(familyPda.toBase58(), mode);
-          if (mode === "hybrid") {
-            const upfront = parseFloat(hybridUpfrontInput);
-            const monthly = parseFloat(hybridMonthlyInput);
-            if (Number.isFinite(upfront) && Number.isFinite(monthly)) {
-              setHybridConfig(familyPda.toBase58(), {
-                upfrontUsd: upfront,
-                monthlyUsd: monthly,
-              });
-            }
-          }
-        }
-        const origin = computeOrigin(sectionRef.current);
-        void celebratePlant(origin);
-        showToast({
-          variant: "monthly",
-          title: nameInput.trim()
-            ? `${nameInput.trim()}'s allowance is planted`
-            : "new allowance planted",
-          subtitle: `$${monthlyNum}/mo · earning yield on Kamino`,
-        });
-        onCreated();
-        return;
-      }
-      if (msg.includes("already in use")) {
-        setSubmitError(t("add_kid.error.in_use"));
-      } else if (msg.includes("InvalidStreamRate")) {
-        setSubmitError(
-          t("add_kid.error.bad_rate", {
-            min: MIN_STREAM_USD,
-            max: MAX_STREAM_USD,
-          })
-        );
-      } else if (msg.includes("VaultPaused")) {
-        setSubmitError(t("add_kid.error.paused"));
-      } else {
-        setSubmitError(msg);
-      }
+      setSubmitError(msg);
     } finally {
       setSubmitting(false);
     }

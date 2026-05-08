@@ -34,6 +34,7 @@ import bs58 from "bs58";
 
 import { DEVNET_ADDRESSES, DEVNET_RPC } from "./program";
 import { SeedlingQuasarClient } from "./quasar-client";
+import { kidViewPda, vaultConfigPda } from "./quasarPdas";
 
 const MEMO_PROGRAM_ID = new PublicKey(
   "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
@@ -168,6 +169,16 @@ export interface SignAndSendDepositInput {
   /** Optional gift attribution. If set, prepends `seedling-gift:<name>` memo
    * so the gift wall picks it up. Falsy = parent top-up, no gift memo. */
   gifterName?: string | null;
+  /** Lazy creation hint. When set AND the FamilyPosition account doesn't
+   *  exist on-chain yet, the deposit tx prepends a create_family ix so the
+   *  family is created and funded atomically. The parent + kid are the PDA
+   *  seeds; streamRate is the monthly allowance in USDC base units (6 dec).
+   *  Hot wallet pays for both the create_family rent and the deposit. */
+  lazyCreate?: {
+    parent: PublicKey;
+    kid: PublicKey;
+    streamRateBaseUnits: bigint;
+  };
 }
 
 export interface SignAndSendDepositResult {
@@ -222,6 +233,30 @@ export async function signAndSendDeposit(
     ? buildMemoIx(GIFT_MEMO_PREFIX + input.gifterName)
     : null;
 
+  // Lazy creation: if the caller passed lazyCreate AND the FamilyPosition
+  // account doesn't exist on-chain yet, prepend a create_family ix so the
+  // family is born and funded in the same tx. We bump CU because deposit
+  // already uses ~600k; create_family adds ~50k more — well under the 1.4M
+  // limit set in `cuIx`. Skip when the account exists (a previous deposit
+  // already promoted the draft).
+  let createFamilyIx: TransactionInstruction | null = null;
+  if (input.lazyCreate) {
+    const existing = await connection.getAccountInfo(input.familyPda);
+    if (!existing) {
+      const lc = input.lazyCreate;
+      createFamilyIx = client.createCreateFamilyInstruction({
+        feePayer: hotWallet.publicKey,
+        parent: lc.parent,
+        vaultConfig: vaultConfigPda(),
+        familyPosition: input.familyPda,
+        kidView: kidViewPda(lc.parent, lc.kid),
+        systemProgram: SystemProgram.programId,
+        kid: lc.kid,
+        streamRate: lc.streamRateBaseUnits,
+      });
+    }
+  }
+
   const depositIx = client.createDepositInstruction({
     familyPosition: input.familyPda,
     depositor: hotWallet.publicKey,
@@ -255,6 +290,9 @@ export async function signAndSendDeposit(
   tx.recentBlockhash = blockhash;
   tx.add(cuIx, ataIx, customIdMemoIx);
   if (giftMemoIx) tx.add(giftMemoIx);
+  // create_family runs BEFORE deposit so FamilyPosition exists by the time
+  // deposit runs. Solana processes instructions sequentially within a tx.
+  if (createFamilyIx) tx.add(createFamilyIx);
   tx.add(depositIx);
 
   tx.sign(hotWallet);

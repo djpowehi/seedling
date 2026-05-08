@@ -200,6 +200,18 @@ export function PixDepositForm({
     // Persist the profile only AFTER 4P accepts the order — otherwise
     // an invalid CPF gets stuck in localStorage on the user's device.
     try {
+      // Lazy-creation hint: when the family is a draft (no on-chain
+      // account yet), tell the server so the webhook prepends a
+      // create_family ix to the deposit tx. Server rejects orders for
+      // non-existent families without this flag.
+      const lazyCreatePayload = family.isDraft
+        ? {
+            parent: family.parent.toBase58(),
+            kid: family.kid.toBase58(),
+            streamRateBaseUnits: family.streamRate.toString(),
+          }
+        : undefined;
+
       const res = await fetch("/api/4p/onramp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -209,6 +221,7 @@ export function PixDepositForm({
           amountBrl: amountNum,
           cpf: cpfForRequest.replace(/\D/g, ""),
           email: emailForRequest,
+          lazyCreate: lazyCreatePayload,
         }),
       });
       const json = (await res.json()) as OnrampOk | { error: string };

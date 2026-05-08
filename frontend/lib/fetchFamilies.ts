@@ -7,6 +7,7 @@ import {
   FamilyPositionCodec,
 } from "./quasar-client";
 import { familyPositionPda } from "./quasarPdas";
+import { getDraftFamilies } from "./draftFamilies";
 
 /**
  * FamilyPosition account total size on-chain (Quasar layout):
@@ -38,6 +39,11 @@ export type FamilyView = {
   lastBonusPeriodId: number;
   totalYieldEarned: BN;
   bump: number;
+  /** true when the family exists only in localStorage (no on-chain
+   *  account yet). Drafts get promoted to on-chain at first deposit;
+   *  this flag is what lets the UI render reduced affordances (no
+   *  withdraw / no distribute / no yield ticker) for unfunded families. */
+  isDraft: boolean;
 };
 
 /**
@@ -69,7 +75,7 @@ export async function fetchFamiliesForParent(
     commitment: "confirmed",
   });
 
-  return accounts
+  const onChain: FamilyView[] = accounts
     .map(({ pubkey, account }) => {
       const decoded = FamilyPositionCodec.decode(account.data.subarray(1));
       return {
@@ -85,6 +91,7 @@ export async function fetchFamiliesForParent(
         lastBonusPeriodId: decoded.lastBonusPeriodId,
         totalYieldEarned: new BN(decoded.totalYieldEarned.toString()),
         bump: decoded.bump,
+        isDraft: false,
       };
     })
     .filter((family) => {
@@ -95,4 +102,38 @@ export async function fetchFamiliesForParent(
       const expected = familyPositionPda(family.parent, family.kid);
       return expected.toBase58() === family.pubkey.toBase58();
     });
+
+  // Layer drafts (localStorage) on top, dropping any draft whose kid
+  // already has an on-chain family — that means the first deposit
+  // promoted the draft and we should let the on-chain record win.
+  const onChainKids = new Set(onChain.map((f) => f.kid.toBase58()));
+  const drafts = getDraftFamilies(parent.toBase58())
+    .filter((d) => !onChainKids.has(d.kid))
+    .map((d): FamilyView => {
+      const parentPk = new PublicKey(d.parent);
+      const kidPk = new PublicKey(d.kid);
+      const familyPda = familyPositionPda(parentPk, kidPk);
+      const streamBaseUnits = Math.round(d.monthlyUsd * 1_000_000);
+      return {
+        pubkey: familyPda,
+        parent: parentPk,
+        kid: kidPk,
+        shares: new BN(0),
+        principalDeposited: new BN(0),
+        principalRemaining: new BN(0),
+        streamRate: new BN(streamBaseUnits),
+        // Both timestamps point at draft creation. The kid view's
+        // "ago" labels still read sensibly; on-chain bumps these
+        // forward at first deposit so subsequent fetches show the
+        // real created_at.
+        createdAt: new BN(d.createdAt),
+        lastDistribution: new BN(d.createdAt),
+        lastBonusPeriodId: 0,
+        totalYieldEarned: new BN(0),
+        bump: 0, // unknown until on-chain create_family runs
+        isDraft: true,
+      };
+    });
+
+  return [...onChain, ...drafts];
 }
