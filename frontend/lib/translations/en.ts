@@ -418,6 +418,29 @@ export const en = {
     "Once funds arrive, tap Deposit on any kid card to move them into the family vault.",
   "topup.toast.copied": "Address copied",
   "topup.toast.copy_failed": "Couldn't copy — please select and copy manually",
+  "topup.help.button": "Don't know how? Show me",
+  "topup.help.m1.label": "Easiest · 5 minutes",
+  "topup.help.m1.title": "Buy USDC inside Phantom (no exchange account needed)",
+  "topup.help.m1.step1":
+    "Install Phantom (phantom.app) and create a wallet — Google login works.",
+  "topup.help.m1.step2":
+    'In Phantom, tap "Buy" → choose USDC on Solana → pay with credit card.',
+  "topup.help.m1.step3":
+    'Once received, tap "Send" → paste the address above → confirm.',
+  "topup.help.m2.label": "If you have BRL on a Brazilian exchange",
+  "topup.help.m2.title":
+    "Withdraw USDC from Mercado Bitcoin, Binance BR, or Foxbit",
+  "topup.help.m2.step1": "Buy USDC on the exchange (or use what you have).",
+  "topup.help.m2.step2":
+    'Open "Withdraw" → USDC → choose Solana network (NOT Ethereum or BSC).',
+  "topup.help.m2.step3": "Paste the address above as destination → confirm.",
+  "topup.help.m3.label": "If you already have a Solana wallet",
+  "topup.help.m3.title": "Send USDC from Phantom, Solflare, Backpack, etc.",
+  "topup.help.m3.step1": 'Open your wallet and tap "Send".',
+  "topup.help.m3.step2": "Choose USDC as the asset.",
+  "topup.help.m3.step3": "Paste the address above and confirm.",
+  "topup.help.pitfall":
+    "Always double-check it says Solana / SOL before confirming — wrong-network sends cannot be recovered.",
 
   // ---- pix gift modal ----
   "pix.gift.eyebrow": "give to · seedling · pix",

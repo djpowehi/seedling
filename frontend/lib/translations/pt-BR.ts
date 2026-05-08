@@ -421,6 +421,29 @@ export const ptBR: Translations = {
   "topup.toast.copied": "Endereço copiado",
   "topup.toast.copy_failed":
     "Não foi possível copiar — selecione e copie manualmente",
+  "topup.help.button": "Não sabe como? Te mostro",
+  "topup.help.m1.label": "Mais fácil · 5 minutos",
+  "topup.help.m1.title":
+    "Compre USDC dentro da Phantom (não precisa de exchange)",
+  "topup.help.m1.step1":
+    "Instale a Phantom (phantom.app) e crie uma carteira — login com Google funciona.",
+  "topup.help.m1.step2":
+    'Na Phantom, toque em "Buy" → escolha USDC na Solana → pague com cartão de crédito.',
+  "topup.help.m1.step3":
+    'Quando o USDC chegar, toque em "Send" → cole o endereço acima → confirme.',
+  "topup.help.m2.label": "Se você tem reais em uma exchange brasileira",
+  "topup.help.m2.title": "Saque USDC do Mercado Bitcoin, Binance BR ou Foxbit",
+  "topup.help.m2.step1": "Compre USDC na exchange (ou use o que já tem).",
+  "topup.help.m2.step2":
+    'Abra "Sacar" → USDC → escolha rede Solana (NÃO Ethereum ou BSC).',
+  "topup.help.m2.step3": "Cole o endereço acima como destino e confirme.",
+  "topup.help.m3.label": "Se você já tem uma carteira Solana",
+  "topup.help.m3.title": "Envie USDC da Phantom, Solflare, Backpack, etc.",
+  "topup.help.m3.step1": 'Abra sua carteira e toque em "Send".',
+  "topup.help.m3.step2": "Escolha USDC como ativo.",
+  "topup.help.m3.step3": "Cole o endereço acima e confirme.",
+  "topup.help.pitfall":
+    "Confira sempre se aparece Solana / SOL antes de confirmar — envios em rede errada não voltam.",
 
   // ---- pix gift modal ----
   "pix.gift.eyebrow": "presentear · seedling · pix",

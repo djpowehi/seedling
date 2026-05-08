@@ -19,12 +19,13 @@
 // users sending raw SPL transfers may need the ATA — but that's an
 // edge case we don't surface in v1.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import type { PublicKey } from "@solana/web3.js";
 
 import { useToast } from "@/components/Toast";
 import { useLocale } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/i18n";
 
 type Props = {
   walletPubkey: PublicKey;
@@ -35,6 +36,7 @@ export function TopUpAccountModal({ walletPubkey, onClose }: Props) {
   const { showToast } = useToast();
   const { t } = useLocale();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   const address = walletPubkey.toBase58();
 
@@ -270,10 +272,92 @@ export function TopUpAccountModal({ walletPubkey, onClose }: Props) {
             background: "#F8F2E0",
             padding: "12px 14px",
             borderRadius: 8,
+            marginBottom: 12,
           }}
         >
           {t("topup.next_step")}
         </div>
+
+        {/* "Don't know how?" — collapsible tutorial for non-crypto parents.
+            Three methods ranked by ease: Phantom in-app (cheapest path for
+            first-timers), Brazilian exchange (BRL → USDC withdrawal), and
+            an existing Solana wallet (for users who already have USDC). */}
+        <button
+          onClick={() => setShowHelp((v) => !v)}
+          aria-expanded={showHelp}
+          style={{
+            width: "100%",
+            background: "transparent",
+            border: "1px solid #ECE4D2",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontSize: 12,
+            color: "#5A4A36",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontFamily: "inherit",
+          }}
+        >
+          <span>{t("topup.help.button")}</span>
+          <span aria-hidden="true" style={{ fontSize: 11, color: "#8A8169" }}>
+            {showHelp ? "−" : "+"}
+          </span>
+        </button>
+
+        {showHelp && (
+          <div style={{ marginTop: 10 }}>
+            {(["m1", "m2", "m3"] as const).map((m, i) => (
+              <div
+                key={m}
+                style={{
+                  marginBottom: i < 2 ? 10 : 0,
+                  padding: "12px 14px",
+                  background: "#F8F2E0",
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: "#3F3826",
+                  lineHeight: 1.5,
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                    fontSize: 10,
+                    color: "#8A8169",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.14em",
+                    marginBottom: 6,
+                  }}
+                >
+                  {t(`topup.help.${m}.label` as TranslationKey)}
+                </div>
+                <div
+                  style={{ fontWeight: 500, marginBottom: 6, color: "#1F3A2A" }}
+                >
+                  {t(`topup.help.${m}.title` as TranslationKey)}
+                </div>
+                <ol style={{ margin: 0, paddingLeft: 18 }}>
+                  <li>{t(`topup.help.${m}.step1` as TranslationKey)}</li>
+                  <li>{t(`topup.help.${m}.step2` as TranslationKey)}</li>
+                  <li>{t(`topup.help.${m}.step3` as TranslationKey)}</li>
+                </ol>
+              </div>
+            ))}
+            <div
+              style={{
+                marginTop: 10,
+                fontSize: 11,
+                color: "#7A2E25",
+                lineHeight: 1.5,
+                fontStyle: "italic",
+              }}
+            >
+              {t("topup.help.pitfall")}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
