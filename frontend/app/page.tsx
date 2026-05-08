@@ -858,6 +858,82 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="landing-section">
+        <div className="landing-section-label">
+          <span>
+            <span className="num">{t("landing.section.trust.label_num")}</span>
+            &nbsp;&nbsp;{t("landing.section.trust.label")}
+          </span>
+          <span>{t("landing.section.trust.sub")}</span>
+        </div>
+
+        <div className="landing-steps">
+          <div className="landing-step">
+            <div className="landing-step-num">i</div>
+            <svg
+              className="landing-step-icon"
+              viewBox="0 0 56 56"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              {/* Vault / lock metaphor — funds held safely */}
+              <rect x="14" y="22" width="28" height="22" rx="2" />
+              <path d="M20 22 v-4 a8 8 0 0 1 16 0 v4" />
+              <circle cx="28" cy="33" r="2.5" />
+            </svg>
+            <h3>{t("landing.trust.custody.title")}</h3>
+            <p>{t("landing.trust.custody.body")}</p>
+          </div>
+
+          <div className="landing-step">
+            <div className="landing-step-num">ii</div>
+            <svg
+              className="landing-step-icon"
+              viewBox="0 0 56 56"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              {/* Hand-with-coin metaphor — parental control / withdrawal */}
+              <path d="M14 32 L14 44 L42 44 L42 32" />
+              <circle cx="28" cy="22" r="6" />
+              <path d="M25 22 L31 22 M28 19 L28 25" />
+            </svg>
+            <h3>{t("landing.trust.withdraw.title")}</h3>
+            <p>{t("landing.trust.withdraw.body")}</p>
+          </div>
+
+          <div className="landing-step">
+            <div className="landing-step-num">iii</div>
+            <svg
+              className="landing-step-icon"
+              viewBox="0 0 56 56"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              {/* Variable-line / chart metaphor — yield is variable */}
+              <path d="M10 38 L20 28 L28 34 L38 22 L46 26" />
+              <circle cx="20" cy="28" r="1.5" fill="currentColor" />
+              <circle cx="28" cy="34" r="1.5" fill="currentColor" />
+              <circle cx="38" cy="22" r="1.5" fill="currentColor" />
+            </svg>
+            <h3>{t("landing.trust.yield.title")}</h3>
+            <p>{t("landing.trust.yield.body")}</p>
+          </div>
+        </div>
+      </section>
+
       <footer className="landing-footer">
         <div className="landing-foot-mark">seedling.</div>
         <div className="landing-foot-meta">

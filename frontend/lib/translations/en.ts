@@ -49,6 +49,18 @@ export const en = {
     "Seedling kid view with a growing tree and live yield ticker",
   "landing.shot.kid.caption": "Kid view",
   "landing.shot.kid.caption_sub": "a tree, growing — no wallet needed",
+  "landing.section.trust.label_num": "04",
+  "landing.section.trust.label": "Trust & safety",
+  "landing.section.trust.sub": "Your money, your control",
+  "landing.trust.custody.title": "Funds stay in audited Solana lending.",
+  "landing.trust.custody.body":
+    "Every deposit routes into Kamino — public, audited, on-chain. Seedling never rehypothecates or moves principal anywhere else. The vault smart contract is open-source.",
+  "landing.trust.withdraw.title": "Parents can withdraw at any time.",
+  "landing.trust.withdraw.body":
+    "Principal + accrued yield are recoverable in full whenever you want. No lockup, no early-exit penalty. The kid never holds the keys — custody stays with the parent.",
+  "landing.trust.yield.title": "Yield is variable, not guaranteed.",
+  "landing.trust.yield.body":
+    "Currently ~8% APY on Kamino's USDC reserve, but rates move with market demand. Not insured. We show you the live rate; the year-end bonus is whatever the protocol actually earned.",
   "landing.footer.built": "Built on Kamino · Solana",
   "landing.footer.copy": "© 2026 · seedlingsol.xyz",
 

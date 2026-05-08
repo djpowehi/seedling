@@ -62,6 +62,19 @@ export const ptBR: Translations = {
   "landing.shot.kid.caption": "Tela da criança",
   "landing.shot.kid.caption_sub":
     "uma árvore, crescendo — sem precisar de carteira",
+  "landing.section.trust.label_num": "04",
+  "landing.section.trust.label": "Confiança e segurança",
+  "landing.section.trust.sub": "Seu dinheiro, no seu controle",
+  "landing.trust.custody.title":
+    "O dinheiro fica no Kamino, auditado e on-chain.",
+  "landing.trust.custody.body":
+    "Todo depósito vai pro Kamino — público, auditado, on-chain. A Seedling nunca reusa o capital nem move pra outro lugar. O contrato do cofre é open-source.",
+  "landing.trust.withdraw.title": "Os pais podem sacar quando quiserem.",
+  "landing.trust.withdraw.body":
+    "O capital + rendimento acumulado podem ser sacados a qualquer hora, sem lockup nem multa. A criança nunca tem as chaves — a custódia fica com o pai/mãe.",
+  "landing.trust.yield.title": "Rendimento é variável, não garantido.",
+  "landing.trust.yield.body":
+    "Hoje em torno de 8% APY no pool USDC da Kamino, mas a taxa varia conforme a demanda do mercado. Sem seguro. Mostramos a taxa em tempo real; o bônus de fim de ano é exatamente o que o protocolo rendeu.",
   "landing.footer.built": "Construído com Kamino · Solana",
   "landing.footer.copy": "© 2026 · seedlingsol.xyz",
 
