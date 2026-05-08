@@ -52,15 +52,15 @@ export const en = {
   "landing.section.trust.label_num": "04",
   "landing.section.trust.label": "Trust & safety",
   "landing.section.trust.sub": "Your money, your control",
-  "landing.trust.custody.title": "Funds stay in audited Solana lending.",
+  "landing.trust.custody.title": "Your money goes to Kamino. Nowhere else.",
   "landing.trust.custody.body":
-    "Every deposit routes into Kamino — public, audited, on-chain. Seedling never rehypothecates or moves principal anywhere else. The vault smart contract is open-source.",
-  "landing.trust.withdraw.title": "Parents can withdraw at any time.",
+    "Every dollar you deposit lives inside Kamino — a verified lending platform on Solana with hundreds of millions in deposits. Seedling never lends it elsewhere or touches it for any other purpose. Our code is open for anyone to inspect.",
+  "landing.trust.withdraw.title": "You can withdraw any time.",
   "landing.trust.withdraw.body":
-    "Principal + accrued yield are recoverable in full whenever you want. No lockup, no early-exit penalty. The kid never holds the keys — custody stays with the parent.",
-  "landing.trust.yield.title": "Yield is variable, not guaranteed.",
+    "Take out what you deposited plus what it earned — instantly, no fees, no waiting periods. Only you, the parent, can move the money. The kid never has direct access.",
+  "landing.trust.yield.title": "Returns can go up or down.",
   "landing.trust.yield.body":
-    "Currently ~8% APY on Kamino's USDC reserve, but rates move with market demand. Not insured. We show you the live rate; the year-end bonus is whatever the protocol actually earned.",
+    "Kamino currently pays around 8% per year, but rates move with demand — like a savings account, only on-chain. We never promise a fixed number. The year-end bonus is exactly what the money earned. Not insured.",
   "landing.footer.built": "Built on Kamino · Solana",
   "landing.footer.copy": "© 2026 · seedlingsol.xyz",
 

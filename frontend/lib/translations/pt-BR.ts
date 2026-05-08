@@ -66,15 +66,15 @@ export const ptBR: Translations = {
   "landing.section.trust.label": "Confiança e segurança",
   "landing.section.trust.sub": "Seu dinheiro, no seu controle",
   "landing.trust.custody.title":
-    "O dinheiro fica no Kamino, auditado e on-chain.",
+    "Seu dinheiro vai pra Kamino. Em mais lugar nenhum.",
   "landing.trust.custody.body":
-    "Todo depósito vai pro Kamino — público, auditado, on-chain. A Seedling nunca reusa o capital nem move pra outro lugar. O contrato do cofre é open-source.",
-  "landing.trust.withdraw.title": "Os pais podem sacar quando quiserem.",
+    "Cada real que você deposita fica na Kamino — uma plataforma de empréstimos verificada na Solana com centenas de milhões em depósitos. A Seedling nunca empresta pra terceiros nem mexe no dinheiro pra nenhum outro fim. Nosso código é aberto pra qualquer um conferir.",
+  "landing.trust.withdraw.title": "Você saca quando quiser.",
   "landing.trust.withdraw.body":
-    "O capital + rendimento acumulado podem ser sacados a qualquer hora, sem lockup nem multa. A criança nunca tem as chaves — a custódia fica com o pai/mãe.",
-  "landing.trust.yield.title": "Rendimento é variável, não garantido.",
+    "Tira o que depositou mais o que rendeu — na hora, sem taxas, sem prazo de carência. Só você, pai/mãe, pode mexer no dinheiro. A criança nunca tem acesso direto.",
+  "landing.trust.yield.title": "O rendimento sobe e desce.",
   "landing.trust.yield.body":
-    "Hoje em torno de 8% APY no pool USDC da Kamino, mas a taxa varia conforme a demanda do mercado. Sem seguro. Mostramos a taxa em tempo real; o bônus de fim de ano é exatamente o que o protocolo rendeu.",
+    "Hoje a Kamino paga em torno de 8% ao ano, mas a taxa varia conforme a demanda — igual poupança, só que on-chain. A gente nunca promete um número fixo. O bônus de fim de ano é exatamente o que foi rendido. Sem seguro.",
   "landing.footer.built": "Construído com Kamino · Solana",
   "landing.footer.copy": "© 2026 · seedlingsol.xyz",
 
