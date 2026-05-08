@@ -308,6 +308,23 @@ export function TopUpAccountModal({ walletPubkey, onClose }: Props) {
 
         {showHelp && (
           <div style={{ marginTop: 10 }}>
+            {/* Intro banner: redirects crypto-less users back to Pix instead
+                of walking them through a multi-account dance. The methods
+                below are for users who already hold USDC somewhere. */}
+            <div
+              style={{
+                marginBottom: 10,
+                padding: "10px 14px",
+                background: "rgba(46, 92, 64, 0.08)",
+                border: "1px solid rgba(46, 92, 64, 0.18)",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "#1F3A2A",
+                lineHeight: 1.5,
+              }}
+            >
+              {t("topup.help.intro")}
+            </div>
             {(["m1", "m2", "m3"] as const).map((m, i) => (
               <div
                 key={m}
