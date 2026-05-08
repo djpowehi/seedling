@@ -660,9 +660,15 @@ export function FamilyCard({
           justifyContent: "space-between",
           alignItems: "flex-start",
           gap: 16,
+          // Wrap on narrow viewports — the 38px italic name + the
+          // "awaiting first deposit" / "annual plan" badge fight for the
+          // same row at <360-ish px, and the badge ends up clipped or
+          // overlapping the name. Letting the right column drop below
+          // is cleaner than shrinking either.
+          flexWrap: "wrap",
         }}
       >
-        <div className="dash-col" style={{ flex: 1, minWidth: 0 }}>
+        <div className="dash-col" style={{ flex: "1 1 200px", minWidth: 0 }}>
           {renaming ? (
             <input
               ref={renameRef}
