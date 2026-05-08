@@ -28,15 +28,16 @@ export const en = {
   "landing.section.howit.label_num": "02",
   "landing.section.howit.label": "How it works",
   "landing.section.howit.sub": "Three steps · one decision",
-  "landing.step.i.title": "Parents deposit USDC, once.",
+  "landing.step.i.title": "Parents deposit once. That's it.",
   "landing.step.i.body":
-    "One transaction sets the principal. No subscriptions, no monthly chores.",
-  "landing.step.ii.title": "Kamino lends it at ~8% APY.",
+    "A single transfer sets up the whole year. No subscriptions, no monthly transfers to remember.",
+  "landing.step.ii.title": "Earning ~8% a year on Kamino.",
   "landing.step.ii.body":
-    "The vault deposits into Kamino lending. Yield compounds in the background. Estimated · based on current rates.",
-  "landing.step.iii.title": "Your kid gets paid monthly. Bonus at year-end.",
+    "The deposit goes into Kamino — a verified Solana lending platform. Interest grows automatically in the background. Estimated · based on current rates.",
+  "landing.step.iii.title":
+    "Your kid gets paid every month. Bonus at year-end.",
   "landing.step.iii.body":
-    "The 1st of every month, the allowance arrives. Year-end brings the annual bonus — pure yield. Seedling rewards time: the longer money stays, the more the kid earns.",
+    "On the 1st of every month, the allowance lands automatically. At year-end, an extra bonus — paid by what the money earned, not from your wallet. The longer it sits, the bigger the bonus.",
   "landing.section.product.label_num": "03",
   "landing.section.product.label": "The product",
   "landing.section.product.sub": "Two views · same family",

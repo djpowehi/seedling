@@ -39,15 +39,15 @@ export const ptBR: Translations = {
   "landing.section.howit.label_num": "02",
   "landing.section.howit.label": "Como funciona",
   "landing.section.howit.sub": "Três passos · uma decisão",
-  "landing.step.i.title": "Os pais depositam USDC, uma vez.",
+  "landing.step.i.title": "Os pais depositam uma vez. Só isso.",
   "landing.step.i.body":
-    "Uma única transação define o capital. Sem assinaturas, sem cobranças mensais.",
-  "landing.step.ii.title": "A Kamino empresta a ~8% APY.",
+    "Um único depósito cobre o ano inteiro. Sem mensalidade, sem transferências automáticas pra lembrar.",
+  "landing.step.ii.title": "Rende ~8% ao ano na Kamino.",
   "landing.step.ii.body":
-    "O cofre deposita na Kamino. O rendimento se acumula em segundo plano. Estimado · com base nas taxas atuais.",
-  "landing.step.iii.title": "A criança recebe todo mês. Bônus no fim do ano.",
+    "O depósito vai pra Kamino — uma plataforma de empréstimos verificada na Solana. O rendimento corre em segundo plano, automaticamente. Estimado · com base nas taxas atuais.",
+  "landing.step.iii.title": "Seu filho recebe todo mês. Bônus no fim do ano.",
   "landing.step.iii.body":
-    "Todo dia 1º a mesada cai. No fim do ano vem o bônus anual — rendimento puro. Seedling recompensa o tempo: quanto mais o dinheiro fica, mais a criança ganha.",
+    "Todo dia 1º a mesada cai automaticamente. No fim do ano, um bônus extra — pago só com o que o dinheiro rendeu, não vem do seu bolso. Quanto mais tempo o dinheiro fica, maior o bônus.",
   "landing.section.product.label_num": "03",
   "landing.section.product.label": "O produto",
   "landing.section.product.sub": "Duas telas · uma família",
