@@ -13,9 +13,15 @@ import {
 import { useSeedlingWallet } from "@/lib/wallet";
 import { useRef, useState } from "react";
 import type { Connection } from "@solana/web3.js";
-import { DEVNET_ADDRESSES } from "@/lib/program";
+import { DEVNET_ADDRESSES, SPONSOR_WALLET } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
-import { sendQuasarIx } from "@/lib/sendQuasarIx";
+import { sendQuasarIx, sendQuasarIxSponsored } from "@/lib/sendQuasarIx";
+import {
+  familyPositionPda,
+  kidViewPda,
+  vaultConfigPda,
+} from "@/lib/quasarPdas";
+import { removeDraftFamily } from "@/lib/draftFamilies";
 import { celebrateDeposit } from "@/lib/celebrate";
 import { useToast } from "@/components/Toast";
 import { useLocale } from "@/lib/i18n";
@@ -90,8 +96,10 @@ export function DepositForm({
         DEVNET_ADDRESSES.klendProgram
       );
 
+      // ATA-create payer: sponsor for the lazy bundle (Privy parents have
+      // no SOL), parent for direct deposits on real families.
       const ataIx = createAssociatedTokenAccountIdempotentInstruction(
-        parent,
+        family.isDraft ? SPONSOR_WALLET : parent,
         depositorUsdcAta,
         parent,
         DEVNET_ADDRESSES.usdcMint
@@ -123,16 +131,53 @@ export function DepositForm({
         minSharesOut: BigInt(0),
       });
 
-      const sig = await sendQuasarIx(
-        [
-          ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 }),
-          ataIx,
-          depositIx,
-        ],
-        connection,
-        wallet,
-        { commitment: "finalized" }
-      );
+      let sig: string;
+      if (family.isDraft) {
+        // Lazy creation: prepend create_family so the bundle creates the
+        // family + funds it in one tx. Sponsor pays the PDA rent + tx fee;
+        // parent signs as depositor (parent's USDC is the source).
+        // Goes through the sponsor relay because Privy parents have no SOL.
+        const createFamilyIx = client.createCreateFamilyInstruction({
+          feePayer: SPONSOR_WALLET,
+          parent,
+          vaultConfig: vaultConfigPda(),
+          familyPosition: family.pubkey,
+          kidView: kidViewPda(parent, family.kid),
+          systemProgram: SystemProgram.programId,
+          kid: family.kid,
+          streamRate: BigInt(family.streamRate.toString()),
+        });
+        sig = await sendQuasarIxSponsored(
+          [
+            ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 }),
+            ataIx,
+            createFamilyIx,
+            depositIx,
+          ],
+          connection,
+          wallet,
+          SPONSOR_WALLET,
+          { commitment: "confirmed" }
+        );
+        // Promote: drop the localStorage draft now that the on-chain
+        // family exists. fetchFamilies will pick up the on-chain record
+        // on next load and the draft would shadow it otherwise.
+        removeDraftFamily(family.parent.toBase58(), family.kid.toBase58());
+      } else {
+        // Real family — original path. Parent pays everything (works for
+        // wallets with SOL; Privy users without SOL would fail here, but
+        // Privy users on real families can fund via Pix as the alternative.)
+        sig = await sendQuasarIx(
+          [
+            ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 }),
+            ataIx,
+            depositIx,
+          ],
+          connection,
+          wallet,
+          { commitment: "finalized" }
+        );
+      }
       console.log(`[deposit] tx ${sig}`);
 
       // Celebrate: confetti at the family card's location + toast with the

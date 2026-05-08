@@ -764,7 +764,10 @@ export function FamilyCard({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          // Auto-fit so 4 columns fit on wide viewports (~480px+ available
+          // for this row) but collapse to 2 on phones. minmax(120px, 1fr)
+          // means each column wants at least 120px; at <480 we get 2x2.
+          gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
           gap: 20,
           padding: "24px 0",
           marginTop: 24,
@@ -863,8 +866,7 @@ export function FamilyCard({
             setShowPixDeposit(false);
             setShowDeposit((v) => !v);
           }}
-          disabled={submitting !== null || family.isDraft}
-          title={family.isDraft ? t("card.draft.deposit_hint") : undefined}
+          disabled={submitting !== null}
         >
           <Plus /> {t("card.deposit")}
         </button>

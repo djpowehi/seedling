@@ -125,24 +125,36 @@ async function handle(req: NextRequest) {
     );
   }
 
-  // ---- validation: exactly one instruction targets Quasar; the rest
-  // must be helper instructions (ComputeBudget / ATA-create / SystemProgram /
-  // SPL-token). This lets withdraw + bundled ATA creation pass the relay.
+  // ---- validation: Quasar instructions ----
+  // Two cases:
+  //   (a) One Quasar ix from the standard allowlist (the original path:
+  //       create_family / withdraw / distribute / close / payout / set_rate)
+  //   (b) Exactly TWO Quasar ixs in order [create_family, deposit] —
+  //       the lazy-creation bundle for first-deposit on a draft family.
+  //       The parent signs as depositor; sponsor pays gas + PDA rent.
+  // Any other shape is rejected.
   const quasarIxs = tx.instructions.filter(
     (i) => i.programId.toBase58() === PROGRAM_ID.toBase58()
   );
-  if (quasarIxs.length !== 1) {
-    return NextResponse.json(
-      { error: `expected 1 Quasar instruction, got ${quasarIxs.length}` },
-      { status: 400 }
-    );
-  }
 
-  const ix = quasarIxs[0];
+  const isLazyBundle =
+    quasarIxs.length === 2 &&
+    quasarIxs[0].data[0] === 1 && // create_family
+    quasarIxs[1].data[0] === 2; // deposit
 
-  if (ix.data.length === 0 || !ALLOWED_DISCRIMINATORS.has(ix.data[0])) {
+  if (quasarIxs.length === 1) {
+    const ix = quasarIxs[0];
+    if (ix.data.length === 0 || !ALLOWED_DISCRIMINATORS.has(ix.data[0])) {
+      return NextResponse.json(
+        { error: `discriminator ${ix.data[0]} not in relay allowlist` },
+        { status: 400 }
+      );
+    }
+  } else if (!isLazyBundle) {
     return NextResponse.json(
-      { error: `discriminator ${ix.data[0]} not in relay allowlist` },
+      {
+        error: `expected 1 Quasar ix or [create_family, deposit] bundle, got ${quasarIxs.length}`,
+      },
       { status: 400 }
     );
   }
@@ -157,6 +169,46 @@ async function handle(req: NextRequest) {
   }
   const sponsorB58 = sponsor.toBase58();
   const ataProgramB58 = ASSOCIATED_TOKEN_PROGRAM_ID.toBase58();
+
+  // ---- lazy bundle: per-instruction sponsor checks ----
+  // For the [create_family, deposit] bundle, sponsor signing as fee_payer
+  // also authorizes them in any account slot they appear in. Two specific
+  // safety rules:
+  //
+  //   - create_family: sponsor is allowed at slot 0 (fee_payer) and ONLY
+  //     slot 0. Sponsor at any other slot would mean sponsor is being
+  //     impersonated as the parent, which would create a family rooted at
+  //     the sponsor's pubkey — burning rent we never get back.
+  //
+  //   - deposit: sponsor must not appear at ALL. The depositor (slot 1)
+  //     and depositor_usdc_ata (slot 2) both reference whoever is paying
+  //     in USDC. If sponsor appears here, the deposit drains sponsor's
+  //     USDC into the family vault — a drain attack with the sponsor
+  //     funding the user's vault.
+  if (isLazyBundle) {
+    const createFamilyIx = quasarIxs[0];
+    for (let i = 0; i < createFamilyIx.keys.length; i++) {
+      if (createFamilyIx.keys[i].pubkey.toBase58() === sponsorB58 && i !== 0) {
+        return NextResponse.json(
+          {
+            error: `create_family references sponsor at slot ${i} — only slot 0 (fee_payer) allowed`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+    const depositIx = quasarIxs[1];
+    for (let i = 0; i < depositIx.keys.length; i++) {
+      if (depositIx.keys[i].pubkey.toBase58() === sponsorB58) {
+        return NextResponse.json(
+          {
+            error: `deposit references sponsor at slot ${i} — sponsor must not appear in deposit ix`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+  }
 
   // Every non-Quasar instruction must target a known helper program AND
   // must not reference the sponsor wallet — except as the rent payer
