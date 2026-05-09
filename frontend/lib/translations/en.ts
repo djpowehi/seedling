@@ -21,7 +21,7 @@ export const en = {
   "landing.headline.line2": "that {italic}.",
   "landing.headline.italic": "grows",
   "landing.subhead":
-    "Money grows. Responsibility grows. Your kid grows with both. One deposit funds all of your kid's monthly allowances — and a year-end bonus that comes from yield, not your wallet.",
+    "Money grows. Responsibility grows. Your kid grows with both. One deposit funds all of your kid's monthly allowances — and a year-end bonus, paid by what the money earned, not your wallet.",
   "landing.cta.dashboard": "open dashboard",
   "landing.cta.label": "Open the dashboard",
   "landing.cta.note": "Live on Solana · no wallet required to look around",
@@ -33,7 +33,7 @@ export const en = {
     "A single transfer sets up the whole year. No subscriptions, no monthly transfers to remember.",
   "landing.step.ii.title": "Earning ~8% a year on Kamino.",
   "landing.step.ii.body":
-    "The deposit goes into Kamino — a verified Solana lending platform. Interest grows automatically in the background. Estimated · based on current rates.",
+    "The deposit goes into Kamino — an audited Solana lending platform. Interest grows automatically in the background. Estimated · based on current rates.",
   "landing.step.iii.title":
     "Your kid gets paid every month. Bonus at year-end.",
   "landing.step.iii.body":
@@ -55,13 +55,13 @@ export const en = {
   "landing.section.trust.sub": "Your money, your control",
   "landing.trust.custody.title": "Your money goes to Kamino. Nowhere else.",
   "landing.trust.custody.body":
-    "Every dollar you deposit lives inside Kamino — a verified lending platform on Solana with hundreds of millions in deposits. Seedling never lends it elsewhere or touches it for any other purpose. Our code is open for anyone to inspect.",
+    "Every dollar you deposit lives inside Kamino — an audited lending platform on Solana with hundreds of millions in deposits. Seedling never lends it elsewhere or touches it for any other purpose. Our code is open for anyone to inspect.",
   "landing.trust.withdraw.title": "You can withdraw any time.",
   "landing.trust.withdraw.body":
     "Take out what you deposited plus what it earned — instantly, no fees, no waiting periods. Only you, the parent, can move the money. The kid never has direct access.",
   "landing.trust.yield.title": "Returns can go up or down.",
   "landing.trust.yield.body":
-    "Kamino currently pays around 8% per year, but rates move with demand — like a savings account, only on-chain. We never promise a fixed number. The year-end bonus is exactly what the money earned. Not insured.",
+    "Kamino currently pays around 8% per year, but rates move with demand — just like a savings account. The year-end bonus is exactly what the money earned. Returns aren't FDIC insured — Seedling isn't a bank. The funds sit in Kamino's audited contract, which anyone can inspect at any time.",
   "landing.footer.built": "Built on Kamino · Solana",
   "landing.footer.copy": "© 2026 · seedlingsol.xyz",
 

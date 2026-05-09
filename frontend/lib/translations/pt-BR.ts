@@ -31,7 +31,7 @@ export const ptBR: Translations = {
   "landing.headline.line2": "que {italic}.",
   "landing.headline.italic": "rende",
   "landing.subhead":
-    "Dinheiro cresce. Responsabilidade cresce. Seu filho cresce com os dois. Um depósito financia todas as mesadas mensais — e um bônus de fim de ano que vem do rendimento, não do seu bolso.",
+    "Dinheiro cresce. Responsabilidade cresce. Seu filho cresce com os dois. Um depósito financia todas as mesadas do ano — e um décimo terceiro pago só com o que o dinheiro rendeu, não vem do seu bolso.",
   "landing.cta.dashboard": "abrir dashboard",
   "landing.cta.label": "Abrir o dashboard",
   "landing.cta.note":
@@ -41,13 +41,14 @@ export const ptBR: Translations = {
   "landing.section.howit.sub": "Três passos · uma decisão",
   "landing.step.i.title": "Os pais depositam uma vez. Só isso.",
   "landing.step.i.body":
-    "Um único depósito cobre o ano inteiro. Sem mensalidade, sem transferências automáticas pra lembrar.",
-  "landing.step.ii.title": "Rende ~8% ao ano na Kamino.",
+    "Um único depósito cobre o ano inteiro. Sem mensalidade, sem aquela transferência todo mês pra ficar lembrando.",
+  "landing.step.ii.title": "Rende ~8% ao ano em Kamino.",
   "landing.step.ii.body":
-    "O depósito vai pra Kamino — uma plataforma de empréstimos verificada na Solana. O rendimento corre em segundo plano, automaticamente. Estimado · com base nas taxas atuais.",
-  "landing.step.iii.title": "Seu filho recebe todo mês. Bônus no fim do ano.",
+    "O depósito vai pra Kamino — uma plataforma de empréstimos auditada na Solana. O dinheiro rende sozinho, sem você precisar fazer nada. Estimado · com base nas taxas atuais.",
+  "landing.step.iii.title":
+    "Seu filho recebe todo mês. Décimo terceiro no fim do ano.",
   "landing.step.iii.body":
-    "Todo dia 1º a mesada cai automaticamente. No fim do ano, um bônus extra — pago só com o que o dinheiro rendeu, não vem do seu bolso. Quanto mais tempo o dinheiro fica, maior o bônus.",
+    "Todo dia 1º a mesada cai automaticamente. Em dezembro, um décimo terceiro extra — pago só com o que o dinheiro rendeu, não vem do seu bolso. Quanto mais tempo o dinheiro fica, maior o décimo terceiro.",
   "landing.section.product.label_num": "03",
   "landing.section.product.label": "O produto",
   "landing.section.product.sub": "Duas telas · uma família",
@@ -66,15 +67,15 @@ export const ptBR: Translations = {
   "landing.section.trust.label": "Confiança e segurança",
   "landing.section.trust.sub": "Seu dinheiro, no seu controle",
   "landing.trust.custody.title":
-    "Seu dinheiro vai pra Kamino. Em mais lugar nenhum.",
+    "Seu dinheiro vai pra Kamino. E em mais nenhum lugar.",
   "landing.trust.custody.body":
-    "Cada real que você deposita fica na Kamino — uma plataforma de empréstimos verificada na Solana com centenas de milhões em depósitos. A Seedling nunca empresta pra terceiros nem mexe no dinheiro pra nenhum outro fim. Nosso código é aberto pra qualquer um conferir.",
+    "Cada real que você deposita fica na Kamino — uma plataforma de empréstimos auditada na Solana com centenas de milhões em depósitos. A Seedling nunca empresta pra terceiros nem mexe no dinheiro pra nenhum outro fim. Nosso código é aberto pra qualquer um conferir.",
   "landing.trust.withdraw.title": "Você saca quando quiser.",
   "landing.trust.withdraw.body":
-    "Tira o que depositou mais o que rendeu — na hora, sem taxas, sem prazo de carência. Só você, pai/mãe, pode mexer no dinheiro. A criança nunca tem acesso direto.",
+    "Tira o que depositou mais o que rendeu — na hora, sem taxas, sem prazo de carência. Só você pode mexer no dinheiro. A criança nunca tem acesso direto.",
   "landing.trust.yield.title": "O rendimento sobe e desce.",
   "landing.trust.yield.body":
-    "Hoje a Kamino paga em torno de 8% ao ano, mas a taxa varia conforme a demanda — igual poupança, só que on-chain. A gente nunca promete um número fixo. O bônus de fim de ano é exatamente o que foi rendido. Sem seguro.",
+    "Hoje a Kamino paga em torno de 8% ao ano, mas a taxa varia conforme a demanda — igual a poupança, só que sem garantia do FGC (a Seedling não é banco). A gente nunca promete um número fixo: o décimo terceiro é exatamente o que o dinheiro rendeu.",
   "landing.footer.built": "Construído com Kamino · Solana",
   "landing.footer.copy": "© 2026 · seedlingsol.xyz",
 
