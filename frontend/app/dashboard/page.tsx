@@ -93,49 +93,12 @@ export default function Dashboard() {
           <ConnectGate />
         ) : (
           <>
-            <header style={{ paddingTop: 80, paddingBottom: 56 }}>
-              <div className="dash-col" style={{ gap: 18, maxWidth: 760 }}>
-                <span className="dash-eyebrow">
-                  <span className="rule" /> {t("dashboard.eyebrow")}
-                </span>
-                <h1
-                  className="dash-serif"
-                  style={{
-                    fontSize: 88,
-                    lineHeight: 0.95,
-                    margin: 0,
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  {families == null ? (
-                    t("dashboard.title.loading")
-                  ) : families.length === 0 ? (
-                    <TItalic
-                      tplKey="dashboard.title.first"
-                      italicKey="dashboard.title.first.italic"
-                    />
-                  ) : (
-                    <KidsTitle count={families.length} />
-                  )}
-                </h1>
-                <span
-                  className="dash-mono"
-                  style={{
-                    fontSize: 13,
-                    color: "var(--ink-3)",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  {t("dashboard.subtitle")}
-                </span>
-              </div>
-            </header>
-
             {error && (
               <div
                 className="dash-card"
                 style={{
                   padding: 24,
+                  marginTop: 32,
                   marginBottom: 32,
                   borderColor: "var(--rose)",
                 }}
@@ -166,7 +129,7 @@ export default function Dashboard() {
                 className="dash-mono"
                 style={{
                   textAlign: "center",
-                  padding: "40px 0",
+                  padding: "120px 0",
                   color: "var(--ink-3)",
                   fontSize: 12,
                 }}
@@ -176,12 +139,56 @@ export default function Dashboard() {
             )}
 
             {publicKey && families != null && (
-              <ParentAccountSection
-                connection={connection}
-                parent={publicKey}
-                refreshKey={accountRefreshKey}
-                onChanged={refetch}
-              />
+              <div style={{ paddingTop: 56 }}>
+                <ParentAccountSection
+                  connection={connection}
+                  parent={publicKey}
+                  refreshKey={accountRefreshKey}
+                  onChanged={refetch}
+                />
+              </div>
+            )}
+
+            {/* Kids section header — the "X kid(s) saving" headline
+                introduces the kids list below. Moved here from above
+                the account section so the title applies to the right
+                thing. */}
+            {families != null && (
+              <header style={{ paddingTop: 24, paddingBottom: 40 }}>
+                <div className="dash-col" style={{ gap: 18, maxWidth: 760 }}>
+                  <span className="dash-eyebrow">
+                    <span className="rule" /> {t("dashboard.eyebrow")}
+                  </span>
+                  <h1
+                    className="dash-serif"
+                    style={{
+                      fontSize: 56,
+                      lineHeight: 0.95,
+                      margin: 0,
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    {families.length === 0 ? (
+                      <TItalic
+                        tplKey="dashboard.title.first"
+                        italicKey="dashboard.title.first.italic"
+                      />
+                    ) : (
+                      <KidsTitle count={families.length} />
+                    )}
+                  </h1>
+                  <span
+                    className="dash-mono"
+                    style={{
+                      fontSize: 13,
+                      color: "var(--ink-3)",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    {t("dashboard.subtitle")}
+                  </span>
+                </div>
+              </header>
             )}
 
             {!loading &&
