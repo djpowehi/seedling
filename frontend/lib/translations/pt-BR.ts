@@ -368,7 +368,7 @@ export const ptBR: Translations = {
 
   // ---- pix on-ramp form ----
   "pix.cancel": "cancelar",
-  "pix.deposit.title": "Pagar com Pix",
+  "pix.deposit.title": "Recarregar com Pix",
   "pix.amount.brl": "Valor em BRL",
   "pix.amount.placeholder": "100,00",
   "pix.amount.error.number": "precisa ser número",
@@ -402,10 +402,10 @@ export const ptBR: Translations = {
   "pix.awaiting.expired": "Aguardando pagamento · expirado",
   "pix.awaiting.expires_in": "expira em {minutes}m {seconds}s",
   "currency.usdc_note": "USDC ≈ dólar americano · paridade 1:1 · não é BRL",
-  "pix.success.title": "Cofre creditado",
+  "pix.success.title": "Conta recarregada",
   "pix.success.closing": "fechando…",
-  "pix.deposit.toast.title": "Pix recebido · cofre creditado",
-  "pix.deposit.toast.subtitle": "via 4P · rendendo na Kamino",
+  "pix.deposit.toast.title": "Pix recebido · saldo atualizado",
+  "pix.deposit.toast.subtitle": "deposite num filho pra começar a render",
 
   // ---- pix off-ramp ----
   "pix.offramp.title": "Sacar para o Pix",

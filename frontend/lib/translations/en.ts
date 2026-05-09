@@ -359,7 +359,7 @@ export const en = {
 
   // ---- pix on-ramp form (parent + gift share most copy) ----
   "pix.cancel": "cancel",
-  "pix.deposit.title": "Pay with Pix",
+  "pix.deposit.title": "Top up with Pix",
   "pix.amount.brl": "Amount in BRL",
   "pix.amount.placeholder": "100.00",
   "pix.amount.error.number": "must be a number",
@@ -399,10 +399,10 @@ export const en = {
   // is genuinely ambiguous to native readers. Same key used across
   // DepositForm, WithdrawForm, PixOfframpForm, GiftModal.
   "currency.usdc_note": "USDC · pegged 1:1 with US dollar",
-  "pix.success.title": "Vault credited",
+  "pix.success.title": "Account topped up",
   "pix.success.closing": "closing…",
-  "pix.deposit.toast.title": "Pix received · vault credited",
-  "pix.deposit.toast.subtitle": "via 4P · earning yield on Kamino",
+  "pix.deposit.toast.title": "Pix received · balance updated",
+  "pix.deposit.toast.subtitle": "deposit to a kid to start earning yield",
 
   // ---- pix off-ramp ----
   "pix.offramp.title": "Withdraw to Pix",
