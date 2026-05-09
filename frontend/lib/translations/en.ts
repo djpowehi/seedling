@@ -436,6 +436,8 @@ export const en = {
     "Once funds arrive, tap Deposit on any kid card to move them into the family vault.",
   "topup.toast.copied": "Address copied",
   "topup.toast.copy_failed": "Couldn't copy — please select and copy manually",
+  "topup.help.heading": "How to send USDC",
+  "topup.address.heading": "Where to send it",
   "topup.help.button": "Don't know how? Show me",
   "topup.help.intro":
     "Don't have any crypto yet? Close this and tap \"pay with Pix\" — that's the simplest path. The methods below are for parents who already hold USDC somewhere.",

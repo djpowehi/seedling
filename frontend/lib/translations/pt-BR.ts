@@ -440,6 +440,8 @@ export const ptBR: Translations = {
   "topup.toast.copied": "Endereço copiado",
   "topup.toast.copy_failed":
     "Não foi possível copiar — selecione e copie manualmente",
+  "topup.help.heading": "Como enviar USDC",
+  "topup.address.heading": "Pra onde enviar",
   "topup.help.button": "Não sabe como? Te mostro",
   "topup.help.intro":
     'Ainda não tem cripto? Feche aqui e toque em "pagar com Pix" — esse é o caminho mais simples. Os métodos abaixo são pra quem já tem USDC em algum lugar.',
