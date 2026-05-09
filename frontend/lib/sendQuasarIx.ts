@@ -42,14 +42,7 @@ export async function sendQuasarIx(
   ixs: TransactionInstruction | TransactionInstruction[],
   connection: Connection,
   wallet: SendingWallet,
-  opts: {
-    commitment?: "confirmed" | "finalized";
-    /** Fires once the wallet has returned the signed-and-broadcast
-     *  signature. Use to switch UI from "approve in wallet" → "confirming
-     *  on chain" so the user isn't staring at "Confirming…" while
-     *  Privy's approval modal is still asking them to tap Approve. */
-    onSigned?: () => void;
-  } = {}
+  opts: { commitment?: "confirmed" | "finalized" } = {}
 ): Promise<string> {
   if (!wallet.publicKey || !wallet.sendTransaction) {
     throw new Error("Wallet not connected");
@@ -98,11 +91,6 @@ export async function sendQuasarIx(
     }
     throw e;
   }
-  // wallet.sendTransaction internally signs + broadcasts in one shot, so
-  // by the time it returns the user has already approved. Tell the
-  // caller so they can flip the UI from "approve in wallet" to
-  // "confirming on chain".
-  opts.onSigned?.();
   await connection.confirmTransaction(sig, opts.commitment ?? "finalized");
   return sig;
 }
@@ -125,13 +113,7 @@ export async function sendQuasarIxSponsored(
   connection: Connection,
   wallet: SigningWallet,
   sponsorPubkey: PublicKey,
-  opts: {
-    commitment?: "confirmed" | "finalized";
-    /** Fires once the user has approved in the wallet (Privy modal
-     *  closed, signature captured). Use to switch UI from "approve in
-     *  wallet" → "confirming on chain". See sendQuasarIx for rationale. */
-    onSigned?: () => void;
-  } = {}
+  opts: { commitment?: "confirmed" | "finalized" } = {}
 ): Promise<string> {
   if (!wallet.publicKey || !wallet.signTransaction) {
     throw new Error("Wallet not connected");
@@ -150,10 +132,6 @@ export async function sendQuasarIxSponsored(
   // Sign as the user. Privy fills only the user's signature slot,
   // leaving the sponsor's slot empty for the server to fill.
   const partial = await wallet.signTransaction(tx);
-  // User has approved in their wallet (Privy modal closed). Caller can
-  // now switch the form's "approve in wallet" affordance to "confirming
-  // on chain" since the broadcast + chain confirm phase is what's left.
-  opts.onSigned?.();
 
   const res = await fetch("/api/sponsor-broadcast", {
     method: "POST",
