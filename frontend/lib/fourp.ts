@@ -130,7 +130,16 @@ export async function createOnrampOrder(
     body,
   });
 
-  const d = env.info.data;
+  // 4P sometimes returns HTTP 200 with success:false — application-level
+  // rejection (validation, rate limit, account state, etc.). The data
+  // field is missing in that case. Surface their actual message instead
+  // of crashing on `d.txid` of undefined.
+  const d = env.info?.data;
+  if (!env.success || !d) {
+    const reason =
+      env.info?.message ?? env.info?.result ?? "no message from 4P";
+    throw new Error(`4P rejected on-ramp: ${reason}`);
+  }
   return {
     txid: d.txid,
     pixCopiaECola: d.pixCopiaECola,
