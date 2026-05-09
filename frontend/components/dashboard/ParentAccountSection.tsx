@@ -55,15 +55,19 @@ export function ParentAccountSection({
 }: Props) {
   const { t } = useLocale();
   const [balanceUsd, setBalanceUsd] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [localRefreshKey, setLocalRefreshKey] = useState(0);
   const [showPix, setShowPix] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
 
-  // Fetch parent's USDC balance. Re-fetches when refreshKey changes
-  // (caller bumps it after any tx that could move the balance). Uses
-  // getAccountInfo + AccountLayout decode so we don't need an Anchor
-  // provider here — wallet-free lookup.
+  // Fetch parent's USDC balance. Re-fetches on:
+  //   - props.refreshKey bump (parent dashboard refetch)
+  //   - localRefreshKey bump (manual "refresh" button)
+  // Uses getAccountInfo + AccountLayout decode so we don't need an
+  // Anchor provider — wallet-free lookup.
   useEffect(() => {
     let cancelled = false;
+    setRefreshing(true);
     (async () => {
       try {
         const usdcAta = getAssociatedTokenAddressSync(
@@ -81,12 +85,14 @@ export function ParentAccountSection({
         setBalanceUsd(baseUnits / 1_000_000);
       } catch {
         if (!cancelled) setBalanceUsd(0);
+      } finally {
+        if (!cancelled) setRefreshing(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [connection, parent, refreshKey]);
+  }, [connection, parent, refreshKey, localRefreshKey]);
 
   return (
     <section
@@ -119,18 +125,42 @@ export function ParentAccountSection({
           >
             {t("account.eyebrow")}
           </div>
-          <h2
-            className="dash-serif"
-            style={{
-              fontSize: 38,
-              lineHeight: 1,
-              margin: 0,
-              color: "var(--ink)",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {balanceUsd === null ? "—" : fmtUSD(balanceUsd)}
-          </h2>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+            <h2
+              className="dash-serif"
+              style={{
+                fontSize: 38,
+                lineHeight: 1,
+                margin: 0,
+                color: "var(--ink)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {balanceUsd === null ? "—" : fmtUSD(balanceUsd)}
+            </h2>
+            {/* Manual refresh — useful right after a Pix payment lands
+                if the polling/webhook timing didn't auto-update the
+                cached balance yet. Cheap to expose; one RPC call. */}
+            <button
+              type="button"
+              onClick={() => setLocalRefreshKey((k) => k + 1)}
+              disabled={refreshing}
+              aria-label={t("account.refresh")}
+              title={t("account.refresh")}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "var(--ink-3)",
+                fontSize: 14,
+                cursor: refreshing ? "default" : "pointer",
+                padding: "2px 6px",
+                opacity: refreshing ? 0.4 : 0.7,
+                transition: "opacity 200ms",
+              }}
+            >
+              ↻
+            </button>
+          </div>
           <div
             className="dash-mono"
             style={{

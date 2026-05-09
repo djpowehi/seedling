@@ -20,6 +20,7 @@
 // edge case we don't surface in v1.
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import type { PublicKey } from "@solana/web3.js";
 
@@ -32,7 +33,21 @@ type Props = {
   onClose: () => void;
 };
 
-export function TopUpAccountModal({ walletPubkey, onClose }: Props) {
+export function TopUpAccountModal(props: Props) {
+  // Render via React portal to document.body so the modal's
+  // `position: fixed` is positioned relative to the viewport. The
+  // dashboard's .dash-card:hover applies a transform, which would
+  // otherwise create a new containing block for any descendant fixed
+  // element — making the modal stick to the card instead of the
+  // viewport on hover. The portal sidesteps the entire transformed
+  // ancestor chain.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return createPortal(<TopUpAccountModalInner {...props} />, document.body);
+}
+
+function TopUpAccountModalInner({ walletPubkey, onClose }: Props) {
   const { showToast } = useToast();
   const { t } = useLocale();
   const canvasRef = useRef<HTMLCanvasElement>(null);

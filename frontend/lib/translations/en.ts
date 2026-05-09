@@ -75,6 +75,7 @@ export const en = {
   // ---- parent account section (top of dashboard) ----
   "account.eyebrow": "your Seedling account",
   "account.balance_sub": "available to deposit",
+  "account.refresh": "Refresh balance",
 
   // ---- dashboard ----
   "dashboard.eyebrow": "parent dashboard",

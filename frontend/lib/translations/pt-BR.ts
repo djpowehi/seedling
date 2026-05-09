@@ -89,6 +89,7 @@ export const ptBR: Translations = {
   // ---- parent account section (top of dashboard) ----
   "account.eyebrow": "sua conta Seedling",
   "account.balance_sub": "disponível pra depositar",
+  "account.refresh": "Atualizar saldo",
 
   // ---- dashboard ----
   "dashboard.eyebrow": "dashboard dos pais",
