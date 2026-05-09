@@ -1,24 +1,26 @@
 // Create a Pix-in (on-ramp) order with 4P Finance.
 //
-// POST → { kind: "parent" | "gift", familyPda, amountBrl, cpf, email,
-//          gifterName?, message? }
+// POST → { kind: "parent" | "gift", parent, familyPda?, amountBrl, cpf,
+//          email, gifterName? }
 // Returns { txid, pixCopiaECola, customId, expiresInSeconds }.
 //
-// The hot wallet is always the receiver_wallet — when 4P confirms USDC
-// has landed (webhook), we sign a `deposit` ix on the family's behalf.
-// `kind` only affects the gift memo: parent top-ups carry no gift memo,
-// gift orders carry `seedling-gift:<gifterName>` so the gift wall picks
-// them up. Both paths credit the family via the same `deposit` ix.
+// The hot wallet is always the receiver_wallet for 4P. When 4P confirms
+// USDC delivery (webhook), we transfer USDC from the hot wallet to the
+// parent's USDC ATA — Pix tops up the parent's wallet, not a kid's
+// vault. The parent then explicitly chooses when to deposit to a kid
+// via the dashboard's `+ deposit` flow.
+//
+// `kind` controls the gift memo: parent top-ups carry no gift memo,
+// gift orders carry `seedling-gift:<gifterName>` so the gift wall
+// picks them up. Both paths transfer USDC to the parent's wallet.
 //
 // Docs: ../../../../docs/4p-finance-api.md
 
-import { Connection, PublicKey } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createOnrampOrder } from "@/lib/fourp";
 import { getHotWalletPubkey } from "@/lib/hotWallet";
-import { DEVNET_RPC } from "@/lib/program";
-import { FAMILY_POSITION_DISCRIMINATOR } from "@/lib/quasar-client";
 
 // 4P Pix charge TTL. 1 hour gives the parent enough time to open their
 // bank app and pay; max allowed by 4P is 72h (259200s).
@@ -68,19 +70,19 @@ function sanitizeGifterName(raw: string): string {
 
 interface OnrampRequest {
   kind: "parent" | "gift";
-  familyPda: string;
+  /** Parent wallet — Pix top-ups now route here (not to a family vault).
+   *  The parent then explicitly chooses when to deposit to a kid via
+   *  the dashboard's `+ deposit` flow. */
+  parent: string;
+  /** Optional kid family pubkey for gift attribution only. Gifts still
+   *  surface on the kid's gift wall via memo + parent matching, even
+   *  though the on-chain destination is the parent's wallet. Falsy for
+   *  standard parent top-ups. */
+  familyPda?: string;
   amountBrl: number;
   cpf: string;
   email: string;
   gifterName?: string;
-  /** Lazy-creation context. If present, the family doesn't exist on-chain
-   *  yet — webhook will prepend a create_family ix so the family is born
-   *  and funded atomically with the first deposit. */
-  lazyCreate?: {
-    parent: string; // base58
-    kid: string; // base58 — 32-byte client-generated identifier
-    streamRateBaseUnits: string; // u64 as decimal string (BigInt-safe over JSON)
-  };
 }
 
 function getOriginFromRequest(req: NextRequest): string {
@@ -108,14 +110,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let familyPda: PublicKey;
+  let parent: PublicKey;
   try {
-    familyPda = new PublicKey(body.familyPda);
+    parent = new PublicKey(body.parent);
   } catch {
     return NextResponse.json(
-      { error: "familyPda is not a valid pubkey" },
+      { error: "parent is not a valid pubkey" },
       { status: 400 }
     );
+  }
+
+  // Optional family pubkey for gift attribution. We don't validate it
+  // exists on-chain — gifts can be earmarked for draft kids. The gift
+  // wall fetcher tolerates missing family records.
+  let familyPda: PublicKey | null = null;
+  if (body.familyPda) {
+    try {
+      familyPda = new PublicKey(body.familyPda);
+    } catch {
+      return NextResponse.json(
+        { error: "familyPda is not a valid pubkey" },
+        { status: 400 }
+      );
+    }
   }
 
   if (
@@ -144,68 +161,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "email is invalid" }, { status: 400 });
   }
 
-  // ---- validate lazyCreate (if provided) ----
-  let lazyCreate: {
-    parent: PublicKey;
-    kid: PublicKey;
-    streamRateBaseUnits: bigint;
-  } | null = null;
-  if (body.lazyCreate) {
-    try {
-      const parent = new PublicKey(body.lazyCreate.parent);
-      const kid = new PublicKey(body.lazyCreate.kid);
-      const streamRateBaseUnits = BigInt(body.lazyCreate.streamRateBaseUnits);
-      if (streamRateBaseUnits <= BigInt(0)) {
-        return NextResponse.json(
-          { error: "lazyCreate.streamRateBaseUnits must be > 0" },
-          { status: 400 }
-        );
-      }
-      lazyCreate = { parent, kid, streamRateBaseUnits };
-    } catch {
-      return NextResponse.json(
-        { error: "lazyCreate fields are malformed" },
-        { status: 400 }
-      );
-    }
-  }
-
-  // ---- family existence check ----
-  // Skip when lazyCreate is set — the family doesn't exist YET, but the
-  // webhook will create it atomically with the first deposit. For non-lazy
-  // calls (deposits to an already-existing family) we keep the early
-  // rejection so we don't take 4P money for a family the program would
-  // refuse to deposit into.
-  const connection = new Connection(DEVNET_RPC, "confirmed");
-  if (!lazyCreate) {
-    const familyInfo = await connection.getAccountInfo(familyPda, "confirmed");
-    if (
-      !familyInfo ||
-      familyInfo.data[0] !== FAMILY_POSITION_DISCRIMINATOR[0]
-    ) {
-      return NextResponse.json({ error: "family not found" }, { status: 404 });
-    }
-  }
-
   // ---- build customId so the webhook can route the credit ----
-  // Base format: <kind>:<familyPda>:<gifterName?>:<random>
-  // Lazy-create suffix (optional): :lc:<parent>:<kid>:<streamRate>
-  // Webhook parses both halves to know whether to prepend a create_family
-  // ix to the deposit tx. Random suffix guarantees uniqueness even if the
-  // same parent submits twice in the same second.
+  // Format: <kind>:<parent>:<gifterName?>:<random>[:f:<familyPda>]
+  // The optional :f:<familyPda> suffix lets gift orders carry the
+  // earmarked kid for the gift wall fetcher. Random uuid guarantees
+  // uniqueness across simultaneous submits from the same parent.
   const random = crypto.randomUUID();
   const gifterSlug =
     body.kind === "gift" && body.gifterName
       ? sanitizeGifterName(body.gifterName).replace(/:/g, "_")
       : "";
-  const baseCustomId = `${body.kind}:${body.familyPda}:${gifterSlug}:${random}`;
-  const customId = lazyCreate
-    ? `${baseCustomId}:lc:${lazyCreate.parent.toBase58()}:${lazyCreate.kid.toBase58()}:${lazyCreate.streamRateBaseUnits.toString()}`
+  const baseCustomId = `${
+    body.kind
+  }:${parent.toBase58()}:${gifterSlug}:${random}`;
+  const customId = familyPda
+    ? `${baseCustomId}:f:${familyPda.toBase58()}`
     : baseCustomId;
 
-  // 4P custom_id max length is 255. Worst case with lazyCreate:
-  // kind(6) + ":" + pda(44) + ":" + gifterSlug(32) + ":" + uuid(36) +
-  // ":lc:" + parent(44) + ":" + kid(44) + ":" + rate(20) ≈ 240 chars.
+  // 4P custom_id max length is 255. Worst case with familyPda suffix:
+  // kind(6) + ":" + parent(44) + ":" + gifterSlug(32) + ":" + uuid(36) +
+  // ":f:" + familyPda(44) ≈ 170 chars.
   if (customId.length > 255) {
     return NextResponse.json(
       { error: "internal: customId exceeds 4P limit" },

@@ -26,7 +26,7 @@ import {
   getNotification,
   type Notification,
 } from "@/lib/fourp";
-import { hasProcessedCustomId, signAndSendDeposit } from "@/lib/hotWallet";
+import { hasProcessedCustomId, signAndSendUsdcTransfer } from "@/lib/hotWallet";
 
 // 4P's webhook body shape — they only send a token, the actual data
 // lives behind GET /notification/:token.
@@ -38,56 +38,58 @@ interface WebhookBody {
 
 interface ParsedCustomId {
   kind: "parent" | "gift";
-  familyPda: PublicKey;
+  /** Pix top-ups now route to the parent's USDC wallet, not a family
+   *  vault. The customId carries the parent pubkey so the webhook can
+   *  build the SPL Token transfer destination ATA. */
+  parent: PublicKey;
+  /** Optional family pubkey for gift attribution. Gifts still surface
+   *  on a kid's gift wall, so we keep the kid-level identity here even
+   *  though the on-chain destination is the parent's wallet. The gift
+   *  wall fetcher matches on the gifter memo + the parent pubkey. */
+  familyPda: PublicKey | null;
   gifterName: string | null;
-  /** Lazy-creation context. Present when the on-ramp request set lazyCreate;
-   *  webhook passes through to signAndSendDeposit so the family is created
-   *  atomically with the deposit. Absent for orders against existing
-   *  on-chain families. */
-  lazyCreate: {
-    parent: PublicKey;
-    kid: PublicKey;
-    streamRateBaseUnits: bigint;
-  } | null;
   raw: string;
 }
 
 function parseCustomId(raw: string): ParsedCustomId | null {
-  // Base format: <kind>:<familyPda>:<gifterName?>:<uuid>
-  // Lazy-create suffix (optional): :lc:<parent>:<kid>:<streamRate>
+  // New format (post wallet-routing refactor):
+  //   <kind>:<parent>:<gifterName?>:<uuid>[:f:<familyPda>]
+  //
+  // Backward-compat: orders generated before this refactor used the
+  // pattern <kind>:<familyPda>:<gifterName?>:<uuid>[:lc:<parent>:<kid>:<streamRate>].
+  // We can recognize the legacy shape by the presence of a `:lc:` segment
+  // at index 4 — those orders need to be rejected because we no longer
+  // know how to fulfil them (the deposit-to-vault path is gone).
   const parts = raw.split(":");
   if (parts.length < 4) return null;
-  const [kind, familyPdaStr, gifterSlug] = parts;
+  const [kind, firstPubkeyStr, gifterSlug] = parts;
   if (kind !== "parent" && kind !== "gift") return null;
-  let familyPda: PublicKey;
+
+  // Legacy lazy-create order — reject. Pre-refactor orders are dead.
+  if (parts[4] === "lc") return null;
+
+  let parent: PublicKey;
   try {
-    familyPda = new PublicKey(familyPdaStr);
+    parent = new PublicKey(firstPubkeyStr);
   } catch {
     return null;
   }
 
-  // Lazy-create marker is at index 4. When present, indexes 5/6/7 carry
-  // parent / kid / streamRate. Anything else after index 4 is malformed.
-  let lazyCreate: ParsedCustomId["lazyCreate"] = null;
-  if (parts.length >= 8 && parts[4] === "lc") {
+  // Optional family marker for gift attribution.
+  let familyPda: PublicKey | null = null;
+  if (parts.length >= 6 && parts[4] === "f") {
     try {
-      lazyCreate = {
-        parent: new PublicKey(parts[5]),
-        kid: new PublicKey(parts[6]),
-        streamRateBaseUnits: BigInt(parts[7]),
-      };
+      familyPda = new PublicKey(parts[5]);
     } catch {
-      // Malformed lazy-create suffix — fail the parse rather than risk
-      // depositing into a family that won't get created.
       return null;
     }
   }
 
   return {
     kind,
+    parent,
     familyPda,
     gifterName: kind === "gift" && gifterSlug ? gifterSlug : null,
-    lazyCreate,
     raw,
   };
 }
@@ -217,24 +219,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, note: "already_processed" });
   }
 
-  // ---- credit the family ----
+  // ---- credit the parent's wallet ----
   try {
-    const result = await signAndSendDeposit({
-      familyPda: parsed.familyPda,
+    const result = await signAndSendUsdcTransfer({
+      parent: parsed.parent,
       amountBaseUnits,
       customId: parsed.raw,
       gifterName: parsed.gifterName,
-      lazyCreate: parsed.lazyCreate ?? undefined,
     });
     console.log(
-      `[4p webhook] credited ${parsed.familyPda.toBase58()} amount=${
+      `[4p webhook] credited parent=${parsed.parent.toBase58()} amount=${
         result.amountBaseUnits
       } sig=${result.signature}`
     );
     return NextResponse.json({
       ok: true,
       signature: result.signature,
-      family: parsed.familyPda.toBase58(),
+      parent: parsed.parent.toBase58(),
+      family: parsed.familyPda?.toBase58() ?? null,
       kind: parsed.kind,
     });
   } catch (e) {

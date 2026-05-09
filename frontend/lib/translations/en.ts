@@ -72,6 +72,10 @@ export const en = {
   "mainnet.cta": "DM @{handle} on X",
   "mainnet.fine": "no list · no spam · just a heads-up DM",
 
+  // ---- parent account section (top of dashboard) ----
+  "account.eyebrow": "your Seedling account",
+  "account.balance_sub": "available to deposit",
+
   // ---- dashboard ----
   "dashboard.eyebrow": "parent dashboard",
   "dashboard.title.loading": "loading…",

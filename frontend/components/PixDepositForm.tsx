@@ -1,9 +1,9 @@
 "use client";
 
-// Pay-with-Pix flow for parent top-ups. Same end-state as DepositForm
-// (family principal + shares incremented via the on-chain `deposit`
-// instruction), but the funding rail is BRL → 4P Pix → 4P swap →
-// hot wallet → deposit, all bridged automatically.
+// Top-up-with-Pix flow. Pix → 4P → hot wallet → SPL Token transfer
+// to the parent's USDC ATA. The parent then explicitly deposits from
+// their balance into a kid's vault via the standard `+ deposit` flow
+// on a FamilyCard.
 //
 // Three phases:
 //   1. form     — BRL amount + (CPF + email if not yet stored)
@@ -11,8 +11,8 @@
 //   3. success  — confetti, toast, auto-close
 //
 // Polls /api/4p/status?customId=... every 5s. Status flips to
-// processed=true the moment the webhook signs the deposit ix and that
-// tx confirms on-chain.
+// processed=true the moment the webhook signs the SPL Token transfer
+// and that tx confirms on-chain.
 
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
@@ -29,7 +29,6 @@ import {
   isValidEmail,
   setPixProfile,
 } from "@/lib/pixProfile";
-import type { FamilyView } from "@/lib/fetchFamilies";
 
 const MIN_BRL = 5;
 const MAX_BRL = 5000;
@@ -37,7 +36,6 @@ const POLL_INTERVAL_MS = 5_000;
 
 type Props = {
   parent: PublicKey;
-  family: FamilyView;
   onCredited: () => void;
   onCancel: () => void;
 };
@@ -50,12 +48,7 @@ interface OnrampOk {
   createdAt: string;
 }
 
-export function PixDepositForm({
-  parent,
-  family,
-  onCredited,
-  onCancel,
-}: Props) {
+export function PixDepositForm({ parent, onCredited, onCancel }: Props) {
   const { showToast } = useToast();
   const { t, locale } = useLocale();
   // Single ref shared by both the form (phase=form) and the awaiting div
@@ -200,28 +193,15 @@ export function PixDepositForm({
     // Persist the profile only AFTER 4P accepts the order — otherwise
     // an invalid CPF gets stuck in localStorage on the user's device.
     try {
-      // Lazy-creation hint: when the family is a draft (no on-chain
-      // account yet), tell the server so the webhook prepends a
-      // create_family ix to the deposit tx. Server rejects orders for
-      // non-existent families without this flag.
-      const lazyCreatePayload = family.isDraft
-        ? {
-            parent: family.parent.toBase58(),
-            kid: family.kid.toBase58(),
-            streamRateBaseUnits: family.streamRate.toString(),
-          }
-        : undefined;
-
       const res = await fetch("/api/4p/onramp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: "parent",
-          familyPda: family.pubkey.toBase58(),
+          parent: parent.toBase58(),
           amountBrl: amountNum,
           cpf: cpfForRequest.replace(/\D/g, ""),
           email: emailForRequest,
-          lazyCreate: lazyCreatePayload,
         }),
       });
       const json = (await res.json()) as OnrampOk | { error: string };

@@ -1,8 +1,23 @@
 // Server-only hot wallet helpers. The hot wallet is the receiver_wallet
 // we hand to 4P for every Pix on-ramp + gift order. When 4P confirms the
-// USDC has landed, the webhook calls signAndSendDeposit() — which
-// builds + signs a `deposit` Solana instruction with the hot wallet as
-// `depositor`, crediting the right family by parsing the customId.
+// USDC has landed, the webhook calls signAndSendUsdcTransfer() — which
+// builds + signs an SPL Token transfer from the hot wallet's USDC ATA to
+// the parent's USDC ATA. The parent then explicitly chooses when to
+// move the funds from their wallet into a kid's vault via the standard
+// `+ deposit` flow.
+//
+// Why this two-layer model (Pix → wallet → vault) instead of one-shot
+// (Pix → vault directly):
+//   - Symmetry: both Pix and external USDC top-ups now route to the same
+//     destination (parent's wallet), matching the "top up account" mental
+//     model of every consumer fintech app (Nubank/Wise/Mercado Pago).
+//   - Recoverability: a parent who tops up by mistake can withdraw to
+//     their bank without ever touching a kid's vault.
+//   - Cleaner lazy creation: the family-create logic now lives in ONE
+//     place (the deposit form's [create_family + deposit] bundle) rather
+//     than being split across the Pix webhook and the deposit form.
+//   - Better demo flow: parents see their balance grow after Pix, then
+//     deposit to the kid — concrete two-step journey vs. opaque one-shot.
 //
 // Idempotency lives on-chain: every deposit tx the hot wallet signs
 // embeds an SPL Memo `cid:<customId>`. Before processing a webhook we
@@ -21,7 +36,6 @@ import {
   Connection,
   Keypair,
   PublicKey,
-  SystemProgram,
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
@@ -33,14 +47,9 @@ import {
 import bs58 from "bs58";
 
 import { DEVNET_ADDRESSES, DEVNET_RPC } from "./program";
-import { SeedlingQuasarClient } from "./quasar-client";
-import { kidViewPda, vaultConfigPda } from "./quasarPdas";
 
 const MEMO_PROGRAM_ID = new PublicKey(
   "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
-);
-const SYSVAR_INSTRUCTIONS = new PublicKey(
-  "Sysvar1nstructions1111111111111111111111111"
 );
 
 // Idempotency memo prefix. Short to save tx bytes; distinct from the
@@ -160,140 +169,107 @@ export async function hasProcessedCustomId(
   return false;
 }
 
-// ---- main entry: build + sign + send the deposit ix ----
+// ---- main entry: build + sign + send the USDC transfer to parent ----
 
-export interface SignAndSendDepositInput {
-  familyPda: PublicKey;
+export interface SignAndSendUsdcTransferInput {
+  /** Parent wallet that will receive the USDC. Their USDC ATA is
+   *  derived; if it doesn't exist yet, an idempotent ATA-create is
+   *  prepended (sponsor pays the rent). */
+  parent: PublicKey;
   amountBaseUnits: bigint;
   customId: string;
-  /** Optional gift attribution. If set, prepends `seedling-gift:<name>` memo
-   * so the gift wall picks it up. Falsy = parent top-up, no gift memo. */
+  /** Optional gift attribution. If set, prepends `seedling-gift:<name>`
+   *  memo so the gift wall picks it up. Falsy = standard parent top-up. */
   gifterName?: string | null;
-  /** Lazy creation hint. When set AND the FamilyPosition account doesn't
-   *  exist on-chain yet, the deposit tx prepends a create_family ix so the
-   *  family is created and funded atomically. The parent + kid are the PDA
-   *  seeds; streamRate is the monthly allowance in USDC base units (6 dec).
-   *  Hot wallet pays for both the create_family rent and the deposit. */
-  lazyCreate?: {
-    parent: PublicKey;
-    kid: PublicKey;
-    streamRateBaseUnits: bigint;
-  };
 }
 
-export interface SignAndSendDepositResult {
+export interface SignAndSendUsdcTransferResult {
   signature: string;
   hotWallet: string;
+  parent: string;
   amountBaseUnits: string;
   customId: string;
 }
 
 /**
- * Build, sign, send a deposit instruction crediting `familyPda` with
- * `amountBaseUnits` USDC (6 decimals — 1 USDC = 1_000_000). The hot
- * wallet acts as `depositor` and pays gas. Returns the confirmed
- * signature.
+ * Build, sign, send an SPL Token transfer crediting the parent's USDC
+ * ATA with `amountBaseUnits` USDC (6 decimals — 1 USDC = 1_000_000).
+ * The hot wallet is the source; the parent is the destination owner.
+ *
+ * Returns the confirmed signature. Idempotent at the caller layer via
+ * the customId memo + hasProcessedCustomId().
+ *
+ * Replaces the previous signAndSendDeposit() which routed Pix top-ups
+ * directly to a kid's family vault. The new model funds the parent's
+ * wallet first; the parent then explicitly chooses when to deposit
+ * into a kid via the dashboard's `+ deposit` flow. See file header for
+ * full rationale.
  *
  * Throws on:
  * - missing env / malformed key
- * - failed simulation (program rejection — surfaced raw)
+ * - failed simulation (token-program rejection — surfaced raw)
  * - failed confirmation
  *
  * The caller (webhook handler) is responsible for calling
  * hasProcessedCustomId() first and skipping if already processed.
  */
-export async function signAndSendDeposit(
-  input: SignAndSendDepositInput
-): Promise<SignAndSendDepositResult> {
+export async function signAndSendUsdcTransfer(
+  input: SignAndSendUsdcTransferInput
+): Promise<SignAndSendUsdcTransferResult> {
   const connection = new Connection(DEVNET_RPC, "confirmed");
   const hotWallet = getHotWalletKeypair();
   const hotWalletUsdcAta = getHotWalletUsdcAta();
-
-  const client = new SeedlingQuasarClient();
-
-  const [lendingMarketAuthority] = PublicKey.findProgramAddressSync(
-    [Buffer.from("lma"), DEVNET_ADDRESSES.kaminoMarket.toBuffer()],
-    DEVNET_ADDRESSES.klendProgram
+  const parentUsdcAta = getAssociatedTokenAddressSync(
+    DEVNET_ADDRESSES.usdcMint,
+    input.parent
   );
 
-  // Idempotent — if 4P already created the ATA when sending us USDC, this
-  // is a no-op. Belt-and-suspenders for first-ever credit.
-  const ataIx = createAssociatedTokenAccountIdempotentInstruction(
+  // Idempotent ATA-create for both source (hot wallet) and destination
+  // (parent). Hot wallet's ATA almost always exists by now; parent's may
+  // not if this is their first time receiving USDC. Sponsor pays rent.
+  const ataIxHotWallet = createAssociatedTokenAccountIdempotentInstruction(
     hotWallet.publicKey,
     hotWalletUsdcAta,
     hotWallet.publicKey,
     DEVNET_ADDRESSES.usdcMint
   );
+  const ataIxParent = createAssociatedTokenAccountIdempotentInstruction(
+    hotWallet.publicKey,
+    parentUsdcAta,
+    input.parent,
+    DEVNET_ADDRESSES.usdcMint
+  );
 
-  const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 });
+  // SPL Token Transfer instruction. Built manually to avoid pulling in
+  // the spl-token client transfer helper (cleaner dependency surface).
+  // Layout: [3 (transfer discriminator), amount (u64 LE)]
+  const transferData = Buffer.alloc(9);
+  transferData[0] = 3;
+  transferData.writeBigUInt64LE(input.amountBaseUnits, 1);
+  const transferIx = new TransactionInstruction({
+    programId: TOKEN_PROGRAM_ID,
+    keys: [
+      { pubkey: hotWalletUsdcAta, isSigner: false, isWritable: true },
+      { pubkey: parentUsdcAta, isSigner: false, isWritable: true },
+      { pubkey: hotWallet.publicKey, isSigner: true, isWritable: false },
+    ],
+    data: transferData,
+  });
 
+  const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 });
   const customIdMemoIx = buildMemoIx(CUSTOM_ID_MEMO_PREFIX + input.customId);
-
   const giftMemoIx = input.gifterName
     ? buildMemoIx(GIFT_MEMO_PREFIX + input.gifterName)
     : null;
-
-  // Lazy creation: if the caller passed lazyCreate AND the FamilyPosition
-  // account doesn't exist on-chain yet, prepend a create_family ix so the
-  // family is born and funded in the same tx. We bump CU because deposit
-  // already uses ~600k; create_family adds ~50k more — well under the 1.4M
-  // limit set in `cuIx`. Skip when the account exists (a previous deposit
-  // already promoted the draft).
-  let createFamilyIx: TransactionInstruction | null = null;
-  if (input.lazyCreate) {
-    const existing = await connection.getAccountInfo(input.familyPda);
-    if (!existing) {
-      const lc = input.lazyCreate;
-      createFamilyIx = client.createCreateFamilyInstruction({
-        feePayer: hotWallet.publicKey,
-        parent: lc.parent,
-        vaultConfig: vaultConfigPda(),
-        familyPosition: input.familyPda,
-        kidView: kidViewPda(lc.parent, lc.kid),
-        systemProgram: SystemProgram.programId,
-        kid: lc.kid,
-        streamRate: lc.streamRateBaseUnits,
-      });
-    }
-  }
-
-  const depositIx = client.createDepositInstruction({
-    familyPosition: input.familyPda,
-    depositor: hotWallet.publicKey,
-    depositorUsdcAta: hotWalletUsdcAta,
-    vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
-    vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
-    treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
-    vaultConfig: DEVNET_ADDRESSES.vaultConfig,
-    usdcMint: DEVNET_ADDRESSES.usdcMint,
-    ctokenMint: DEVNET_ADDRESSES.ctokenMint,
-    kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
-    lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
-    lendingMarketAuthority,
-    reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
-    oraclePyth: DEVNET_ADDRESSES.oraclePyth,
-    oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
-    oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
-    oracleScopeConfig: DEVNET_ADDRESSES.klendProgram,
-    kaminoProgram: DEVNET_ADDRESSES.klendProgram,
-    instructionSysvar: SYSVAR_INSTRUCTIONS,
-    tokenProgram: TOKEN_PROGRAM_ID,
-    systemProgram: SystemProgram.programId,
-    amount: input.amountBaseUnits,
-    minSharesOut: BigInt(0),
-  });
 
   const tx = new Transaction();
   tx.feePayer = hotWallet.publicKey;
   const { blockhash, lastValidBlockHeight } =
     await connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
-  tx.add(cuIx, ataIx, customIdMemoIx);
+  tx.add(cuIx, ataIxHotWallet, ataIxParent, customIdMemoIx);
   if (giftMemoIx) tx.add(giftMemoIx);
-  // create_family runs BEFORE deposit so FamilyPosition exists by the time
-  // deposit runs. Solana processes instructions sequentially within a tx.
-  if (createFamilyIx) tx.add(createFamilyIx);
-  tx.add(depositIx);
+  tx.add(transferIx);
 
   tx.sign(hotWallet);
 
@@ -310,6 +286,7 @@ export async function signAndSendDeposit(
   return {
     signature: sig,
     hotWallet: hotWallet.publicKey.toBase58(),
+    parent: input.parent.toBase58(),
     amountBaseUnits: input.amountBaseUnits.toString(),
     customId: input.customId,
   };

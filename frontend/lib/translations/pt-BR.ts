@@ -86,6 +86,10 @@ export const ptBR: Translations = {
   "mainnet.cta": "manda DM pra @{handle} no X",
   "mainnet.fine": "sem lista · sem spam · só um aviso por DM",
 
+  // ---- parent account section (top of dashboard) ----
+  "account.eyebrow": "sua conta Seedling",
+  "account.balance_sub": "disponível pra depositar",
+
   // ---- dashboard ----
   "dashboard.eyebrow": "dashboard dos pais",
   "dashboard.title.loading": "carregando…",

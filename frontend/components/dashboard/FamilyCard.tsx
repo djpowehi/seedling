@@ -49,9 +49,7 @@ import {
 import type { FamilyView } from "@/lib/fetchFamilies";
 import { useToast } from "@/components/Toast";
 import { DepositForm } from "@/components/DepositForm";
-import { PixDepositForm } from "@/components/PixDepositForm";
 import { PixOfframpForm } from "@/components/PixOfframpForm";
-import { TopUpAccountModal } from "@/components/TopUpAccountModal";
 import { WithdrawForm } from "@/components/WithdrawForm";
 import { ArrowUR, PixLogo, Plus } from "./icons";
 import { GoalRow } from "./GoalRow";
@@ -161,10 +159,8 @@ export function FamilyCard({
   // chapter is closing" instead of a hard pop.
   const [closing, setClosing] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
-  const [showPixDeposit, setShowPixDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showPixOfframp, setShowPixOfframp] = useState(false);
-  const [showTopUp, setShowTopUp] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [addingGoal, setAddingGoal] = useState(false);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
@@ -856,12 +852,13 @@ export function FamilyCard({
 
       {/* Action buttons — grouped by intent so non-crypto parents can
           parse the layout at a glance:
-            Row 1 (full width)     primary CTA — deposit
-            Row 2 (50/50)          fund alternatives — Pix on-ramp + USDC top-up
-            Row 3 (50/50)          exit alternatives — Pix off-ramp + USDC withdraw
+            Row 1 (full width)     primary CTA — deposit (parent's wallet → kid's vault)
+            Row 2 (50/50)          exit alternatives — Pix off-ramp + USDC withdraw
             Divider
-            Row 4 (50/50)          automated distributions — monthly + bonus
-          */}
+            Row 3 (50/50)          automated distributions — monthly + bonus
+          The two top-up actions (Pix on-ramp + USDC top-up) live on the
+          dashboard header now, not per-card, since they fund the parent's
+          wallet which is shared across all kids. */}
       <div
         style={{
           display: "flex",
@@ -877,7 +874,6 @@ export function FamilyCard({
           className="dash-btn dash-btn-primary"
           onClick={() => {
             setShowWithdraw(false);
-            setShowPixDeposit(false);
             setShowDeposit((v) => !v);
           }}
           disabled={submitting !== null}
@@ -886,36 +882,8 @@ export function FamilyCard({
           <Plus /> {t("card.deposit")}
         </button>
 
-        {/* Row 2 — fund alternatives */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 10,
-          }}
-        >
-          <button
-            className="dash-btn dash-btn-ghost"
-            onClick={() => {
-              setShowDeposit(false);
-              setShowWithdraw(false);
-              setShowPixDeposit((v) => !v);
-            }}
-            disabled={submitting !== null}
-          >
-            <PixLogo /> {t("card.pay_pix")}
-          </button>
-          <button
-            className="dash-btn dash-btn-ghost"
-            onClick={() => setShowTopUp(true)}
-            disabled={submitting !== null}
-          >
-            <span aria-hidden="true">↻</span> {t("card.top_up")}
-          </button>
-        </div>
-
-        {/* Row 3 — exit alternatives. Pix off-ramp on the left so it
-            mirrors row 2's "Pix on left, USDC on right" pattern. */}
+        {/* Row 2 — exit alternatives. Pix off-ramp on the left,
+            USDC withdraw on the right. Both are kid-vault → out flows. */}
         <div
           style={{
             display: "grid",
@@ -928,7 +896,6 @@ export function FamilyCard({
             disabled={family.shares.isZero() || submitting !== null}
             onClick={() => {
               setShowDeposit(false);
-              setShowPixDeposit(false);
               setShowWithdraw(false);
               setShowPixOfframp((v) => !v);
             }}
@@ -940,7 +907,6 @@ export function FamilyCard({
             disabled={family.shares.isZero() || submitting !== null}
             onClick={() => {
               setShowDeposit(false);
-              setShowPixDeposit(false);
               setShowPixOfframp(false);
               setShowWithdraw((v) => !v);
             }}
@@ -1049,20 +1015,6 @@ export function FamilyCard({
         </div>
       )}
 
-      {showPixDeposit && (
-        <div style={{ marginTop: 16 }}>
-          <PixDepositForm
-            parent={parent}
-            family={family}
-            onCancel={() => setShowPixDeposit(false)}
-            onCredited={() => {
-              setShowPixDeposit(false);
-              onMutated();
-            }}
-          />
-        </div>
-      )}
-
       {showWithdraw && (
         <div style={{ marginTop: 16 }}>
           <WithdrawForm
@@ -1091,13 +1043,6 @@ export function FamilyCard({
             }}
           />
         </div>
-      )}
-
-      {showTopUp && (
-        <TopUpAccountModal
-          walletPubkey={parent}
-          onClose={() => setShowTopUp(false)}
-        />
       )}
 
       {/* Deposit cadence reminder — only for hybrid + monthly families.

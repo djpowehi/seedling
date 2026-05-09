@@ -34,13 +34,15 @@ import {
   getHotWalletPubkey,
   getHotWalletUsdcAta,
   hasProcessedCustomId,
-  signAndSendDeposit,
+  signAndSendUsdcTransfer,
 } from "@/lib/hotWallet";
 import { DEVNET_ADDRESSES, DEVNET_RPC } from "@/lib/program";
 
 interface RetryRequest {
   customId: string;
-  familyPda: string;
+  /** Destination parent wallet (post wallet-routing refactor — Pix
+   *  funds the parent's USDC ATA, not a kid's family vault). */
+  parent: string;
   amountBaseUnits: string; // bigint as string — JSON can't carry bigint
   gifterName?: string;
 }
@@ -115,8 +117,8 @@ export async function POST(req: NextRequest) {
   if (!body.customId || typeof body.customId !== "string") {
     return NextResponse.json({ error: "missing customId" }, { status: 400 });
   }
-  if (!body.familyPda || typeof body.familyPda !== "string") {
-    return NextResponse.json({ error: "missing familyPda" }, { status: 400 });
+  if (!body.parent || typeof body.parent !== "string") {
+    return NextResponse.json({ error: "missing parent" }, { status: 400 });
   }
   if (!body.amountBaseUnits || typeof body.amountBaseUnits !== "string") {
     return NextResponse.json(
@@ -125,12 +127,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let familyPda: PublicKey;
+  let parent: PublicKey;
   try {
-    familyPda = new PublicKey(body.familyPda);
+    parent = new PublicKey(body.parent);
   } catch {
     return NextResponse.json(
-      { error: "familyPda is not a valid pubkey" },
+      { error: "parent is not a valid pubkey" },
       { status: 400 }
     );
   }
@@ -162,8 +164,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await signAndSendDeposit({
-      familyPda,
+    const result = await signAndSendUsdcTransfer({
+      parent,
       amountBaseUnits,
       customId: body.customId,
       gifterName: body.gifterName ?? null,
@@ -171,7 +173,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       signature: result.signature,
-      family: familyPda.toBase58(),
+      parent: parent.toBase58(),
       customId: body.customId,
     });
   } catch (e) {

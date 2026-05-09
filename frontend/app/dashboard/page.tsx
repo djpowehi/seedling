@@ -10,6 +10,7 @@ import { useSeedlingWallet } from "@/lib/wallet";
 import { AddKidForm } from "@/components/dashboard/AddKidForm";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { FamilyCard } from "@/components/dashboard/FamilyCard";
+import { ParentAccountSection } from "@/components/dashboard/ParentAccountSection";
 import { Plus } from "@/components/dashboard/icons";
 import { DASHBOARD_STYLES } from "@/components/dashboard/styles";
 import { LocaleToggle } from "@/components/LocaleToggle";
@@ -26,6 +27,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  // Bumped on every refetch so ParentAccountSection re-fetches the
+  // wallet balance after a tx (deposit, top-up, withdraw) without
+  // needing its own polling loop.
+  const [accountRefreshKey, setAccountRefreshKey] = useState(0);
 
   const refetch = useCallback(async () => {
     if (!publicKey) return;
@@ -38,6 +43,7 @@ export default function Dashboard() {
       ]);
       setFamilies(result);
       setVaultClock(clk);
+      setAccountRefreshKey((k) => k + 1);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -167,6 +173,15 @@ export default function Dashboard() {
               >
                 {t("dashboard.fetching")}
               </div>
+            )}
+
+            {publicKey && families != null && (
+              <ParentAccountSection
+                connection={connection}
+                parent={publicKey}
+                refreshKey={accountRefreshKey}
+                onChanged={refetch}
+              />
             )}
 
             {!loading &&
