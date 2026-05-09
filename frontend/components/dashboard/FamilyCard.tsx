@@ -854,11 +854,23 @@ export function FamilyCard({
         </a>
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons — grouped by intent so non-crypto parents can
+          parse the layout at a glance:
+            Row 1 (full width)     primary CTA — deposit
+            Row 2 (50/50)          fund alternatives — Pix on-ramp + USDC top-up
+            Row 3 (50/50)          exit alternatives — Pix off-ramp + USDC withdraw
+            Divider
+            Row 4 (50/50)          automated distributions — monthly + bonus
+          */}
       <div
-        className="dash-row"
-        style={{ gap: 10, marginTop: 24, flexWrap: "wrap" }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          marginTop: 24,
+        }}
       >
+        {/* Row 1 — primary deposit, full width */}
         <button
           className="dash-btn dash-btn-primary"
           onClick={() => {
@@ -867,100 +879,144 @@ export function FamilyCard({
             setShowDeposit((v) => !v);
           }}
           disabled={submitting !== null}
+          style={{ width: "100%" }}
         >
           <Plus /> {t("card.deposit")}
         </button>
-        <button
-          className="dash-btn dash-btn-ghost"
-          onClick={() => {
-            setShowDeposit(false);
-            setShowWithdraw(false);
-            setShowPixDeposit((v) => !v);
-          }}
-          disabled={submitting !== null}
-        >
-          <span aria-hidden="true">⚡</span> {t("card.pay_pix")}
-        </button>
-        <button
-          className="dash-btn dash-btn-ghost"
-          onClick={() => setShowTopUp(true)}
-          disabled={submitting !== null}
-        >
-          <span aria-hidden="true">↻</span> {t("card.top_up")}
-        </button>
-        <button
-          className="dash-btn dash-btn-ghost"
-          disabled={family.shares.isZero() || submitting !== null}
-          onClick={() => {
-            setShowDeposit(false);
-            setShowPixDeposit(false);
-            setShowPixOfframp(false);
-            setShowWithdraw((v) => !v);
+
+        {/* Row 2 — fund alternatives */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 10,
           }}
         >
-          {t("card.withdraw")}
-        </button>
-        <button
-          className="dash-btn dash-btn-ghost"
-          disabled={family.shares.isZero() || submitting !== null}
-          onClick={() => {
-            setShowDeposit(false);
-            setShowPixDeposit(false);
-            setShowWithdraw(false);
-            setShowPixOfframp((v) => !v);
+          <button
+            className="dash-btn dash-btn-ghost"
+            onClick={() => {
+              setShowDeposit(false);
+              setShowWithdraw(false);
+              setShowPixDeposit((v) => !v);
+            }}
+            disabled={submitting !== null}
+          >
+            <span aria-hidden="true">⚡</span> {t("card.pay_pix")}
+          </button>
+          <button
+            className="dash-btn dash-btn-ghost"
+            onClick={() => setShowTopUp(true)}
+            disabled={submitting !== null}
+          >
+            <span aria-hidden="true">↻</span> {t("card.top_up")}
+          </button>
+        </div>
+
+        {/* Row 3 — exit alternatives. Pix off-ramp on the left so it
+            mirrors row 2's "Pix on left, USDC on right" pattern. */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 10,
           }}
         >
-          <span aria-hidden="true">⚡</span> {t("card.withdraw_pix")}
-        </button>
-        <button
-          className={`dash-btn ${
-            monthlyReady ? "dash-btn-ghost" : "dash-btn-disabled-state"
-          }`}
-          disabled={!monthlyReady || submitting !== null}
-          onClick={handleMonthly}
-          title={
-            monthlyReady
-              ? t("card.tip.send_monthly")
-              : t("card.tip.available_in", {
+          <button
+            className="dash-btn dash-btn-ghost"
+            disabled={family.shares.isZero() || submitting !== null}
+            onClick={() => {
+              setShowDeposit(false);
+              setShowPixDeposit(false);
+              setShowWithdraw(false);
+              setShowPixOfframp((v) => !v);
+            }}
+          >
+            <span aria-hidden="true">⚡</span> {t("card.withdraw_pix")}
+          </button>
+          <button
+            className="dash-btn dash-btn-ghost"
+            disabled={family.shares.isZero() || submitting !== null}
+            onClick={() => {
+              setShowDeposit(false);
+              setShowPixDeposit(false);
+              setShowPixOfframp(false);
+              setShowWithdraw((v) => !v);
+            }}
+          >
+            {t("card.withdraw")}
+          </button>
+        </div>
+
+        {/* Divider — visually separates parent-initiated actions from
+            keeper-driven (or parent-pressed-during-demo) automated
+            distribution timers. */}
+        <div
+          style={{
+            height: 1,
+            background: "var(--line-soft)",
+            margin: "6px 0",
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Row 4 — automated distributions */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 10,
+          }}
+        >
+          <button
+            className={`dash-btn ${
+              monthlyReady ? "dash-btn-ghost" : "dash-btn-disabled-state"
+            }`}
+            disabled={!monthlyReady || submitting !== null}
+            onClick={handleMonthly}
+            title={
+              monthlyReady
+                ? t("card.tip.send_monthly")
+                : t("card.tip.available_in", {
+                    countdown: fmtCountdown(monthlySecondsLeft),
+                  })
+            }
+          >
+            {submitting === "monthly"
+              ? t("card.sending")
+              : monthlyReady
+              ? t("card.send_monthly")
+              : t("card.monthly_in", {
                   countdown: fmtCountdown(monthlySecondsLeft),
-                })
-          }
-        >
-          {submitting === "monthly"
-            ? t("card.sending")
-            : monthlyReady
-            ? t("card.send_monthly")
-            : t("card.monthly_in", {
-                countdown: fmtCountdown(monthlySecondsLeft),
-              })}
-        </button>
-        <button
-          className={`dash-btn ${
-            bonusReady ? "dash-btn-ghost" : "dash-btn-disabled-state"
-          }`}
-          disabled={!bonusReady || submitting !== null}
-          onClick={handleBonus}
-          title={
-            bonusReady
-              ? t("card.tip.send_bonus")
+                })}
+          </button>
+          <button
+            className={`dash-btn ${
+              bonusReady ? "dash-btn-ghost" : "dash-btn-disabled-state"
+            }`}
+            disabled={!bonusReady || submitting !== null}
+            onClick={handleBonus}
+            title={
+              bonusReady
+                ? t("card.tip.send_bonus")
+                : vaultClock
+                ? t("card.tip.available_in", {
+                    countdown: fmtCountdown(bonusSecondsLeft),
+                  })
+                : t("card.tip.loading")
+            }
+          >
+            <span aria-hidden="true">🎁</span>{" "}
+            {submitting === "bonus"
+              ? t("card.sending")
+              : bonusReady
+              ? t("card.send_bonus")
               : vaultClock
-              ? t("card.tip.available_in", {
+              ? t("card.bonus_in", {
                   countdown: fmtCountdown(bonusSecondsLeft),
                 })
-              : t("card.tip.loading")
-          }
-        >
-          <span aria-hidden="true">🎁</span>{" "}
-          {submitting === "bonus"
-            ? t("card.sending")
-            : bonusReady
-            ? t("card.send_bonus")
-            : vaultClock
-            ? t("card.bonus_in", {
-                countdown: fmtCountdown(bonusSecondsLeft),
-              })
-            : t("card.bonus_loading")}
-        </button>
+              : t("card.bonus_loading")}
+          </button>
+        </div>
       </div>
 
       {error && (
