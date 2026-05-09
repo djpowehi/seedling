@@ -35,7 +35,10 @@ import {
 // 4P's own minimum on production is R$1.
 const MIN_BRL = 1;
 const MAX_BRL = 5000;
-const POLL_INTERVAL_MS = 5_000;
+// 10s instead of 5s — keeps the polling RPC load under Helius free-tier
+// rate limits. Pix payments take >10s to confirm anyway, so the slower
+// polling doesn't materially delay the user-visible success state.
+const POLL_INTERVAL_MS = 10_000;
 
 type Props = {
   parent: PublicKey;

@@ -207,9 +207,14 @@ export async function POST(req: NextRequest) {
   }
 
   // ---- idempotency: skip if we already deposited this customId ----
+  // Wider lookback here than the polling-status endpoint — the webhook
+  // fires once per Pix order, no rate-limit pressure, so we can afford
+  // to scan further back in case of delayed retries from 4P.
   let alreadyProcessed = false;
   try {
-    alreadyProcessed = await hasProcessedCustomId(parsed.raw);
+    alreadyProcessed = await hasProcessedCustomId(parsed.raw, {
+      lookback: 100,
+    });
   } catch (e) {
     // Don't fail the webhook on idempotency check error; downstream
     // sweep/manual recovery will catch any stuck funds.

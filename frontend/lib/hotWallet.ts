@@ -112,14 +112,16 @@ function buildMemoIx(payload: string): TransactionInstruction {
  * for the hot wallet pubkey, fetch their parsed bodies, and look for an
  * SPL Memo containing `cid:<customId>`.
  *
- * `lookback` defaults to 100 — far above any realistic duplicate-arrival
- * window for hackathon volume. The scan is paginated server-side by RPC.
+ * `lookback` defaults to 25 — one getParsedTransactions chunk = one
+ * RPC call per check. Polled every 10s by the Pix form, this stays
+ * inside Helius free-tier rate limits. Webhook idempotency check uses
+ * lookback=100 once per webhook delivery, where rate is fine.
  */
 export async function hasProcessedCustomId(
   customId: string,
   opts: { lookback?: number } = {}
 ): Promise<boolean> {
-  const lookback = opts.lookback ?? 100;
+  const lookback = opts.lookback ?? 25;
   const connection = new Connection(DEVNET_RPC, "confirmed");
   const hotWallet = getHotWalletPubkey();
 
