@@ -136,6 +136,33 @@ export function ArrowR({ size = 14, color = "currentColor" }: IconProps) {
   );
 }
 
+// Simplified Pix mark — four diamond-shaped blades around a center point,
+// in Banco Central do Brasil's official Pix teal (#32BCAD). Renders
+// cleanly at icon size where the official multi-curve logo turns to mush.
+// Used inside the "pay with Pix" / "withdraw to Pix" buttons in place of
+// the lightning-bolt emoji we were using as a placeholder.
+export function PixLogo({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="#32BCAD"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Pix"
+    >
+      {/* top blade */}
+      <path d="M8 1.2 L10.8 4 L8 6.8 L5.2 4 Z" />
+      {/* right blade */}
+      <path d="M14.8 8 L12 10.8 L9.2 8 L12 5.2 Z" />
+      {/* bottom blade */}
+      <path d="M8 14.8 L5.2 12 L8 9.2 L10.8 12 Z" />
+      {/* left blade */}
+      <path d="M1.2 8 L4 5.2 L6.8 8 L4 10.8 Z" />
+    </svg>
+  );
+}
+
 export function Plus({ size = 12, color = "currentColor" }: IconProps) {
   return (
     <svg

@@ -53,7 +53,7 @@ import { PixDepositForm } from "@/components/PixDepositForm";
 import { PixOfframpForm } from "@/components/PixOfframpForm";
 import { TopUpAccountModal } from "@/components/TopUpAccountModal";
 import { WithdrawForm } from "@/components/WithdrawForm";
-import { ArrowUR, Plus } from "./icons";
+import { ArrowUR, PixLogo, Plus } from "./icons";
 import { GoalRow } from "./GoalRow";
 import { AddGoalInline } from "./AddGoalInline";
 import { GiftsSection } from "./GiftsSection";
@@ -870,7 +870,9 @@ export function FamilyCard({
           marginTop: 24,
         }}
       >
-        {/* Row 1 — primary deposit, full width */}
+        {/* Row 1 — primary deposit, full width. justifyContent:center
+            so the "+ deposit" label sits in the middle of the button
+            instead of left-aligning against the wide green slab. */}
         <button
           className="dash-btn dash-btn-primary"
           onClick={() => {
@@ -879,7 +881,7 @@ export function FamilyCard({
             setShowDeposit((v) => !v);
           }}
           disabled={submitting !== null}
-          style={{ width: "100%" }}
+          style={{ width: "100%", justifyContent: "center" }}
         >
           <Plus /> {t("card.deposit")}
         </button>
@@ -901,7 +903,7 @@ export function FamilyCard({
             }}
             disabled={submitting !== null}
           >
-            <span aria-hidden="true">⚡</span> {t("card.pay_pix")}
+            <PixLogo /> {t("card.pay_pix")}
           </button>
           <button
             className="dash-btn dash-btn-ghost"
@@ -931,7 +933,7 @@ export function FamilyCard({
               setShowPixOfframp((v) => !v);
             }}
           >
-            <span aria-hidden="true">⚡</span> {t("card.withdraw_pix")}
+            <PixLogo /> {t("card.withdraw_pix")}
           </button>
           <button
             className="dash-btn dash-btn-ghost"
@@ -943,7 +945,7 @@ export function FamilyCard({
               setShowWithdraw((v) => !v);
             }}
           >
-            {t("card.withdraw")}
+            <span aria-hidden="true">💸</span> {t("card.withdraw")}
           </button>
         </div>
 
