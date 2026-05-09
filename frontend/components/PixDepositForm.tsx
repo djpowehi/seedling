@@ -30,7 +30,10 @@ import {
   setPixProfile,
 } from "@/lib/pixProfile";
 
-const MIN_BRL = 5;
+// Matches the floor in /api/4p/onramp. Keeping it cheap so test/demo
+// runs cost ~$0.20 instead of $1+ per round-trip during development.
+// 4P's own minimum on production is R$1.
+const MIN_BRL = 1;
 const MAX_BRL = 5000;
 const POLL_INTERVAL_MS = 5_000;
 
