@@ -56,6 +56,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
             solana: {
               createOnLogin: "users-without-wallets",
             },
+            // Suppress Privy's built-in transaction-confirm modal. The
+            // form-level CTA (Deposit / Withdraw / Top up) is already the
+            // user's confirmation step, and Privy's modal:
+            //   - Adds a second "are you sure" tap that non-crypto parents
+            //     don't expect (Nubank/Venmo/Wise don't do this either)
+            //   - Renders with a layout bug on iPhone where the Network
+            //     row clips off the right edge ("Network: dev[truncated]")
+            //   - Surfaces wallet/on-chain jargon that contradicts the
+            //     "no wallet needed" brand promise
+            // Tx still requires our app's deliberate ix-build + form
+            // submit, so removing the popup doesn't loosen security —
+            // the user explicitly chose this action with our UI.
+            showWalletUIs: false,
           },
           externalWallets: {
             solana: { connectors: solanaConnectors },
