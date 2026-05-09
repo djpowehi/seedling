@@ -56,7 +56,15 @@ export function DepositForm({
   // Captured before onDeposited unmounts us.
   const formRef = useRef<HTMLFormElement>(null);
   const [amountInput, setAmountInput] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  // Two-phase submit state so the button copy matches what the user is
+  // actually waiting on:
+  //   "approving" — Privy modal is showing; user needs to tap Approve
+  //   "confirming" — wallet returned the signature; broadcasting + waiting
+  //                  for chain confirm
+  const [submitPhase, setSubmitPhase] = useState<
+    "approving" | "confirming" | null
+  >(null);
+  const submitting = submitPhase !== null;
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const amountNum = parseFloat(amountInput);
@@ -80,7 +88,11 @@ export function DepositForm({
     e.preventDefault();
     if (submitDisabled) return;
 
-    setSubmitting(true);
+    // Start in "approving" — the next thing the user sees is the wallet
+    // (Privy or Phantom) asking for approval. The button reads "Approve in
+    // wallet…" to direct attention to the wallet popup, not the dimmed
+    // form behind it. Flips to "confirming" once onSigned fires.
+    setSubmitPhase("approving");
     setSubmitError(null);
 
     try {
@@ -157,7 +169,10 @@ export function DepositForm({
           connection,
           wallet,
           SPONSOR_WALLET,
-          { commitment: "confirmed" }
+          {
+            commitment: "confirmed",
+            onSigned: () => setSubmitPhase("confirming"),
+          }
         );
         // Promote: drop the localStorage draft now that the on-chain
         // family exists. fetchFamilies will pick up the on-chain record
@@ -175,7 +190,10 @@ export function DepositForm({
           ],
           connection,
           wallet,
-          { commitment: "finalized" }
+          {
+            commitment: "finalized",
+            onSigned: () => setSubmitPhase("confirming"),
+          }
         );
       }
       console.log(`[deposit] tx ${sig}`);
@@ -236,7 +254,7 @@ export function DepositForm({
         setSubmitError(msg);
       }
     } finally {
-      setSubmitting(false);
+      setSubmitPhase(null);
     }
   };
 
@@ -318,7 +336,9 @@ export function DepositForm({
           disabled={submitDisabled}
           className="rounded-full bg-lime-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-lime-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitting
+          {submitPhase === "approving"
+            ? t("deposit.button.approving")
+            : submitPhase === "confirming"
             ? t("deposit.button.confirming")
             : t("deposit.button.submit")}
         </button>
