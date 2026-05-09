@@ -93,6 +93,15 @@ export default function Dashboard() {
           <ConnectGate />
         ) : (
           <>
+            {/* Page-level eyebrow at the top — describes the page, not the
+                kids list. The "X kid(s) saving" title sits further down,
+                right above the kids list it actually describes. */}
+            <div style={{ paddingTop: 56 }}>
+              <span className="dash-eyebrow">
+                <span className="rule" /> {t("dashboard.eyebrow")}
+              </span>
+            </div>
+
             {error && (
               <div
                 className="dash-card"
@@ -139,7 +148,7 @@ export default function Dashboard() {
             )}
 
             {publicKey && families != null && (
-              <div style={{ paddingTop: 56 }}>
+              <div style={{ paddingTop: 24 }}>
                 <ParentAccountSection
                   connection={connection}
                   parent={publicKey}
@@ -149,16 +158,12 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Kids section header — the "X kid(s) saving" headline
-                introduces the kids list below. Moved here from above
-                the account section so the title applies to the right
-                thing. */}
+            {/* Kids section header — title + subtitle introduce the kids
+                list below. Eyebrow stays at the top of the page where it
+                belongs (page-level, not kids-level). */}
             {families != null && (
               <header style={{ paddingTop: 24, paddingBottom: 40 }}>
-                <div className="dash-col" style={{ gap: 18, maxWidth: 760 }}>
-                  <span className="dash-eyebrow">
-                    <span className="rule" /> {t("dashboard.eyebrow")}
-                  </span>
+                <div className="dash-col" style={{ gap: 14, maxWidth: 760 }}>
                   <h1
                     className="dash-serif"
                     style={{
