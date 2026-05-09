@@ -121,7 +121,7 @@ export const en = {
   "card.stat.shares_sub": "of vault total",
   "card.stat.yield": "Yield earned",
   "card.deposit": "deposit",
-  "card.pay_pix": "pay with Pix",
+  "card.pay_pix": "top up with Pix",
   "card.top_up": "top up account",
   "card.withdraw": "withdraw",
   "card.withdraw_pix": "withdraw to Pix",

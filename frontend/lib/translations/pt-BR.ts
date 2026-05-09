@@ -135,7 +135,7 @@ export const ptBR: Translations = {
   "card.stat.shares_sub": "do total do cofre",
   "card.stat.yield": "Rendimento",
   "card.deposit": "depositar",
-  "card.pay_pix": "pagar com Pix",
+  "card.pay_pix": "recarregar com Pix",
   "card.top_up": "recarregar conta",
   "card.withdraw": "sacar",
   "card.withdraw_pix": "sacar para o Pix",
