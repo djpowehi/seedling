@@ -23,14 +23,16 @@
 // Deliberately deferred — hackathon volume doesn't justify the infra
 // and the manual path covers the failure mode.
 
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 import {
   AccountLayout,
+  createAssociatedTokenAccountIdempotentInstruction,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  getHotWalletKeypair,
   getHotWalletPubkey,
   getHotWalletUsdcAta,
   hasProcessedCustomId,
@@ -39,11 +41,16 @@ import {
 import { DEVNET_ADDRESSES, DEVNET_RPC } from "@/lib/program";
 
 interface RetryRequest {
-  customId: string;
+  /** Action discriminator. "retry" reprocesses a stuck Pix order;
+   *  "bootstrap" creates the hot wallet's USDC ATA so 4P has a valid
+   *  destination for the on-ramp swap. Defaults to "retry" when
+   *  unset for backwards compat. */
+  action?: "retry" | "bootstrap";
+  customId?: string;
   /** Destination parent wallet (post wallet-routing refactor — Pix
    *  funds the parent's USDC ATA, not a kid's family vault). */
-  parent: string;
-  amountBaseUnits: string; // bigint as string — JSON can't carry bigint
+  parent?: string;
+  amountBaseUnits?: string; // bigint as string — JSON can't carry bigint
   gifterName?: string;
 }
 
@@ -114,6 +121,56 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid JSON" }, { status: 400 });
   }
 
+  // ---- bootstrap: create the hot wallet's USDC ATA ----
+  // 4P's on-ramp delivers USDC to the hot wallet's USDC associated
+  // token account. If that ATA doesn't exist yet, the swap fails
+  // silently on 4P's side — they don't auto-create destination ATAs.
+  // This action creates the ATA once via an idempotent ix; subsequent
+  // calls are no-ops. Should be run once per fresh deployment.
+  if (body.action === "bootstrap") {
+    const connection = new Connection(DEVNET_RPC, "confirmed");
+    const hotWallet = getHotWalletKeypair();
+    const hotWalletUsdcAta = getHotWalletUsdcAta();
+
+    const ataIx = createAssociatedTokenAccountIdempotentInstruction(
+      hotWallet.publicKey,
+      hotWalletUsdcAta,
+      hotWallet.publicKey,
+      DEVNET_ADDRESSES.usdcMint
+    );
+    const tx = new Transaction();
+    tx.feePayer = hotWallet.publicKey;
+    const { blockhash, lastValidBlockHeight } =
+      await connection.getLatestBlockhash("confirmed");
+    tx.recentBlockhash = blockhash;
+    tx.add(ataIx);
+    tx.sign(hotWallet);
+
+    try {
+      const sig = await connection.sendRawTransaction(tx.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+      });
+      await connection.confirmTransaction(
+        { signature: sig, blockhash, lastValidBlockHeight },
+        "confirmed"
+      );
+      return NextResponse.json({
+        ok: true,
+        action: "bootstrap",
+        signature: sig,
+        hotWalletUsdcAta: hotWalletUsdcAta.toBase58(),
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "unknown error";
+      return NextResponse.json(
+        { ok: false, action: "bootstrap", error: msg },
+        { status: 500 }
+      );
+    }
+  }
+
+  // ---- retry: reprocess a stuck Pix order ----
   if (!body.customId || typeof body.customId !== "string") {
     return NextResponse.json({ error: "missing customId" }, { status: 400 });
   }
