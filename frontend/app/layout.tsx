@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import {
   Geist,
   Geist_Mono,
@@ -74,6 +74,18 @@ export const metadata: Metadata = {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
   },
+};
+
+// Without this, mobile browsers default to a ~980px viewport rendered at
+// scale, and any modal designed for true phone widths (notably Privy's
+// transaction-confirm bottom-sheet) overflows the right edge — labels
+// like "Network: devnet" get clipped to "Network: dev". Setting the
+// viewport to device-width tells the browser to render at native phone
+// width so third-party modals lay out correctly.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({
