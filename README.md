@@ -277,6 +277,6 @@ Brand and visual system inspired by the patient-cultivation / bonsai aesthetic �
 
 ## License
 
-[MIT](LICENSE) © 2026 Superteam Brazil
+[MIT](LICENSE) © 2026 Vicenzo Tulio
 
 > Seedling. Deposit once. Let it grow. 🌱
