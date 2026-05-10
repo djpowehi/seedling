@@ -125,7 +125,10 @@ async function main() {
       oracleSwitchboardTwap: PublicKey.default,
       oracleScopeConfig: PublicKey.default,
       periodEndTs,
-      feeBps: 2500, // 25%
+      feeBps: 1000, // 10% — matches deck slide 10 ("10% of yield"),
+                    //       README "Protocol earns 10% of yield",
+                    //       master doc fee model, and the TVL ladder math.
+                    //       Lido / Yearn V3 default benchmark.
     },
   });
 

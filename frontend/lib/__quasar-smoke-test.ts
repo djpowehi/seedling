@@ -67,7 +67,7 @@ check(
       oracleSwitchboardTwap: PublicKey.default,
       oracleScopeConfig: PublicKey.default,
       periodEndTs: BigInt(1764547200),
-      feeBps: 2500,
+      feeBps: 1000,
     },
   })
 );

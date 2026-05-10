@@ -50,7 +50,7 @@ async function main() {
 
   // Sanity assertions
   const errors: string[] = [];
-  if (cfg.feeBps !== 2500) errors.push(`fee_bps expected 2500, got ${cfg.feeBps}`);
+  if (cfg.feeBps !== 1000) errors.push(`fee_bps expected 1000 (10%), got ${cfg.feeBps}`);
   if (cfg.totalShares !== 0n) errors.push("total_shares expected 0");
   if (cfg.lastKnownTotalAssets !== 0n) errors.push("last_known_total_assets expected 0");
   if (cfg.currentPeriodId !== 0) errors.push("current_period_id expected 0");
