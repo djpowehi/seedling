@@ -26,7 +26,7 @@
 | **Program** | `44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN` *(same address on both clusters)* |
 | **Framework** | Quasar (Pinocchio-based, single-byte discriminators, `no_std`) |
 | **Yield engine** | Kamino klend — verified against **klend v1.18.0** on mainnet + devnet |
-| **Frontend** | Next.js · Privy embedded wallets · 4P Finance Pix on/off-ramp |
+| **Frontend** | Next.js · Privy embedded wallets · 4P Pix integration *(pending production activation)* |
 | **Authority** | `6Wk8mM3DX5nv6naY4webfKe7ntdJagQpwtGaJcfvc56K` |
 | **Vault initialized** | [`sok5s1DA…sdRj`](https://solscan.io/tx/sok5s1DAfzDvVCR4p3S8ohZhiRmFrEu75BHvu9wLU9D31sjcXeBFZs4khd9sdygeZAVnEeXfkidCbmWkX4odsRj?cluster=devnet) |
 
@@ -38,6 +38,8 @@
 27,504 LOC         · 3,050 Rust + 24,454 TypeScript/TSX
 149 KB binary      · 70% smaller than the 497 KB Anchor reference build
 ```
+
+**Coming next (Q3 2026):** 4P Pix delivery in production · Brazilian off-ramp · MoonPay onramp for international parents (USD/EUR cards) · Light Protocol — ZK-compressed gift wall + distribution log · Seeker App · Jupiter integration · open vault standard for partner builders.
 
 ---
 
@@ -244,7 +246,7 @@ Per Section 9 of the Frontier rules — full disclosure:
 | Frontend SDK | [@coral-xyz/anchor](https://github.com/coral-xyz/anchor) | Apache 2.0 | **Event coder only** — used to decode emitted events. We do not use the Anchor program client (which assumes 8-byte discriminators); all instruction construction is manual via `quasar-client.ts`. |
 | Frontend SDK | [@solana/web3.js](https://github.com/anza-xyz/solana-web3.js) (1.x) | Apache 2.0 | RPC + transaction building |
 | Frontend infra | [Helius RPC](https://www.helius.dev/) | commercial (free tier) | Devnet RPC + token-account indexing |
-| Off-chain integration | [4P Finance API](https://4p.finance) | commercial | Brazilian Pix on-ramp + off-ramp (R$ ↔ USDC delivery to/from a hot wallet) |
+| Off-chain integration | [4P Finance API](https://4p.finance) | commercial | Brazilian Pix on-ramp integration (R$ → USDC delivery to a hot wallet) — pending production activation |
 | Testing | [Surfpool](https://github.com/txtx/surfpool) | Apache 2.0 | Local mainnet-fork validator with JIT account fetch |
 | Testing | [LiteSVM](https://github.com/LiteSVM/litesvm) | Apache 2.0 | In-process Solana VM for fast unit-style integration tests |
 | Frontend | [Next.js](https://github.com/vercel/next.js), Tailwind | MIT | UI framework + styling |
