@@ -14,9 +14,11 @@
 
 ## Status
 
-**Hackathon:** Colosseum Frontier 2026 (Apr 6 – May 12, 2026 · noon close)
+**Hackathon:** Colosseum Frontier 2026 — Contest Period: Apr 6, 6:00am PT → **May 11, 11:59pm PT, 2026**
 
 **Submission tracks:** Consumer Apps (primary) · Public Goods Award · University Award
+
+*Last updated: 2026-05-09*
 
 | | |
 |---|---|
@@ -27,6 +29,15 @@
 | **Frontend** | Next.js · Privy embedded wallets · 4P Finance Pix on/off-ramp |
 | **Authority** | `6Wk8mM3DX5nv6naY4webfKe7ntdJagQpwtGaJcfvc56K` |
 | **Vault initialized** | [`sok5s1DA…sdRj`](https://solscan.io/tx/sok5s1DAfzDvVCR4p3S8ohZhiRmFrEu75BHvu9wLU9D31sjcXeBFZs4khd9sdygeZAVnEeXfkidCbmWkX4odsRj?cluster=devnet) |
+
+**Build metrics**
+
+```
+12 instructions    · 6 user + 1 close + 5 admin / ops
+36 tests           · 17 Rust unit + 14 TS integration + 5 Surfpool e2e
+27,504 LOC         · 3,050 Rust + 24,454 TypeScript/TSX
+149 KB binary      · 70% smaller than the 497 KB Anchor reference build
+```
 
 ---
 
@@ -250,7 +261,7 @@ No oracles or AI/ML services in the runtime path. No tokens minted by Seedling i
 - **Public Goods Award** — open-source MIT · SVS-5 + SVS-6 standards authored and merged · sponsor-relay + lazy-creation patterns reusable by other builders
 - **University Award** — eligibility-confirmed, applies on author's status
 
-Submission window: **May 11–12, 2026** (close: noon UTC May 12).
+Submission deadline: **May 11, 2026, 11:59pm PT** (per Section 5 of the Frontier rules).
 
 ---
 
