@@ -906,9 +906,9 @@ export function FamilyCard({
                 fontFamily: "var(--font-jetbrains-mono), monospace",
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
-                border: "1px dashed var(--line)",
+                border: "1px dashed #c5613a",
                 borderRadius: 4,
-                color: "var(--ink-3)",
+                color: "#c5613a",
               }}
             >
               {t("card.soon")}
