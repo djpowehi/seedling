@@ -9,10 +9,7 @@
 // Vault PDAs are derived at runtime via lib/quasarPdas.ts. ATAs use
 // getAssociatedTokenAddress(usdcMint, vaultConfig, allowOwnerOffCurve=true).
 
-import { AnchorProvider, Idl, Program } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
-import idl from "./idl.json";
-import type { Seedling } from "./types";
 
 /** Canonical Seedling program ID — Quasar binary deployed at this address
  *  on devnet (and the address slated for mainnet). */
@@ -31,7 +28,7 @@ export const DEVNET_RPC =
 // re-derived against the new PROGRAM_ID; static USDC/Kamino/oracle pubkeys
 // unchanged (those are upstream protocol addresses).
 export const DEVNET_ADDRESSES = {
-  // Quasar PDA — derived from "vault_config" seed + new PROGRAM_ID
+  // Quasar PDA — derived from "vault_config_v2" seed + PROGRAM_ID
   vaultConfig: new PublicKey("G9wKFXscALKeqHVCmouaKWTUqcMgSqErJiervW1PWiuc"),
   // Treasury keypair-owned ATA (separate from any depositor's ATA — see
   // treasury_keypair commit comment for rationale)
@@ -59,10 +56,6 @@ export const DEVNET_ADDRESSES = {
 export const SPONSOR_WALLET = new PublicKey(
   "53Jn8XAG9nhkekz6NP2a4qYWcGxJBBoDqLJMUvHkKyc4"
 );
-
-export function getProgram(provider: AnchorProvider): Program<Seedling> {
-  return new Program(idl as Idl, provider) as unknown as Program<Seedling>;
-}
 
 export function getConnection(): Connection {
   return new Connection(DEVNET_RPC, "confirmed");

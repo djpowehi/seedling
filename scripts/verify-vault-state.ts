@@ -14,7 +14,7 @@ async function main() {
   const connection = new Connection(RPC, "confirmed");
   const programId = SeedlingQuasarClient.programId;
   const [vaultConfig] = PublicKey.findProgramAddressSync(
-    [Buffer.from("vault_config")],
+    [Buffer.from("vault_config_v2")],
     programId
   );
 
@@ -48,13 +48,13 @@ async function main() {
   console.log(`  is_paused:               ${cfg.isPaused}`);
   console.log(`  bump:                    ${cfg.bump}`);
 
-  // Sanity assertions
+  // Invariants that must hold on a live (non-fresh) vault.
   const errors: string[] = [];
   if (cfg.feeBps !== 1000) errors.push(`fee_bps expected 1000 (10%), got ${cfg.feeBps}`);
-  if (cfg.totalShares !== 0n) errors.push("total_shares expected 0");
-  if (cfg.lastKnownTotalAssets !== 0n) errors.push("last_known_total_assets expected 0");
-  if (cfg.currentPeriodId !== 0) errors.push("current_period_id expected 0");
-  if (cfg.isPaused !== false) errors.push("is_paused expected false");
+  if (cfg.isPaused) errors.push("is_paused expected false (vault should never be paused on devnet)");
+  if (cfg.bump === 0) errors.push("bump expected non-zero (PDA derivation never yields bump=0 in practice)");
+  // total_shares and last_known_total_assets are non-zero on a vault with active families — informational only.
+  // current_period_id increments on roll_period — informational only.
 
   if (errors.length === 0) {
     console.log("\n✅ All initial values match expectations.");
