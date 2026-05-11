@@ -163,6 +163,24 @@ export function PixLogo({ size = 14 }: { size?: number }) {
   );
 }
 
+// MoonPay-inspired crescent moon. We don't render the literal MoonPay
+// wordmark to avoid trademark drift — just a stylized moon that pairs
+// with the "MoonPay" label on EN-locale onramp/offramp buttons.
+export function MoonPayLogo({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="#7D00FF"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="MoonPay"
+    >
+      <path d="M8 1.5 a6.5 6.5 0 1 0 6.5 6.5 a5 5 0 0 1 -6.5 -6.5 z" />
+    </svg>
+  );
+}
+
 export function Plus({ size = 12, color = "currentColor" }: IconProps) {
   return (
     <svg

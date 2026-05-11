@@ -22,7 +22,7 @@ import { DEVNET_ADDRESSES } from "@/lib/program";
 import { useLocale } from "@/lib/i18n";
 import { PixDepositForm } from "@/components/PixDepositForm";
 import { TopUpAccountModal } from "@/components/TopUpAccountModal";
-import { PixLogo } from "./icons";
+import { PixLogo, MoonPayLogo } from "./icons";
 
 type Props = {
   connection: Connection;
@@ -53,7 +53,7 @@ export function ParentAccountSection({
   refreshKey,
   onChanged,
 }: Props) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [balanceUsd, setBalanceUsd] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [localRefreshKey, setLocalRefreshKey] = useState(0);
@@ -187,7 +187,8 @@ export function ParentAccountSection({
           aria-label="Pix top-up coming soon"
           title="Pix integration coming soon"
         >
-          <PixLogo /> {t("card.pay_pix")}
+          {locale === "pt-BR" ? <PixLogo /> : <MoonPayLogo />}{" "}
+          {t("card.pay_pix")}
           <span
             style={{
               marginLeft: 8,

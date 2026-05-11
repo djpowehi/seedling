@@ -51,7 +51,7 @@ import { useToast } from "@/components/Toast";
 import { DepositForm } from "@/components/DepositForm";
 import { PixOfframpForm } from "@/components/PixOfframpForm";
 import { WithdrawForm } from "@/components/WithdrawForm";
-import { ArrowUR, PixLogo, Plus } from "./icons";
+import { ArrowUR, PixLogo, MoonPayLogo, Plus } from "./icons";
 import { GoalRow } from "./GoalRow";
 import { AddGoalInline } from "./AddGoalInline";
 import { GiftsSection } from "./GiftsSection";
@@ -136,7 +136,7 @@ export function FamilyCard({
 }: Props) {
   const wallet = useSeedlingWallet();
   const client = new SeedlingQuasarClient();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const fmtAgo = makeFmtAgo(t);
   const fmtCountdown = makeFmtCountdown(t);
   const familyKey = family.pubkey.toBase58();
@@ -897,7 +897,8 @@ export function FamilyCard({
             aria-label="Pix withdrawal coming soon"
             title="Pix integration coming soon"
           >
-            <PixLogo /> {t("card.withdraw_pix")}
+            {locale === "pt-BR" ? <PixLogo /> : <MoonPayLogo />}{" "}
+            {t("card.withdraw_pix")}
             <span
               style={{
                 marginLeft: 8,
