@@ -144,6 +144,7 @@ export const ptBR: Translations = {
   "card.top_up": "recarregar conta",
   "card.withdraw": "sacar",
   "card.withdraw_pix": "sacar para o Pix",
+  "card.soon": "em breve",
   "card.draft.badge": "aguardando 1º depósito",
   "card.draft.deposit_hint":
     "O primeiro depósito cria o cofre on-chain. Use Pix ou recarregue a conta pra ativar.",

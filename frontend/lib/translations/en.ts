@@ -130,6 +130,7 @@ export const en = {
   "card.top_up": "top up account",
   "card.withdraw": "withdraw",
   "card.withdraw_pix": "withdraw to Pix",
+  "card.soon": "soon",
   "card.draft.badge": "awaiting first deposit",
   "card.draft.deposit_hint":
     "First deposit creates the on-chain vault. Use Pix or top up to fund.",

@@ -183,9 +183,26 @@ export function ParentAccountSection({
       >
         <button
           className="dash-btn dash-btn-ghost"
-          onClick={() => setShowPix((v) => !v)}
+          disabled
+          aria-label="Pix top-up coming soon"
+          title="Pix integration coming soon"
         >
           <PixLogo /> {t("card.pay_pix")}
+          <span
+            style={{
+              marginLeft: 8,
+              padding: "2px 8px",
+              fontSize: 11,
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              border: "1px dashed var(--line)",
+              borderRadius: 4,
+              color: "var(--ink-3)",
+            }}
+          >
+            {t("card.soon")}
+          </span>
         </button>
         <button
           className="dash-btn dash-btn-ghost"
