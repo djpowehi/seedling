@@ -28,7 +28,6 @@
 | **Yield engine** | Kamino klend — verified against **klend v1.18.0** on mainnet + devnet |
 | **Frontend** | Next.js · Privy embedded wallets · 4P Pix integration *(pending production activation)* |
 | **Authority** | `6Wk8mM3DX5nv6naY4webfKe7ntdJagQpwtGaJcfvc56K` |
-| **Vault initialized** | [`sok5s1DA…sdRj`](https://solscan.io/tx/sok5s1DAfzDvVCR4p3S8ohZhiRmFrEu75BHvu9wLU9D31sjcXeBFZs4khd9sdygeZAVnEeXfkidCbmWkX4odsRj?cluster=devnet) |
 
 **Build metrics**
 
