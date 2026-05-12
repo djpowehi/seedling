@@ -3,12 +3,12 @@
 **Allowance that grows.** A Solana protocol where parents deposit USDC once into a pooled vault, the vault lends on Kamino at ~8% APY, and the kid receives a monthly allowance plus a year-end yield bonus — the *décimo terceiro* every Brazilian knows, but on-chain.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Live on devnet](https://img.shields.io/badge/Solana-devnet-brightgreen)](https://solscan.io/account/44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN?cluster=devnet)
+[![Live on mainnet](https://img.shields.io/badge/Solana-mainnet-brightgreen)](https://solscan.io/account/44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN)
 [![Live site](https://img.shields.io/badge/site-seedlingsol.xyz-blue)](https://seedlingsol.xyz)
 
 - **Live product** → [**seedlingsol.xyz**](https://seedlingsol.xyz)
 - **Pitch deck** → [`Seedling — allowance that grows.pdf`](./Seedling%20—%20allowance%20that%20grows.pdf)
-- **Program ID** → [`44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN`](https://solscan.io/account/44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN?cluster=devnet) *(devnet live · mainnet flip pending)*
+- **Program ID** → [`44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN`](https://solscan.io/account/44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN)
 
 ---
 
@@ -22,7 +22,7 @@
 
 | | |
 |---|---|
-| **Network** | Live on Solana devnet · mainnet deploy queued (gated on 4P Pix activation) |
+| **Network** | Live on Solana mainnet |
 | **Program** | `44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN` *(same address on both clusters)* |
 | **Framework** | Quasar (Pinocchio-based, single-byte discriminators, `no_std`) |
 | **Yield engine** | Kamino klend — verified against **klend v1.18.0** on mainnet + devnet |
