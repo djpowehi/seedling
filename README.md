@@ -255,28 +255,6 @@ No oracles or AI/ML services in the runtime path. No tokens minted by Seedling i
 
 ---
 
-## Hackathon submission
-
-**Submitted to Colosseum Frontier 2026 — three tracks:**
-
-- **Consumer Apps** (primary) — UX, Pix-native onboarding, two-layer dashboard, kid view tree gamification, parent-custody architecture
-- **Public Goods Award** — open-source MIT · SVS-5 + SVS-6 standards authored and merged · sponsor-relay + lazy-creation patterns reusable by other builders
-- **University Award** — eligibility-confirmed, applies on author's status
-
-Submission deadline: **May 11, 2026, 11:59pm PT** (per Section 5 of the Frontier rules).
-
----
-
-## Credits
-
-Built solo by **Vicenzo Tulio** (16 · Brazil · [@seedling_sol](https://twitter.com/seedling_sol)).
-
-Special thanks to **Superteam Brazil** for early adopter parents + the SVS standards collaboration, and **Colosseum** for the Frontier program and the University Award eligibility waiver.
-
-Brand and visual system inspired by the patient-cultivation / bonsai aesthetic — every UX choice tries to embody *"compounding by letting kids live it."*
-
----
-
 ## License
 
 [MIT](LICENSE) © 2026 Vicenzo Tulio
