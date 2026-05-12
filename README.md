@@ -55,15 +55,6 @@ The on-chain program currently exposes **12 instructions** — 6 user-facing (`i
 
 ---
 
-## Standards & ecosystem contributions
-
-- **[SVS-5 — Streaming Yield Vault Standard](https://github.com/solanabr/solana-vault-standard)** · authored by Vicenzo, merged into the Solana Vault Standard repo. Defines the streaming-distribution + 13th-bonus pattern Seedling is built on.
-- **SVS-6** · authored, merged in the same repo. Extends SVS-5 with parent-custody semantics for the kid-never-signs model.
-- **1st place** at the *Extend the Solana Vault Standard* bounty during the contribution window.
-- Sponsor-relay + lazy-creation patterns are reusable primitives — open-source MIT, intended as gifts to other Pix-native or family-facing builders on Solana.
-
----
-
 ## Architecture
 
 ```
