@@ -101,6 +101,16 @@ export const DASHBOARD_STYLES = `
   .dash-btn-ghost:hover:not(:disabled)    { background: var(--stone-2); }
   .dash-btn-quiet    { color: var(--ink-2); padding: 10px 0; }
   .dash-btn-quiet:hover { color: var(--ink); }
+  .dash-btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  @media (max-width: 480px) {
+    .dash-btn-row {
+      grid-template-columns: 1fr;
+    }
+  }
   .dash-btn-disabled-state {
     background: transparent;
     color: var(--ink-3);

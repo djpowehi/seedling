@@ -884,13 +884,7 @@ export function FamilyCard({
 
         {/* Row 2 — exit alternatives. Pix off-ramp on the left,
             USDC withdraw on the right. Both are kid-vault → out flows. */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 10,
-          }}
-        >
+        <div className="dash-btn-row">
           <button
             className="dash-btn dash-btn-ghost"
             disabled
@@ -941,13 +935,7 @@ export function FamilyCard({
         />
 
         {/* Row 4 — automated distributions */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 10,
-          }}
-        >
+        <div className="dash-btn-row">
           <button
             className={`dash-btn ${
               monthlyReady ? "dash-btn-ghost" : "dash-btn-disabled-state"
