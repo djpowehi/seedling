@@ -320,7 +320,9 @@ bower_components
 .next
 .nuxt
 .docusaurus
-# Claude private notes
+# Claude Code workspace (local-only, not part of the project)
+.claude/
+CLAUDE.md
 CLAUDE.local.md
 
 # Day-1 scratch test
