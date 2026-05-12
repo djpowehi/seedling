@@ -14,18 +14,12 @@
 
 ## Status
 
-**Hackathon:** Colosseum Frontier 2026 — Contest Period: Apr 6, 6:00am PT → **May 11, 11:59pm PT, 2026**
-
-**Submission tracks:** Consumer Apps (primary) · Public Goods Award · University Award
-
-*Last updated: 2026-05-09*
-
 | | |
 |---|---|
 | **Network** | Live on Solana mainnet |
 | **Program** | `44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN` *(same address on both clusters)* |
 | **Framework** | Quasar (Pinocchio-based, single-byte discriminators, `no_std`) |
-| **Yield engine** | Kamino klend — verified against **klend v1.18.0** on mainnet + devnet |
+| **Yield engine** | Kamino klend — verified against **klend v1.18.0** |
 | **Frontend** | Next.js · Privy embedded wallets · 4P Pix integration *(pending production activation)* |
 | **Authority** | `6Wk8mM3DX5nv6naY4webfKe7ntdJagQpwtGaJcfvc56K` |
 
