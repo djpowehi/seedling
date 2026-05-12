@@ -325,6 +325,10 @@ bower_components
 CLAUDE.md
 CLAUDE.local.md
 
-# Day-1 scratch test
-scratch/node_modules/
-scratch/package-lock.json
+# Internal dev artifacts — not part of the public project
+.mcp.json
+.github/
+DAY1_SCRATCH_CRITERIA.md
+programs/seedling/
+migrations/
+scratch/
