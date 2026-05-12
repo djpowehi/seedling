@@ -1,10 +1,12 @@
 # Seedling Gotchas
 
-Hard-won knowledge from building this. Read before debugging for 30 minutes.
+Hard-won pitfalls from building Seedling on Solana — Quasar (Pinocchio) on-chain, real Kamino CPI, Privy + sponsor-relay frontend, 4P Pix integration. Read before spending 30 minutes debugging the same thing.
+
+> The sections below were originally written against an Anchor 0.32 scaffold during early development. The production program now runs on Quasar (Pinocchio, single-byte discriminators, `no_std`); the Anchor-era patterns are kept here for anyone porting between the two frameworks.
 
 ---
 
-## Anchor 0.32.1
+## Anchor 0.32.1 (legacy notes)
 
 ### 1. `#[program]` macro requires glob re-exports from `instructions/mod.rs`
 

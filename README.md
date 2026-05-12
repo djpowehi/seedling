@@ -112,7 +112,7 @@ parent (Privy or self-custody wallet)
 - **Fees collected at cToken-redeeming events only** (withdraw + both distributes). Deposit is fee-free by mechanism — Day-3 design that skimmed fees from `vault_usdc_ata` at deposit was caught by the Day-5 precision regression test.
 - **Lazy family creation.** Parents can add a kid without paying rent until the first deposit. Drafts live in `localStorage`; the deposit transaction bundles `[create_family + deposit]` atomically through the sponsor-relay endpoint.
 
-Detailed spec: [`SEEDLING_MASTER_DOC.md`](SEEDLING_MASTER_DOC.md). Hard-won pitfalls: [`GOTCHAS.md`](GOTCHAS.md).
+Hard-won pitfalls: [`GOTCHAS.md`](GOTCHAS.md).
 
 ---
 
@@ -207,7 +207,6 @@ Other e2e scripts in `scripts/`: `surfpool-withdraw-e2e.ts`, `surfpool-distribut
 ├── tests/                        # LiteSVM + integration tests
 ├── scripts/                      # Surfpool e2e + devnet ops + demo-prep
 ├── docs/4p-finance-api.md        # 4P Pix integration reference
-├── SEEDLING_MASTER_DOC.md        # 1100+ line spec, kept in lockstep with code
 ├── GOTCHAS.md                    # hard-won pitfalls (Quasar, Kamino, devnet, 4P)
 ├── LICENSE                       # MIT
 └── README.md
