@@ -142,7 +142,12 @@ npm install
 npm run dev    # http://localhost:3000
 ```
 
-Required env vars: `NEXT_PUBLIC_PRIVY_APP_ID`, `FOURP_*` (4P Pix credentials), `SEEDLING_HOT_WALLET_SECRET_KEY`, `HELIUS_RPC_URL`. See `frontend/.env.example`.
+Required env vars:
+
+- `NEXT_PUBLIC_PRIVY_APP_ID` — Privy app ID (public)
+- `NEXT_PUBLIC_HELIUS_RPC` — Helius RPC URL (recommended; falls back to public devnet)
+- `SEEDLING_HOT_WALLET_SECRET_KEY` — base58-encoded keypair that funds Privy users' first tx (server-only)
+- `FOURP_API_KEY`, `FOURP_API_BASE`, `FOURP_WEBHOOK_SECRET` — 4P Pix on-ramp credentials (server-only, optional for non-Pix flows)
 
 ### Demo data prep
 

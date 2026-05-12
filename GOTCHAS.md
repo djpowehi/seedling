@@ -120,7 +120,7 @@ Bug in older npm versions leaves root-owned files in the cache. Fix once:
 ```
 sudo chown -R $(whoami) ~/.npm
 ```
-Claude Code's sandbox doesn't handle this even after the fix — runs with `dangerouslyDisableSandbox: true` for the specific install command.
+Sandboxed shells (CI runners, locked-down dev environments) may need the install command run with elevated permissions even after the fix.
 
 ---
 
