@@ -8,45 +8,56 @@
 //
 // Vault PDAs are derived at runtime via lib/quasarPdas.ts. ATAs use
 // getAssociatedTokenAddress(usdcMint, vaultConfig, allowOwnerOffCurve=true).
+//
+// MAINNET FLIP (2026-05-15): the variable name `DEVNET_ADDRESSES` is now
+// misleading — the values are mainnet. Rename is a follow-up because the
+// frontend has 160+ import sites referencing this symbol.
 
 import { Connection, PublicKey } from "@solana/web3.js";
 
 /** Canonical Seedling program ID — Quasar binary deployed at this address
- *  on devnet (and the address slated for mainnet). */
+ *  on devnet AND mainnet (same keypair → same address). */
 export const PROGRAM_ID = new PublicKey(
   "44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN"
 );
 
-// Prefer Helius devnet RPC when configured (free tier, ~10x faster). Falls
-// back to public devnet which works but rate-limits aggressively. Set
-// NEXT_PUBLIC_HELIUS_RPC in .env.local locally and in Vercel project
-// settings for production.
+// Mainnet Helius RPC. Set NEXT_PUBLIC_HELIUS_RPC in .env.local locally and
+// in Vercel project settings for production. Falls back to public mainnet
+// which 403s aggressively against browsers.
 export const DEVNET_RPC =
-  process.env.NEXT_PUBLIC_HELIUS_RPC ?? "https://api.devnet.solana.com";
+  process.env.NEXT_PUBLIC_HELIUS_RPC ?? "https://api.mainnet-beta.solana.com";
 
-// Devnet addresses, post Quasar cutover (2026-05-03). Vault PDAs and ATAs
-// re-derived against the new PROGRAM_ID; static USDC/Kamino/oracle pubkeys
-// unchanged (those are upstream protocol addresses).
+// Mainnet addresses, post mainnet-flip (2026-05-15). Vault PDAs derived
+// against the canonical PROGRAM_ID; static USDC/Kamino/oracle pubkeys
+// pulled from ~/refs/mainnet-kamino-pubkeys.json. Variable name kept as
+// `DEVNET_ADDRESSES` for now — see the note at the top of the file.
 export const DEVNET_ADDRESSES = {
   // Quasar PDA — derived from "vault_config_v2" seed + PROGRAM_ID
   vaultConfig: new PublicKey("G9wKFXscALKeqHVCmouaKWTUqcMgSqErJiervW1PWiuc"),
-  // Treasury keypair-owned ATA (separate from any depositor's ATA — see
-  // treasury_keypair commit comment for rationale)
-  treasury: new PublicKey("6Pbtx9cSo8WtsxMBwMqvt7XbCZFat81NvHz1JoSRrkCW"),
-  // Vault PDA-owned ATAs (re-derived against canonical-deploy vault_config)
-  vaultUsdcAta: new PublicKey("3fwECawRAkvPfVR3Zb7RNULq8Hs1PEwSsWE24bv9kkXL"),
-  vaultCtokenAta: new PublicKey("3V45nZEtxfsWxVg4Y83bZti8Gikm4qz6KzPvDzb6R367"),
-  // ↓ unchanged — these are upstream addresses
-  usdcMint: new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"),
-  ctokenMint: new PublicKey("6FY2rwh5wWrtSveAG9t9ANc2YsrChNasVSEpMQubJcXd"),
-  kaminoReserve: new PublicKey("HRwMj8uuoGVWCanKzKvpTWN5ZvXjtjKGxcFbn2qTPKMW"),
-  kaminoMarket: new PublicKey("6aaNTBEmwdN19AAdTwbNrWyUo6iEyiLguxCTePEzSqoH"),
+  // Treasury ATA — owned by Vicenzo's SafePal wallet (8eTTFs…2N95cV).
+  // Initialized 2026-05-15 by the mainnet init script; receives 10% of
+  // every cToken redeem (withdraw + monthly + bonus distribute) in USDC.
+  treasury: new PublicKey("ERJkwnMr6AS6ai8ck4PB5dawfb4SLeV3avskpgGCPwMk"),
+  // Vault PDA-owned ATAs (mainnet)
+  vaultUsdcAta: new PublicKey("ANXoMvjJoR2vTdqtuo2V45d8uSs3FLbcH4uzWoe5SWWQ"),
+  vaultCtokenAta: new PublicKey("7L91kYfDApdqCGBvdrnECSJKhYPZbyYHgzFsmeWrimLd"),
+  // ↓ upstream Solana / Kamino mainnet addresses
+  usdcMint: new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  ctokenMint: new PublicKey("B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D"),
+  kaminoReserve: new PublicKey("D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59"),
+  kaminoMarket: new PublicKey("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF"),
   klendProgram: new PublicKey("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD"),
   reserveLiquiditySupply: new PublicKey(
-    "6icVFmuKEsH5dzDwTSrxzrnJ14N27gDKRc2XAxPtB4ep"
+    "Bgq7trRgVMeq33yt235zM2onQ4bRDBsY5EWiTetF4qw6"
   ),
-  // Devnet USDC reserve uses Pyth only.
-  oraclePyth: new PublicKey("Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX"),
+  // Mainnet USDC reserve uses Scope ONLY. The pyth field is now retained
+  // for type compatibility but holds the klend-program sentinel (unused).
+  // See GOTCHAS §15: optional oracle slots accept the target program ID
+  // as the "None" sentinel.
+  oraclePyth: new PublicKey("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD"),
+  oracleScopeConfig: new PublicKey(
+    "3t4JZcueEzTbVP6kLxXrL3VpWx45jDer4eqysweBchNH"
+  ),
 };
 
 // Sponsor wallet that pays rent + tx fees for users without SOL (Privy

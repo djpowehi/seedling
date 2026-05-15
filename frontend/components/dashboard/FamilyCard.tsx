@@ -272,7 +272,7 @@ export function FamilyCard({
       oraclePyth: DEVNET_ADDRESSES.oraclePyth,
       oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
       oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
-      oracleScopeConfig: DEVNET_ADDRESSES.klendProgram,
+      oracleScopeConfig: DEVNET_ADDRESSES.oracleScopeConfig,
       kaminoProgram: DEVNET_ADDRESSES.klendProgram,
       instructionSysvar: SYSVAR_INSTRUCTIONS,
     };

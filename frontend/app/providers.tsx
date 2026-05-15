@@ -78,7 +78,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           },
         }}
       >
-        <ConnectionProvider endpoint={DEVNET_RPC}>
+        <ConnectionProvider endpoint={MAINNET_RPC}>
           <ToastProvider>{children}</ToastProvider>
         </ConnectionProvider>
       </PrivyProvider>
