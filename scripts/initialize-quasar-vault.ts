@@ -29,19 +29,43 @@ import {
 import { SeedlingQuasarClient } from "../frontend/lib/quasar-client";
 import { vaultConfigPda } from "../frontend/lib/quasarPdas";
 
-// Devnet addresses (same as the Anchor program — same Kamino reserve).
-const USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
-const CTOKEN_MINT = new PublicKey("6FY2rwh5wWrtSveAG9t9ANc2YsrChNasVSEpMQubJcXd");
+// Cluster-aware address bundle. Set CLUSTER=mainnet to target the
+// production Kamino USDC reserve (Scope-only oracle); default is devnet
+// (Pyth-only oracle).
+const CLUSTER = (process.env.CLUSTER ?? "devnet").toLowerCase();
+const isMainnet = CLUSTER === "mainnet";
+
+const USDC_MINT = new PublicKey(
+  isMainnet
+    ? "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  // Circle USDC mainnet
+    : "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"   // Circle USDC devnet
+);
+const CTOKEN_MINT = new PublicKey(
+  isMainnet
+    ? "B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D"  // Kamino mainnet USDC cToken
+    : "6FY2rwh5wWrtSveAG9t9ANc2YsrChNasVSEpMQubJcXd"   // Kamino devnet USDC cToken
+);
 const KAMINO_RESERVE = new PublicKey(
-  "HRwMj8uuoGVWCanKzKvpTWN5ZvXjtjKGxcFbn2qTPKMW"
+  isMainnet
+    ? "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59"  // Kamino mainnet USDC reserve
+    : "HRwMj8uuoGVWCanKzKvpTWN5ZvXjtjKGxcFbn2qTPKMW"   // Kamino devnet USDC reserve
 );
-// Devnet USDC reserve uses Pyth only.
-const ORACLE_PYTH = new PublicKey(
-  "Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX"
-);
+// Oracle wiring is reserve-specific.
+//   Devnet reserve uses Pyth only (scope_config / switchboard zeroed).
+//   Mainnet reserve uses Scope only (pyth / switchboard zeroed).
+const ORACLE_PYTH = isMainnet
+  ? PublicKey.default
+  : new PublicKey("Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX");
+const ORACLE_SCOPE_CONFIG = isMainnet
+  ? new PublicKey("3t4JZcueEzTbVP6kLxXrL3VpWx45jDer4eqysweBchNH")
+  : PublicKey.default;
 
 const KEYPAIR_PATH = path.join(os.homedir(), ".config/solana/id.json");
-const RPC = process.env.ANCHOR_PROVIDER_URL ?? "https://api.devnet.solana.com";
+const RPC =
+  process.env.ANCHOR_PROVIDER_URL ??
+  (isMainnet
+    ? "https://api.mainnet-beta.solana.com"
+    : "https://api.devnet.solana.com");
 
 async function main() {
   const wallet = Keypair.fromSecretKey(
@@ -123,7 +147,7 @@ async function main() {
       oraclePyth: ORACLE_PYTH,
       oracleSwitchboardPrice: PublicKey.default,
       oracleSwitchboardTwap: PublicKey.default,
-      oracleScopeConfig: PublicKey.default,
+      oracleScopeConfig: ORACLE_SCOPE_CONFIG,
       periodEndTs,
       feeBps: 1000, // 10% — matches deck slide 10 ("10% of yield"),
                     //       README "Protocol earns 10% of yield",
@@ -149,7 +173,11 @@ async function main() {
   console.log("\nSending initialize_vault...");
   const sig = await connection.sendRawTransaction(tx.serialize());
   console.log(`tx: ${sig}`);
-  console.log(`https://explorer.solana.com/tx/${sig}?cluster=devnet`);
+  console.log(
+    `https://explorer.solana.com/tx/${sig}${
+      isMainnet ? "" : "?cluster=devnet"
+    }`
+  );
   await connection.confirmTransaction(sig, "confirmed");
   console.log("✅ confirmed");
 }
