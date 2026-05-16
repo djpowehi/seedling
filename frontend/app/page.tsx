@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { MainnetNotify } from "./MainnetNotify";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { useLocale, TItalic } from "@/lib/i18n";
 
@@ -726,10 +725,6 @@ export default function Home() {
           </svg>
         </div>
       </header>
-
-      <section className="landing-notify-section">
-        <MainnetNotify />
-      </section>
 
       <section className="landing-section">
         <div className="landing-section-label">

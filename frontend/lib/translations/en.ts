@@ -12,7 +12,7 @@ export const en = {
   "locale.toggle.aria": "Switch language",
 
   // ---- shared nav ----
-  "nav.live.devnet": "live on Solana devnet · mainnet soon",
+  "nav.live.devnet": "live on Solana mainnet",
   "nav.live.short": "live on Solana",
 
   // ---- landing ----
@@ -64,13 +64,6 @@ export const en = {
     "Kamino currently pays around 8% per year, but rates move with demand — just like a savings account. The year-end bonus is exactly what the money earned. Returns aren't FDIC insured — Seedling isn't a bank. The funds sit in Kamino's audited contract, which anyone can inspect at any time.",
   "landing.footer.built": "Built on Kamino · Solana",
   "landing.footer.copy": "© 2026 · seedlingsol.xyz",
-
-  // ---- mainnet notify ----
-  "mainnet.headline": "mainnet soon.",
-  "mainnet.body":
-    "want a heads-up when families can deposit real USDC? send us a DM on X — we'll ping you the day mainnet goes live.",
-  "mainnet.cta": "DM @{handle} on X",
-  "mainnet.fine": "no list · no spam · just a heads-up DM",
 
   // ---- parent account section (top of dashboard) ----
   "account.eyebrow": "your Seedling account",

@@ -22,7 +22,7 @@ export const ptBR: Translations = {
   "locale.toggle.aria": "Trocar idioma",
 
   // ---- shared nav ----
-  "nav.live.devnet": "rodando na devnet · mainnet em breve",
+  "nav.live.devnet": "rodando na Solana mainnet",
   "nav.live.short": "rodando na Solana",
 
   // ---- landing ----
@@ -78,13 +78,6 @@ export const ptBR: Translations = {
     "Hoje a Kamino paga em torno de 8% ao ano, mas a taxa varia conforme a demanda — igual a poupança, só que sem garantia do FGC (a Seedling não é banco). A gente nunca promete um número fixo: o décimo terceiro é exatamente o que o dinheiro rendeu.",
   "landing.footer.built": "Construído com Kamino · Solana",
   "landing.footer.copy": "© 2026 · seedlingsol.xyz",
-
-  // ---- mainnet notify ----
-  "mainnet.headline": "mainnet em breve.",
-  "mainnet.body":
-    "quer um aviso quando as famílias puderem depositar USDC de verdade? manda DM pra gente no X — avisamos no dia que a mainnet for ao ar.",
-  "mainnet.cta": "manda DM pra @{handle} no X",
-  "mainnet.fine": "sem lista · sem spam · só um aviso por DM",
 
   // ---- parent account section (top of dashboard) ----
   "account.eyebrow": "sua conta Seedling",
