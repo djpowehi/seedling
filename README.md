@@ -121,9 +121,9 @@ Hard-won pitfalls: [`GOTCHAS.md`](GOTCHAS.md).
 ### Prerequisites
 
 - Solana CLI 3.1+ · Rust stable · Node 20+
-- Phantom or Solflare wallet, configured for devnet *(Privy login also works on the live site)*
-- ~0.5 SOL on devnet (`solana airdrop 1 --url devnet`)
-- ~5 USDC devnet from [Circle's faucet](https://faucet.circle.com)
+- Phantom or Solflare wallet on Solana mainnet *(or just use Privy login on the live site — Google sign-in, no seed phrase)*
+- ~$5 USDC mainnet (Coinbase / Binance / any exchange withdraws USDC on Solana with the Circle mint `EPjFWdd5...`)
+- A small amount of SOL for gas if running self-custody; sponsor wallet covers the first tx automatically for Privy users
 
 ### Build the on-chain program
 
@@ -145,19 +145,9 @@ npm run dev    # http://localhost:3000
 Required env vars:
 
 - `NEXT_PUBLIC_PRIVY_APP_ID` — Privy app ID (public)
-- `NEXT_PUBLIC_HELIUS_RPC` — Helius RPC URL (recommended; falls back to public devnet)
+- `NEXT_PUBLIC_HELIUS_RPC` — Helius RPC URL (recommended; falls back to public mainnet RPC, which 403s aggressively against browsers)
 - `SEEDLING_HOT_WALLET_SECRET_KEY` — base58-encoded keypair that funds Privy users' first tx (server-only)
 - `FOURP_API_KEY`, `FOURP_API_BASE`, `FOURP_WEBHOOK_SECRET` — 4P Pix on-ramp credentials (server-only, optional for non-Pix flows)
-
-### Demo data prep
-
-```bash
-ANCHOR_WALLET=~/.config/solana/id.json \
-  ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
-  npx tsx scripts/demo-prep.ts
-```
-
-Backdates `last_distribution` 31 days + rolls bonus period 1 day backward so both the monthly and 13th allowance buttons are clickable in the demo flow.
 
 ### End-to-end on Surfpool mainnet-fork
 
@@ -210,7 +200,7 @@ Other e2e scripts in `scripts/`: `surfpool-withdraw-e2e.ts`, `surfpool-distribut
 │       ├── fetchFamilies.ts      # merged on-chain + draft view
 │       └── i18n.tsx              # PT-BR + EN
 ├── tests/                        # LiteSVM + integration tests
-├── scripts/                      # Surfpool e2e + devnet ops + demo-prep
+├── scripts/                      # Surfpool e2e + cluster-aware ops
 ├── docs/4p-finance-api.md        # 4P Pix integration reference
 ├── GOTCHAS.md                    # hard-won pitfalls (Quasar, Kamino, devnet, 4P)
 ├── LICENSE                       # MIT
@@ -233,7 +223,7 @@ Per Section 9 of the Frontier rules — full disclosure:
 | Frontend wallet | [Solana wallet adapter](https://github.com/anza-xyz/wallet-adapter) | Apache 2.0 | Phantom / Solflare support for self-custody parents |
 | Frontend SDK | [@coral-xyz/anchor](https://github.com/coral-xyz/anchor) | Apache 2.0 | **Event coder only** — used to decode emitted events. We do not use the Anchor program client (which assumes 8-byte discriminators); all instruction construction is manual via `quasar-client.ts`. |
 | Frontend SDK | [@solana/web3.js](https://github.com/anza-xyz/solana-web3.js) (1.x) | Apache 2.0 | RPC + transaction building |
-| Frontend infra | [Helius RPC](https://www.helius.dev/) | commercial (free tier) | Devnet RPC + token-account indexing |
+| Frontend infra | [Helius RPC](https://www.helius.dev/) | commercial (free tier) | Mainnet RPC + token-account indexing |
 | Off-chain integration | [4P Finance API](https://4p.finance) | commercial | Brazilian Pix on-ramp integration (R$ → USDC delivery to a hot wallet) — pending production activation |
 | Testing | [Surfpool](https://github.com/txtx/surfpool) | Apache 2.0 | Local mainnet-fork validator with JIT account fetch |
 | Testing | [LiteSVM](https://github.com/LiteSVM/litesvm) | Apache 2.0 | In-process Solana VM for fast unit-style integration tests |
