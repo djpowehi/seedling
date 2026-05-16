@@ -80,7 +80,7 @@ export const en = {
   "dashboard.title.word.kid": "kid",
   "dashboard.title.word.kids": "kids",
   "dashboard.subtitle": "all live on Solana",
-  "dashboard.fetching": "Fetching from devnet…",
+  "dashboard.fetching": "Fetching from mainnet…",
   "dashboard.error.load": "Couldn't load families. {error}",
   "dashboard.add_another": "add another kid",
 
@@ -423,7 +423,7 @@ export const en = {
   "topup.address.label": "Your address",
   "topup.copy": "copy",
   "topup.close": "close",
-  "topup.network": "Solana · Devnet",
+  "topup.network": "Solana · Mainnet",
   "topup.warning":
     "Solana network only. USDC sent from Ethereum, Polygon, or BSC will be lost.",
   "topup.next_step":

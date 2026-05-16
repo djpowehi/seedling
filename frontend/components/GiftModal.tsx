@@ -265,7 +265,7 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
         {sentSig && (
           <a
             className="gm-tx-link"
-            href={`https://explorer.solana.com/tx/${sentSig}?cluster=devnet`}
+            href={`https://explorer.solana.com/tx/${sentSig}`}
             target="_blank"
             rel="noreferrer"
           >

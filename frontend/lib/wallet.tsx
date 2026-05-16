@@ -95,7 +95,7 @@ export function useSeedlingWallet(): SeedlingWallet {
       const { signature } = await signAndSendTransaction({
         transaction: new Uint8Array(serialized),
         wallet,
-        chain: "solana:devnet",
+        chain: "solana:mainnet",
       });
 
       return bs58.encode(signature);
@@ -118,7 +118,7 @@ export function useSeedlingWallet(): SeedlingWallet {
       const { signedTransaction } = await privySignTransaction({
         transaction: new Uint8Array(serialized),
         wallet,
-        chain: "solana:devnet",
+        chain: "solana:mainnet",
       });
 
       // Privy returns a fully-serialized tx with the user's signature

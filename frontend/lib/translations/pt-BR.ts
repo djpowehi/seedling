@@ -94,7 +94,7 @@ export const ptBR: Translations = {
   "dashboard.title.word.kid": "filho",
   "dashboard.title.word.kids": "filhos",
   "dashboard.subtitle": "tudo rodando na Solana",
-  "dashboard.fetching": "Buscando na devnet…",
+  "dashboard.fetching": "Buscando na mainnet…",
   "dashboard.error.load": "Não foi possível carregar as famílias. {error}",
   "dashboard.add_another": "adicionar outro filho",
 
@@ -426,7 +426,7 @@ export const ptBR: Translations = {
   "topup.address.label": "Seu endereço",
   "topup.copy": "copiar",
   "topup.close": "fechar",
-  "topup.network": "Solana · Devnet",
+  "topup.network": "Solana · Mainnet",
   "topup.warning":
     "Apenas rede Solana. USDC enviado por Ethereum, Polygon ou BSC será perdido.",
   "topup.next_step":
