@@ -8,15 +8,12 @@
 //
 // Vault PDAs are derived at runtime via lib/quasarPdas.ts. ATAs use
 // getAssociatedTokenAddress(usdcMint, vaultConfig, allowOwnerOffCurve=true).
-//
-// MAINNET FLIP (2026-05-15): the variable name `DEVNET_ADDRESSES` is now
-// misleading — the values are mainnet. Rename is a follow-up because the
-// frontend has 160+ import sites referencing this symbol.
 
 import { Connection, PublicKey } from "@solana/web3.js";
 
-/** Canonical Seedling program ID — Quasar binary deployed at this address
- *  on devnet AND mainnet (same keypair → same address). */
+/** Canonical Seedling program ID — Quasar binary deployed at this address.
+ *  Same keypair was used on devnet during development and on mainnet for
+ *  the production deploy, so the address is identical on both clusters. */
 export const PROGRAM_ID = new PublicKey(
   "44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN"
 );
@@ -24,14 +21,13 @@ export const PROGRAM_ID = new PublicKey(
 // Mainnet Helius RPC. Set NEXT_PUBLIC_HELIUS_RPC in .env.local locally and
 // in Vercel project settings for production. Falls back to public mainnet
 // which 403s aggressively against browsers.
-export const DEVNET_RPC =
+export const MAINNET_RPC =
   process.env.NEXT_PUBLIC_HELIUS_RPC ?? "https://api.mainnet-beta.solana.com";
 
-// Mainnet addresses, post mainnet-flip (2026-05-15). Vault PDAs derived
-// against the canonical PROGRAM_ID; static USDC/Kamino/oracle pubkeys
-// pulled from ~/refs/mainnet-kamino-pubkeys.json. Variable name kept as
-// `DEVNET_ADDRESSES` for now — see the note at the top of the file.
-export const DEVNET_ADDRESSES = {
+// Mainnet addresses. Vault PDAs derived against the canonical PROGRAM_ID;
+// static USDC/Kamino/oracle pubkeys pulled from
+// ~/refs/mainnet-kamino-pubkeys.json.
+export const MAINNET_ADDRESSES = {
   // Quasar PDA — derived from "vault_config_v2" seed + PROGRAM_ID
   vaultConfig: new PublicKey("G9wKFXscALKeqHVCmouaKWTUqcMgSqErJiervW1PWiuc"),
   // Treasury ATA — owned by Vicenzo's SafePal wallet (8eTTFs…2N95cV).
@@ -69,5 +65,5 @@ export const SPONSOR_WALLET = new PublicKey(
 );
 
 export function getConnection(): Connection {
-  return new Connection(DEVNET_RPC, "confirmed");
+  return new Connection(MAINNET_RPC, "confirmed");
 }

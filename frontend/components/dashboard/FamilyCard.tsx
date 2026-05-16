@@ -14,7 +14,7 @@ import {
 } from "@solana/web3.js";
 import type { Connection } from "@solana/web3.js";
 import { useSeedlingWallet } from "@/lib/wallet";
-import { DEVNET_ADDRESSES, PROGRAM_ID, SPONSOR_WALLET } from "@/lib/program";
+import { MAINNET_ADDRESSES, PROGRAM_ID, SPONSOR_WALLET } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { kidViewPda as deriveKidViewPda } from "@/lib/quasarPdas";
 import { sendQuasarIxSponsored } from "@/lib/sendQuasarIx";
@@ -261,19 +261,19 @@ export function FamilyCard({
 
   const buildKaminoAccounts = () => {
     const [lendingMarketAuthority] = PublicKey.findProgramAddressSync(
-      [Buffer.from("lma"), DEVNET_ADDRESSES.kaminoMarket.toBuffer()],
-      DEVNET_ADDRESSES.klendProgram
+      [Buffer.from("lma"), MAINNET_ADDRESSES.kaminoMarket.toBuffer()],
+      MAINNET_ADDRESSES.klendProgram
     );
     return {
-      kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
-      lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
+      kaminoReserve: MAINNET_ADDRESSES.kaminoReserve,
+      lendingMarket: MAINNET_ADDRESSES.kaminoMarket,
       lendingMarketAuthority,
-      reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
-      oraclePyth: DEVNET_ADDRESSES.oraclePyth,
-      oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
-      oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
-      oracleScopeConfig: DEVNET_ADDRESSES.oracleScopeConfig,
-      kaminoProgram: DEVNET_ADDRESSES.klendProgram,
+      reserveLiquiditySupply: MAINNET_ADDRESSES.reserveLiquiditySupply,
+      oraclePyth: MAINNET_ADDRESSES.oraclePyth,
+      oracleSwitchboardPrice: MAINNET_ADDRESSES.klendProgram,
+      oracleSwitchboardTwap: MAINNET_ADDRESSES.klendProgram,
+      oracleScopeConfig: MAINNET_ADDRESSES.oracleScopeConfig,
+      kaminoProgram: MAINNET_ADDRESSES.klendProgram,
       instructionSysvar: SYSVAR_INSTRUCTIONS,
     };
   };
@@ -283,7 +283,7 @@ export function FamilyCard({
     // v3: kid pool ATA is owned by the family_position PDA, not the kid.
     // allowOwnerOffCurve=true because family_position is a PDA (off-curve).
     const kidPoolAta = getAssociatedTokenAddressSync(
-      DEVNET_ADDRESSES.usdcMint,
+      MAINNET_ADDRESSES.usdcMint,
       family.pubkey,
       true
     );
@@ -292,12 +292,12 @@ export function FamilyCard({
       familyPosition: family.pubkey,
       kidView,
       kidPoolAta,
-      vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
-      vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
-      treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
-      vaultConfig: DEVNET_ADDRESSES.vaultConfig,
-      usdcMint: DEVNET_ADDRESSES.usdcMint,
-      ctokenMint: DEVNET_ADDRESSES.ctokenMint,
+      vaultUsdcAta: MAINNET_ADDRESSES.vaultUsdcAta,
+      vaultCtokenAta: MAINNET_ADDRESSES.vaultCtokenAta,
+      treasuryUsdcAta: MAINNET_ADDRESSES.treasury,
+      vaultConfig: MAINNET_ADDRESSES.vaultConfig,
+      usdcMint: MAINNET_ADDRESSES.usdcMint,
+      ctokenMint: MAINNET_ADDRESSES.ctokenMint,
       ...buildKaminoAccounts(),
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
@@ -306,7 +306,7 @@ export function FamilyCard({
 
   const distributePreIxs = () => {
     const kidPoolAta = getAssociatedTokenAddressSync(
-      DEVNET_ADDRESSES.usdcMint,
+      MAINNET_ADDRESSES.usdcMint,
       family.pubkey,
       true
     );
@@ -319,7 +319,7 @@ export function FamilyCard({
         SPONSOR_WALLET,
         kidPoolAta,
         family.pubkey,
-        DEVNET_ADDRESSES.usdcMint
+        MAINNET_ADDRESSES.usdcMint
       ),
     ];
   };
@@ -488,7 +488,7 @@ export function FamilyCard({
             feePayer: SPONSOR_WALLET,
             parent,
             familyPosition: family.pubkey,
-            vaultConfig: DEVNET_ADDRESSES.vaultConfig,
+            vaultConfig: MAINNET_ADDRESSES.vaultConfig,
             newStreamRate: newRateBaseUnits,
           });
           const sig = await sendQuasarIxSponsored(
@@ -562,7 +562,7 @@ export function FamilyCard({
     setError(null);
     try {
       const parentUsdcAta = getAssociatedTokenAddressSync(
-        DEVNET_ADDRESSES.usdcMint,
+        MAINNET_ADDRESSES.usdcMint,
         parent
       );
       const kidView = deriveKidViewPda(parent, family.kid);
@@ -570,7 +570,7 @@ export function FamilyCard({
         SPONSOR_WALLET,
         parentUsdcAta,
         parent,
-        DEVNET_ADDRESSES.usdcMint
+        MAINNET_ADDRESSES.usdcMint
       );
 
       const closeIx = client.createCloseFamilyInstruction({
@@ -578,12 +578,12 @@ export function FamilyCard({
         kidView,
         parent,
         parentUsdcAta,
-        vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
-        vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
-        treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
-        vaultConfig: DEVNET_ADDRESSES.vaultConfig,
-        usdcMint: DEVNET_ADDRESSES.usdcMint,
-        ctokenMint: DEVNET_ADDRESSES.ctokenMint,
+        vaultUsdcAta: MAINNET_ADDRESSES.vaultUsdcAta,
+        vaultCtokenAta: MAINNET_ADDRESSES.vaultCtokenAta,
+        treasuryUsdcAta: MAINNET_ADDRESSES.treasury,
+        vaultConfig: MAINNET_ADDRESSES.vaultConfig,
+        usdcMint: MAINNET_ADDRESSES.usdcMint,
+        ctokenMint: MAINNET_ADDRESSES.ctokenMint,
         ...buildKaminoAccounts(),
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,

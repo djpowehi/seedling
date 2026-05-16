@@ -36,7 +36,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { getHotWalletKeypair, getHotWalletPubkey } from "@/lib/hotWallet";
-import { DEVNET_RPC, PROGRAM_ID } from "@/lib/program";
+import { MAINNET_RPC, PROGRAM_ID } from "@/lib/program";
 
 // Allowlist of Quasar instructions the relay will sponsor. Anything not
 // here gets rejected. Each entry is the 1-byte discriminator (Pinocchio
@@ -268,15 +268,15 @@ async function handle(req: NextRequest) {
   }
 
   // ---- sign + broadcast
-  const connection = new Connection(DEVNET_RPC, "confirmed");
+  const connection = new Connection(MAINNET_RPC, "confirmed");
   const sponsorKp = getHotWalletKeypair();
   tx.partialSign(sponsorKp);
 
-  // Broadcast only — don't `confirmTransaction` here. Devnet finalization
-  // takes 15-30s, which exceeds Vercel's serverless function timeout and
-  // returns an empty body to the client (→ "Unexpected end of JSON input"
-  // when the client tries `await res.json()`). The client confirms after
-  // it receives the signature back.
+  // Broadcast only — don't `confirmTransaction` here. Finalization can
+  // take 15-30s under load, which exceeds Vercel's serverless function
+  // timeout and returns an empty body to the client (→ "Unexpected end
+  // of JSON input" when the client tries `await res.json()`). The client
+  // confirms after it receives the signature back.
   let signature: string;
   try {
     signature = await connection.sendRawTransaction(tx.serialize(), {

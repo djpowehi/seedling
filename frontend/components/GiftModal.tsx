@@ -10,7 +10,7 @@ import QRCode from "qrcode";
 import { Connection, Transaction } from "@solana/web3.js";
 import { useLogin } from "@privy-io/react-auth";
 import { useSeedlingWallet } from "@/lib/wallet";
-import { DEVNET_RPC } from "@/lib/program";
+import { MAINNET_RPC } from "@/lib/program";
 import { useLocale } from "@/lib/i18n";
 
 const PRESETS = [1, 5, 20, 50] as const;
@@ -115,7 +115,7 @@ export function GiftModal({ familyPda, kidName, open, onClose }: Props) {
         throw new Error(msg);
       }
       const tx = Transaction.from(Buffer.from(json.transaction, "base64"));
-      const connection = new Connection(DEVNET_RPC, "confirmed");
+      const connection = new Connection(MAINNET_RPC, "confirmed");
       const sig = await wallet.sendTransaction(tx, connection);
       await connection.confirmTransaction(sig, "confirmed");
       setSentSig(sig);

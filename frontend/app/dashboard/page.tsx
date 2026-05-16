@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useConnection } from "@solana/wallet-adapter-react";
-import { DEVNET_ADDRESSES } from "@/lib/program";
+import { MAINNET_ADDRESSES } from "@/lib/program";
 import { fetchFamiliesForParent, type FamilyView } from "@/lib/fetchFamilies";
 import { fetchVaultClock, type VaultClock } from "@/lib/fetchFamilyByPda";
 import { useSeedlingWallet } from "@/lib/wallet";
@@ -39,7 +39,7 @@ export default function Dashboard() {
     try {
       const [result, clk] = await Promise.all([
         fetchFamiliesForParent(connection, publicKey),
-        fetchVaultClock(connection, DEVNET_ADDRESSES.vaultConfig),
+        fetchVaultClock(connection, MAINNET_ADDRESSES.vaultConfig),
       ]);
       setFamilies(result);
       setVaultClock(clk);

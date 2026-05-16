@@ -9,10 +9,10 @@
 // stored in account state — there's no on-chain log of "every depositor
 // who ever gifted." We have to walk transactions.
 //
-// Cap at the most recent 20 signatures. Public devnet RPC rate-limits
-// aggressively (429s after ~10 batched gets) and our demo family has at
-// most a handful of transactions to walk; 20 is plenty for the wall (which
-// renders 8 max) and stays below the throttle.
+// Cap at the most recent 20 signatures. Public RPCs rate-limit aggressively
+// (429s after ~10 batched gets) and most families have at most a handful of
+// transactions to walk; 20 is plenty for the wall (which renders 8 max) and
+// stays below the throttle.
 
 import { Connection, PublicKey } from "@solana/web3.js";
 import { DEPOSITED_DISCRIMINATOR, DepositedCodec } from "@/lib/quasar-client";
@@ -59,7 +59,7 @@ export async function fetchGifts(
 
   // Parallel via Promise.all — N independent HTTP requests fired at once.
   // On Helius (~50-100ms each) this collapses to ~100ms total instead of
-  // N * 100ms serial. Public devnet is slower but still 5-10x faster
+  // N * 100ms serial. Public RPCs are slower but still 5-10x faster
   // parallel than serial.
   const txs = await Promise.all(
     missing.map((s) =>

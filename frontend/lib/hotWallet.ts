@@ -46,7 +46,7 @@ import {
 } from "@solana/spl-token";
 import bs58 from "bs58";
 
-import { DEVNET_ADDRESSES, DEVNET_RPC } from "./program";
+import { MAINNET_ADDRESSES, MAINNET_RPC } from "./program";
 
 const MEMO_PROGRAM_ID = new PublicKey(
   "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
@@ -91,7 +91,7 @@ export function getHotWalletPubkey(): PublicKey {
 
 export function getHotWalletUsdcAta(): PublicKey {
   return getAssociatedTokenAddressSync(
-    DEVNET_ADDRESSES.usdcMint,
+    MAINNET_ADDRESSES.usdcMint,
     getHotWalletPubkey()
   );
 }
@@ -122,7 +122,7 @@ export async function hasProcessedCustomId(
   opts: { lookback?: number } = {}
 ): Promise<boolean> {
   const lookback = opts.lookback ?? 25;
-  const connection = new Connection(DEVNET_RPC, "confirmed");
+  const connection = new Connection(MAINNET_RPC, "confirmed");
   const hotWallet = getHotWalletPubkey();
 
   const sigs = await connection.getSignaturesForAddress(hotWallet, {
@@ -218,11 +218,11 @@ export interface SignAndSendUsdcTransferResult {
 export async function signAndSendUsdcTransfer(
   input: SignAndSendUsdcTransferInput
 ): Promise<SignAndSendUsdcTransferResult> {
-  const connection = new Connection(DEVNET_RPC, "confirmed");
+  const connection = new Connection(MAINNET_RPC, "confirmed");
   const hotWallet = getHotWalletKeypair();
   const hotWalletUsdcAta = getHotWalletUsdcAta();
   const parentUsdcAta = getAssociatedTokenAddressSync(
-    DEVNET_ADDRESSES.usdcMint,
+    MAINNET_ADDRESSES.usdcMint,
     input.parent
   );
 
@@ -233,13 +233,13 @@ export async function signAndSendUsdcTransfer(
     hotWallet.publicKey,
     hotWalletUsdcAta,
     hotWallet.publicKey,
-    DEVNET_ADDRESSES.usdcMint
+    MAINNET_ADDRESSES.usdcMint
   );
   const ataIxParent = createAssociatedTokenAccountIdempotentInstruction(
     hotWallet.publicKey,
     parentUsdcAta,
     input.parent,
-    DEVNET_ADDRESSES.usdcMint
+    MAINNET_ADDRESSES.usdcMint
   );
 
   // SPL Token Transfer instruction. Built manually to avoid pulling in

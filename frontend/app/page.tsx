@@ -580,7 +580,9 @@ export default function Home() {
         <div className="landing-nav-meta">
           <LocaleToggle />
           <span className="landing-pulse"></span>
-          <span className="landing-nav-pulse-text">{t("nav.live.devnet")}</span>
+          <span className="landing-nav-pulse-text">
+            {t("nav.live.network")}
+          </span>
         </div>
       </nav>
 

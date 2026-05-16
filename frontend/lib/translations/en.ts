@@ -12,7 +12,7 @@ export const en = {
   "locale.toggle.aria": "Switch language",
 
   // ---- shared nav ----
-  "nav.live.devnet": "live on Solana mainnet",
+  "nav.live.network": "live on Solana mainnet",
   "nav.live.short": "live on Solana",
 
   // ---- landing ----

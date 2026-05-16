@@ -13,7 +13,7 @@ import {
 import { useSeedlingWallet } from "@/lib/wallet";
 import { useRef, useState } from "react";
 import type { Connection } from "@solana/web3.js";
-import { DEVNET_ADDRESSES, SPONSOR_WALLET } from "@/lib/program";
+import { MAINNET_ADDRESSES, SPONSOR_WALLET } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { sendQuasarIx, sendQuasarIxSponsored } from "@/lib/sendQuasarIx";
 import {
@@ -87,13 +87,13 @@ export function DepositForm({
       const amountBaseUnits = Math.round(amountNum * 1_000_000);
 
       const depositorUsdcAta = getAssociatedTokenAddressSync(
-        DEVNET_ADDRESSES.usdcMint,
+        MAINNET_ADDRESSES.usdcMint,
         parent
       );
 
       const [lendingMarketAuthority] = PublicKey.findProgramAddressSync(
-        [Buffer.from("lma"), DEVNET_ADDRESSES.kaminoMarket.toBuffer()],
-        DEVNET_ADDRESSES.klendProgram
+        [Buffer.from("lma"), MAINNET_ADDRESSES.kaminoMarket.toBuffer()],
+        MAINNET_ADDRESSES.klendProgram
       );
 
       // ATA-create payer: sponsor for the lazy bundle (Privy parents have
@@ -102,28 +102,28 @@ export function DepositForm({
         family.isDraft ? SPONSOR_WALLET : parent,
         depositorUsdcAta,
         parent,
-        DEVNET_ADDRESSES.usdcMint
+        MAINNET_ADDRESSES.usdcMint
       );
 
       const depositIx = client.createDepositInstruction({
         familyPosition: family.pubkey,
         depositor: parent,
         depositorUsdcAta,
-        vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
-        vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
-        treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
-        vaultConfig: DEVNET_ADDRESSES.vaultConfig,
-        usdcMint: DEVNET_ADDRESSES.usdcMint,
-        ctokenMint: DEVNET_ADDRESSES.ctokenMint,
-        kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
-        lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
+        vaultUsdcAta: MAINNET_ADDRESSES.vaultUsdcAta,
+        vaultCtokenAta: MAINNET_ADDRESSES.vaultCtokenAta,
+        treasuryUsdcAta: MAINNET_ADDRESSES.treasury,
+        vaultConfig: MAINNET_ADDRESSES.vaultConfig,
+        usdcMint: MAINNET_ADDRESSES.usdcMint,
+        ctokenMint: MAINNET_ADDRESSES.ctokenMint,
+        kaminoReserve: MAINNET_ADDRESSES.kaminoReserve,
+        lendingMarket: MAINNET_ADDRESSES.kaminoMarket,
         lendingMarketAuthority,
-        reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
-        oraclePyth: DEVNET_ADDRESSES.oraclePyth,
-        oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
-        oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
-        oracleScopeConfig: DEVNET_ADDRESSES.oracleScopeConfig,
-        kaminoProgram: DEVNET_ADDRESSES.klendProgram,
+        reserveLiquiditySupply: MAINNET_ADDRESSES.reserveLiquiditySupply,
+        oraclePyth: MAINNET_ADDRESSES.oraclePyth,
+        oracleSwitchboardPrice: MAINNET_ADDRESSES.klendProgram,
+        oracleSwitchboardTwap: MAINNET_ADDRESSES.klendProgram,
+        oracleScopeConfig: MAINNET_ADDRESSES.oracleScopeConfig,
+        kaminoProgram: MAINNET_ADDRESSES.klendProgram,
         instructionSysvar: SYSVAR_INSTRUCTIONS,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,

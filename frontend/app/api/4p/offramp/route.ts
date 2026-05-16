@@ -15,7 +15,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createOfframpOrder } from "@/lib/fourp";
-import { DEVNET_ADDRESSES, DEVNET_RPC } from "@/lib/program";
+import { MAINNET_ADDRESSES, MAINNET_RPC } from "@/lib/program";
 import {
   FAMILY_POSITION_DISCRIMINATOR,
   FamilyPositionCodec,
@@ -123,10 +123,10 @@ export async function POST(req: NextRequest) {
   }
 
   // ---- read on-chain state ----
-  const connection = new Connection(DEVNET_RPC, "confirmed");
+  const connection = new Connection(MAINNET_RPC, "confirmed");
   const [familyInfo, vaultInfo] = await Promise.all([
     connection.getAccountInfo(familyPda, "confirmed"),
-    connection.getAccountInfo(DEVNET_ADDRESSES.vaultConfig, "confirmed"),
+    connection.getAccountInfo(MAINNET_ADDRESSES.vaultConfig, "confirmed"),
   ]);
 
   if (!familyInfo || familyInfo.data[0] !== FAMILY_POSITION_DISCRIMINATOR[0]) {

@@ -18,7 +18,7 @@ import {
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 
-import { DEVNET_ADDRESSES } from "@/lib/program";
+import { MAINNET_ADDRESSES } from "@/lib/program";
 import { useLocale } from "@/lib/i18n";
 import { PixDepositForm } from "@/components/PixDepositForm";
 import { TopUpAccountModal } from "@/components/TopUpAccountModal";
@@ -71,7 +71,7 @@ export function ParentAccountSection({
     (async () => {
       try {
         const usdcAta = getAssociatedTokenAddressSync(
-          DEVNET_ADDRESSES.usdcMint,
+          MAINNET_ADDRESSES.usdcMint,
           parent
         );
         const info = await connection.getAccountInfo(usdcAta, "confirmed");

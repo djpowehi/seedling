@@ -38,7 +38,7 @@ import {
   hasProcessedCustomId,
   signAndSendUsdcTransfer,
 } from "@/lib/hotWallet";
-import { DEVNET_ADDRESSES, DEVNET_RPC } from "@/lib/program";
+import { MAINNET_ADDRESSES, MAINNET_RPC } from "@/lib/program";
 
 interface RetryRequest {
   /** Action discriminator. "retry" reprocesses a stuck Pix order;
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const connection = new Connection(DEVNET_RPC, "confirmed");
+  const connection = new Connection(MAINNET_RPC, "confirmed");
   const hotWallet = getHotWalletPubkey();
   const hotWalletUsdcAta = getHotWalletUsdcAta();
 
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     hotWallet: hotWallet.toBase58(),
     hotWalletUsdcAta: hotWalletUsdcAta.toBase58(),
-    usdcMint: DEVNET_ADDRESSES.usdcMint.toBase58(),
+    usdcMint: MAINNET_ADDRESSES.usdcMint.toBase58(),
     solLamports: solBalance,
     solUi: solBalance / 1e9,
     usdcBaseUnits,
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
   // This action creates the ATA once via an idempotent ix; subsequent
   // calls are no-ops. Should be run once per fresh deployment.
   if (body.action === "bootstrap") {
-    const connection = new Connection(DEVNET_RPC, "confirmed");
+    const connection = new Connection(MAINNET_RPC, "confirmed");
     const hotWallet = getHotWalletKeypair();
     const hotWalletUsdcAta = getHotWalletUsdcAta();
 
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
       hotWallet.publicKey,
       hotWalletUsdcAta,
       hotWallet.publicKey,
-      DEVNET_ADDRESSES.usdcMint
+      MAINNET_ADDRESSES.usdcMint
     );
     const tx = new Transaction();
     tx.feePayer = hotWallet.publicKey;

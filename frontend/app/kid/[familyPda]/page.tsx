@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { DEVNET_ADDRESSES, DEVNET_RPC } from "@/lib/program";
+import { MAINNET_ADDRESSES, MAINNET_RPC } from "@/lib/program";
 import {
   fetchFamilyByPda,
   fetchVaultClock,
@@ -32,10 +32,10 @@ export default function KidViewPage({ params }: PageProps) {
         const pda = new PublicKey(pdaStr);
         if (cancelled) return;
 
-        const connection = new Connection(DEVNET_RPC, "confirmed");
+        const connection = new Connection(MAINNET_RPC, "confirmed");
         const [fam, clk] = await Promise.all([
           fetchFamilyByPda(connection, pda),
-          fetchVaultClock(connection, DEVNET_ADDRESSES.vaultConfig),
+          fetchVaultClock(connection, MAINNET_ADDRESSES.vaultConfig),
         ]);
         if (cancelled) return;
         if (!fam) {

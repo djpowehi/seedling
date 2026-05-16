@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Connection } from "@solana/web3.js";
-import { DEVNET_ADDRESSES, DEVNET_RPC } from "@/lib/program";
+import { MAINNET_ADDRESSES, MAINNET_RPC } from "@/lib/program";
 import { fetchFamilyByPda, fetchVaultClock } from "@/lib/fetchFamilyByPda";
 import type { FamilyView } from "@/lib/fetchFamilies";
 import { getSavingsGoals, type SavingsGoal } from "@/lib/savingsGoals";
@@ -118,12 +118,12 @@ export function KidView({ family, initialClock, kidName }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    const connection = new Connection(DEVNET_RPC, "confirmed");
+    const connection = new Connection(MAINNET_RPC, "confirmed");
     const recalibrate = async () => {
       try {
         const [fam, clk] = await Promise.all([
           fetchFamilyByPda(connection, family.pubkey),
-          fetchVaultClock(connection, DEVNET_ADDRESSES.vaultConfig),
+          fetchVaultClock(connection, MAINNET_ADDRESSES.vaultConfig),
         ]);
         if (cancelled || !fam || !clk) return;
         setSnapshot({
@@ -271,7 +271,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
   const { showToast } = useToast();
   useEffect(() => {
     let cancelled = false;
-    const conn = new Connection(DEVNET_RPC, "confirmed");
+    const conn = new Connection(MAINNET_RPC, "confirmed");
     const load = async () => {
       try {
         const list = await fetchGifts(conn, family.pubkey, family.parent);

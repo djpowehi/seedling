@@ -31,7 +31,7 @@ import { useEffect, useRef, useState } from "react";
 import { celebrateMonthly } from "@/lib/celebrate";
 import { useToast } from "@/components/Toast";
 import { useLocale } from "@/lib/i18n";
-import { DEVNET_ADDRESSES, SPONSOR_WALLET } from "@/lib/program";
+import { MAINNET_ADDRESSES, SPONSOR_WALLET } from "@/lib/program";
 import { SeedlingQuasarClient } from "@/lib/quasar-client";
 import { sendQuasarIxSponsored } from "@/lib/sendQuasarIx";
 import {
@@ -184,19 +184,19 @@ export function PixOfframpForm({
       const amountBaseUnits = minAssetsOut; // exact requested amount
 
       const parentUsdcAta = getAssociatedTokenAddressSync(
-        DEVNET_ADDRESSES.usdcMint,
+        MAINNET_ADDRESSES.usdcMint,
         parent
       );
 
       const kidPoolAta = getAssociatedTokenAddressSync(
-        DEVNET_ADDRESSES.usdcMint,
+        MAINNET_ADDRESSES.usdcMint,
         family.pubkey,
         true // family_position is a PDA — allow off-curve owner
       );
 
       const receiverWallet = new PublicKey(json.receiverWallet);
       const receiverUsdcAta = getAssociatedTokenAddressSync(
-        DEVNET_ADDRESSES.usdcMint,
+        MAINNET_ADDRESSES.usdcMint,
         receiverWallet,
         // 4P's wallet may be a PDA owned by their program; allow off-curve
         // owners so the ATA derivation doesn't reject. If it's a normal
@@ -213,19 +213,19 @@ export function PixOfframpForm({
         SPONSOR_WALLET,
         parentUsdcAta,
         parent,
-        DEVNET_ADDRESSES.usdcMint
+        MAINNET_ADDRESSES.usdcMint
       );
       const receiverAtaIx = createAssociatedTokenAccountIdempotentInstruction(
         SPONSOR_WALLET,
         receiverUsdcAta,
         receiverWallet,
-        DEVNET_ADDRESSES.usdcMint
+        MAINNET_ADDRESSES.usdcMint
       );
       const kidPoolAtaIx = createAssociatedTokenAccountIdempotentInstruction(
         SPONSOR_WALLET,
         kidPoolAta,
         family.pubkey,
-        DEVNET_ADDRESSES.usdcMint
+        MAINNET_ADDRESSES.usdcMint
       );
 
       const payoutIx = client.createPayoutKidInstruction({
@@ -234,15 +234,15 @@ export function PixOfframpForm({
         familyPosition: family.pubkey,
         kidPoolAta,
         destinationAta: parentUsdcAta,
-        vaultConfig: DEVNET_ADDRESSES.vaultConfig,
-        usdcMint: DEVNET_ADDRESSES.usdcMint,
+        vaultConfig: MAINNET_ADDRESSES.vaultConfig,
+        usdcMint: MAINNET_ADDRESSES.usdcMint,
         tokenProgram: TOKEN_PROGRAM_ID,
         amount: amountBaseUnits,
       });
 
       const transferIx = createTransferCheckedInstruction(
         parentUsdcAta,
-        DEVNET_ADDRESSES.usdcMint,
+        MAINNET_ADDRESSES.usdcMint,
         receiverUsdcAta,
         parent,
         amountBaseUnits,

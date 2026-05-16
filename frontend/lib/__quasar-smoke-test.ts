@@ -21,7 +21,7 @@ import {
   KID_VIEW_DISCRIMINATOR,
 } from "./quasar-client";
 import { familyPositionPda, kidViewPda, vaultConfigPda } from "./quasarPdas";
-import { DEVNET_ADDRESSES } from "./program";
+import { MAINNET_ADDRESSES } from "./program";
 
 const client = new SeedlingQuasarClient();
 const parent = Keypair.generate().publicKey;
@@ -78,21 +78,21 @@ function check(
 
 // Common args blocks
 const depositLikeAccounts = {
-  vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
-  vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
-  treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
+  vaultUsdcAta: MAINNET_ADDRESSES.vaultUsdcAta,
+  vaultCtokenAta: MAINNET_ADDRESSES.vaultCtokenAta,
+  treasuryUsdcAta: MAINNET_ADDRESSES.treasury,
   vaultConfig,
-  usdcMint: DEVNET_ADDRESSES.usdcMint,
-  ctokenMint: DEVNET_ADDRESSES.ctokenMint,
-  kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
-  lendingMarket: DEVNET_ADDRESSES.kaminoMarket,
+  usdcMint: MAINNET_ADDRESSES.usdcMint,
+  ctokenMint: MAINNET_ADDRESSES.ctokenMint,
+  kaminoReserve: MAINNET_ADDRESSES.kaminoReserve,
+  lendingMarket: MAINNET_ADDRESSES.kaminoMarket,
   lendingMarketAuthority: PublicKey.default,
-  reserveLiquiditySupply: DEVNET_ADDRESSES.reserveLiquiditySupply,
-  oraclePyth: DEVNET_ADDRESSES.oraclePyth,
-  oracleSwitchboardPrice: DEVNET_ADDRESSES.klendProgram,
-  oracleSwitchboardTwap: DEVNET_ADDRESSES.klendProgram,
-  oracleScopeConfig: DEVNET_ADDRESSES.klendProgram,
-  kaminoProgram: DEVNET_ADDRESSES.klendProgram,
+  reserveLiquiditySupply: MAINNET_ADDRESSES.reserveLiquiditySupply,
+  oraclePyth: MAINNET_ADDRESSES.oraclePyth,
+  oracleSwitchboardPrice: MAINNET_ADDRESSES.klendProgram,
+  oracleSwitchboardTwap: MAINNET_ADDRESSES.klendProgram,
+  oracleScopeConfig: MAINNET_ADDRESSES.klendProgram,
+  kaminoProgram: MAINNET_ADDRESSES.klendProgram,
   instructionSysvar: INSTRUCTION_SYSVAR,
   tokenProgram: TOKEN_PROGRAM,
   systemProgram: SystemProgram.programId,
@@ -108,16 +108,16 @@ check(
   client.createInitializeVaultInstruction({
     authority,
     vaultConfig,
-    usdcMint: DEVNET_ADDRESSES.usdcMint,
-    ctokenMint: DEVNET_ADDRESSES.ctokenMint,
-    treasuryUsdcAta: DEVNET_ADDRESSES.treasury,
-    kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
-    vaultUsdcAta: DEVNET_ADDRESSES.vaultUsdcAta,
-    vaultCtokenAta: DEVNET_ADDRESSES.vaultCtokenAta,
+    usdcMint: MAINNET_ADDRESSES.usdcMint,
+    ctokenMint: MAINNET_ADDRESSES.ctokenMint,
+    treasuryUsdcAta: MAINNET_ADDRESSES.treasury,
+    kaminoReserve: MAINNET_ADDRESSES.kaminoReserve,
+    vaultUsdcAta: MAINNET_ADDRESSES.vaultUsdcAta,
+    vaultCtokenAta: MAINNET_ADDRESSES.vaultCtokenAta,
     tokenProgram: TOKEN_PROGRAM,
     systemProgram: SystemProgram.programId,
     args: {
-      oraclePyth: DEVNET_ADDRESSES.oraclePyth,
+      oraclePyth: MAINNET_ADDRESSES.oraclePyth,
       oracleSwitchboardPrice: PublicKey.default,
       oracleSwitchboardTwap: PublicKey.default,
       oracleScopeConfig: PublicKey.default,
@@ -285,7 +285,7 @@ check(
     kidPoolAta: PublicKey.default,
     destinationAta: PublicKey.default,
     vaultConfig,
-    usdcMint: DEVNET_ADDRESSES.usdcMint,
+    usdcMint: MAINNET_ADDRESSES.usdcMint,
     tokenProgram: TOKEN_PROGRAM,
     amount: BigInt(1_000_000),
   })
@@ -374,12 +374,12 @@ roundTrip(
   (d) => client.decodeVaultConfig(d),
   {
     authority,
-    treasury: DEVNET_ADDRESSES.treasury,
+    treasury: MAINNET_ADDRESSES.treasury,
     feeBps: 1000,
-    kaminoReserve: DEVNET_ADDRESSES.kaminoReserve,
-    usdcMint: DEVNET_ADDRESSES.usdcMint,
-    ctokenMint: DEVNET_ADDRESSES.ctokenMint,
-    oraclePyth: DEVNET_ADDRESSES.oraclePyth,
+    kaminoReserve: MAINNET_ADDRESSES.kaminoReserve,
+    usdcMint: MAINNET_ADDRESSES.usdcMint,
+    ctokenMint: MAINNET_ADDRESSES.ctokenMint,
+    oraclePyth: MAINNET_ADDRESSES.oraclePyth,
     oracleSwitchboardPrice: PublicKey.default,
     oracleSwitchboardTwap: PublicKey.default,
     oracleScopeConfig: PublicKey.default,

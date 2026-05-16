@@ -22,7 +22,7 @@ export const ptBR: Translations = {
   "locale.toggle.aria": "Trocar idioma",
 
   // ---- shared nav ----
-  "nav.live.devnet": "rodando na Solana mainnet",
+  "nav.live.network": "rodando na Solana mainnet",
   "nav.live.short": "rodando na Solana",
 
   // ---- landing ----
