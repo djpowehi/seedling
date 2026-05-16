@@ -18,11 +18,17 @@ export const PROGRAM_ID = new PublicKey(
   "44vix4JmG4hdoharDH38R5sc7g5MbFxjvpUpgwNDbTYN"
 );
 
-// Mainnet Helius RPC. Set NEXT_PUBLIC_HELIUS_RPC in .env.local locally and
-// in Vercel project settings for production. Falls back to public mainnet
-// which 403s aggressively against browsers.
-export const MAINNET_RPC =
-  process.env.NEXT_PUBLIC_HELIUS_RPC ?? "https://api.mainnet-beta.solana.com";
+// Mainnet Helius RPC. We extract the API key from NEXT_PUBLIC_HELIUS_RPC
+// and always rebuild as the mainnet URL — that way an env var still
+// pointing at a devnet/testnet endpoint can't accidentally route a
+// signed mainnet transaction to the wrong cluster (which fails with the
+// opaque "Blockhash not found" simulation error). Public mainnet fallback
+// 403s browsers but at least it's the right cluster.
+const HELIUS_KEY =
+  process.env.NEXT_PUBLIC_HELIUS_RPC?.match(/api-key=([^&]+)/)?.[1] ?? "";
+export const MAINNET_RPC = HELIUS_KEY
+  ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`
+  : "https://api.mainnet-beta.solana.com";
 
 // Mainnet addresses. Vault PDAs derived against the canonical PROGRAM_ID;
 // static USDC/Kamino/oracle pubkeys pulled from
