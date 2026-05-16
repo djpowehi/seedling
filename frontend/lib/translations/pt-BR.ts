@@ -36,7 +36,7 @@ export const ptBR: Translations = {
   "landing.cta.label": "Abrir o dashboard",
   "landing.cta.note":
     "Rodando na Solana · não precisa de carteira para dar uma olhada",
-  "landing.section.howit.label_num": "02",
+  "landing.section.howit.label_num": "01",
   "landing.section.howit.label": "Como funciona",
   "landing.section.howit.sub": "Três passos · uma decisão",
   "landing.step.i.title": "Os pais depositam uma vez. Só isso.",
@@ -49,7 +49,7 @@ export const ptBR: Translations = {
     "Seu filho recebe todo mês. Décimo terceiro no fim do ano.",
   "landing.step.iii.body":
     "Todo dia 1º a mesada cai automaticamente. Em dezembro, um décimo terceiro extra — pago só com o que o dinheiro rendeu, não vem do seu bolso. Quanto mais tempo o dinheiro fica, maior o décimo terceiro.",
-  "landing.section.product.label_num": "03",
+  "landing.section.product.label_num": "02",
   "landing.section.product.label": "O produto",
   "landing.section.product.sub": "Duas telas · uma família",
   "landing.shot.parent.tag": "tela 01 · pai/mãe",
@@ -63,7 +63,7 @@ export const ptBR: Translations = {
   "landing.shot.kid.caption": "Tela da criança",
   "landing.shot.kid.caption_sub":
     "uma árvore, crescendo — sem precisar de carteira",
-  "landing.section.trust.label_num": "04",
+  "landing.section.trust.label_num": "03",
   "landing.section.trust.label": "Confiança e segurança",
   "landing.section.trust.sub": "Seu dinheiro, no seu controle",
   "landing.trust.custody.title":
