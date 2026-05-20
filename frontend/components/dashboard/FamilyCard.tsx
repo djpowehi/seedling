@@ -194,7 +194,15 @@ export function FamilyCard({
   const createdAtSec = Number(family.createdAt.toString());
   const lastDistSec = Number(family.lastDistribution.toString());
   const principalUsd = Number(family.principalRemaining.toString()) / 1_000_000;
-  const yieldUsd = Number(family.totalYieldEarned.toString()) / 1_000_000;
+  // `family.totalYieldEarned` only updates at redeem events (harvest_and_fee).
+  // Between events we project 8% APY against principal from family creation
+  // so the dashboard tile matches the kid-view ticker instead of showing
+  // $0 for 30 days until the first monthly distribute fires.
+  const realizedYieldUsd =
+    Number(family.totalYieldEarned.toString()) / 1_000_000;
+  const elapsedSec = Math.max(0, now - createdAtSec);
+  const projectedYieldUsd = (principalUsd * 0.08 * elapsedSec) / (365 * 86_400);
+  const yieldUsd = Math.max(realizedYieldUsd, projectedYieldUsd);
   const streamUsd = Number(family.streamRate.toString()) / 1_000_000;
   const sharesInt = Number(family.shares.toString());
   const yieldPct = principalUsd > 0 ? (yieldUsd / principalUsd) * 100 : 0;

@@ -106,9 +106,13 @@ export function KidView({ family, initialClock, kidName }: Props) {
     initialClock.totalShares,
     initialClock.lastKnownTotalAssets
   );
+  // Anchor the projection on family creation time, not page load time —
+  // otherwise the 8% projected yield restarts from $0 every visit.
+  // `last_known_total_assets` only advances on harvest events (redeems);
+  // between harvests we project off the family's creation timestamp.
   const [snapshot, setSnapshot] = useState({
     familyAssets: initialFamilyAssets,
-    snapshotMs: Date.now(),
+    snapshotMs: Number(family.createdAt) * 1000,
   });
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
@@ -126,13 +130,18 @@ export function KidView({ family, initialClock, kidName }: Props) {
           fetchVaultClock(connection, MAINNET_ADDRESSES.vaultConfig),
         ]);
         if (cancelled || !fam || !clk) return;
-        setSnapshot({
-          familyAssets: computeFamilyAssetsBaseUnits(
-            BigInt(fam.shares.toString()),
-            clk.totalShares,
-            clk.lastKnownTotalAssets
-          ),
-          snapshotMs: Date.now(),
+        const newAssets = computeFamilyAssetsBaseUnits(
+          BigInt(fam.shares.toString()),
+          clk.totalShares,
+          clk.lastKnownTotalAssets
+        );
+        setSnapshot((prev) => {
+          // Only reset the time anchor when on-chain assets actually
+          // moved (harvest fired or shares changed). Otherwise keep the
+          // existing anchor so the 8% projection keeps accumulating
+          // instead of resetting to zero every 30s.
+          if (newAssets === prev.familyAssets) return prev;
+          return { familyAssets: newAssets, snapshotMs: Date.now() };
         });
       } catch {
         // silent retry on next interval
