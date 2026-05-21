@@ -115,8 +115,6 @@ export const en = {
   "card.stat.stream_sub": "usdc",
   "card.stat.balance": "Balance",
   "card.stat.balance_sub": "in this kid's vault",
-  "card.stat.shares": "Shares",
-  "card.stat.shares_sub": "of vault total",
   "card.stat.yield": "Yield earned",
   "card.deposit": "deposit",
   "card.pay_pix": "top up with MoonPay",

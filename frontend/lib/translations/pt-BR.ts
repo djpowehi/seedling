@@ -129,8 +129,6 @@ export const ptBR: Translations = {
   "card.stat.stream_sub": "usdc",
   "card.stat.balance": "Saldo",
   "card.stat.balance_sub": "no cofre deste filho",
-  "card.stat.shares": "Cotas",
-  "card.stat.shares_sub": "do total do cofre",
   "card.stat.yield": "Rendimento",
   "card.deposit": "depositar",
   "card.pay_pix": "recarregar com Pix",

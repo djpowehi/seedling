@@ -133,18 +133,6 @@ function makeFmtCountdown(
   };
 }
 
-/** Compact display for big share counts. Past ~100K the extra digits are
- *  cognitive noise — what matters is "this is roughly how much the
- *  family owns of the vault", not the precise base-unit count.
- *  Scales: <1K → exact, 1K → "1.2K", 1M → "1.2M", 1B → "1.2B". */
-function fmtShares(n: number): string {
-  if (n < 1_000) return Math.trunc(n).toString();
-  if (n < 1_000_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
-  if (n < 1_000_000_000)
-    return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-  return (n / 1_000_000_000).toFixed(2).replace(/\.?0+$/, "") + "B";
-}
-
 export function FamilyCard({
   family,
   connection,
@@ -222,7 +210,6 @@ export function FamilyCard({
   const projectedYieldUsd = (principalUsd * 0.08 * elapsedSec) / (365 * 86_400);
   const yieldUsd = Math.max(realizedYieldUsd, projectedYieldUsd);
   const streamUsd = Number(family.streamRate.toString()) / 1_000_000;
-  const sharesInt = Number(family.shares.toString());
   const yieldPct = principalUsd > 0 ? (yieldUsd / principalUsd) * 100 : 0;
   const combinedBalanceUsd = principalUsd + yieldUsd;
 
@@ -816,11 +803,6 @@ export function FamilyCard({
             );
           })()}
           sub={t("card.stat.balance_sub")}
-        />
-        <StatCell
-          label={t("card.stat.shares")}
-          value={fmtShares(sharesInt)}
-          sub={t("card.stat.shares_sub")}
         />
         <StatCell
           label={t("card.stat.yield")}
