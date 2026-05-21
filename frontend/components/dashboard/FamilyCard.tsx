@@ -835,14 +835,27 @@ export function FamilyCard({
           if (totalSec <= 0) return null;
           const elapsedSec = Math.max(0, now - createdAtSec);
           const pct = Math.min(100, (elapsedSec / totalSec) * 100);
-          // Day 1 = the creation day itself. Any time within the first 24h
-          // window is "Day 1" not "Day 0". floor + 1 gives the natural
-          // calendar-style read.
-          const daysTotal = Math.ceil(totalSec / 86_400);
-          const daysElapsed = Math.min(
-            daysTotal,
-            Math.floor(elapsedSec / 86_400) + 1
+          // Day 1 = the creation calendar day. The counter ticks at LOCAL
+          // MIDNIGHT (Duolingo / Strava convention), not at the deposit's
+          // anniversary minute — that's what users intuit when they check
+          // back daily.
+          const createdDate = new Date(createdAtSec * 1000);
+          const createdMidnight = new Date(
+            createdDate.getFullYear(),
+            createdDate.getMonth(),
+            createdDate.getDate()
+          ).getTime();
+          const nowDate = new Date(now * 1000);
+          const nowMidnight = new Date(
+            nowDate.getFullYear(),
+            nowDate.getMonth(),
+            nowDate.getDate()
+          ).getTime();
+          const calendarDaysElapsed = Math.floor(
+            (nowMidnight - createdMidnight) / 86_400_000
           );
+          const daysTotal = Math.ceil(totalSec / 86_400);
+          const daysElapsed = Math.min(daysTotal, calendarDaysElapsed + 1);
           return (
             <div style={{ marginTop: 16 }}>
               <div
