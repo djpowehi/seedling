@@ -835,8 +835,14 @@ export function FamilyCard({
           if (totalSec <= 0) return null;
           const elapsedSec = Math.max(0, now - createdAtSec);
           const pct = Math.min(100, (elapsedSec / totalSec) * 100);
-          const daysElapsed = Math.floor(elapsedSec / 86_400);
+          // Day 1 = the creation day itself. Any time within the first 24h
+          // window is "Day 1" not "Day 0". floor + 1 gives the natural
+          // calendar-style read.
           const daysTotal = Math.ceil(totalSec / 86_400);
+          const daysElapsed = Math.min(
+            daysTotal,
+            Math.floor(elapsedSec / 86_400) + 1
+          );
           return (
             <div style={{ marginTop: 16 }}>
               <div
