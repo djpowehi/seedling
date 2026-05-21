@@ -403,7 +403,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
                 return (
                   <>
                     {whole}
-                    <span style={{ fontSize: "0.62em", opacity: 0.55 }}>
+                    <span style={{ fontSize: "0.78em", opacity: 0.75 }}>
                       {dec}
                     </span>
                   </>
@@ -423,7 +423,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
                   return (
                     <>
                       {whole}
-                      <span style={{ fontSize: "0.62em", opacity: 0.55 }}>
+                      <span style={{ fontSize: "0.78em", opacity: 0.75 }}>
                         {dec}
                       </span>
                     </>

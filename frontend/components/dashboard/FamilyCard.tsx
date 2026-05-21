@@ -809,7 +809,7 @@ export function FamilyCard({
             return (
               <>
                 {whole}
-                <span style={{ fontSize: "0.62em", color: "var(--ink-3)" }}>
+                <span style={{ fontSize: "0.78em", color: "var(--ink-2)" }}>
                   {dec}
                 </span>
               </>
@@ -829,7 +829,7 @@ export function FamilyCard({
             return (
               <>
                 {whole}
-                <span style={{ fontSize: "0.62em", color: "var(--ink-3)" }}>
+                <span style={{ fontSize: "0.78em", color: "var(--ink-2)" }}>
                   {dec}
                 </span>
               </>
