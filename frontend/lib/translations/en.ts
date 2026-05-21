@@ -105,8 +105,6 @@ export const en = {
   "card.unnamed": "unnamed",
   "card.rename.tooltip": "click to rename",
   "card.cadence.suffix": "cadence",
-  "card.created_ago": "created {ago}",
-  "card.last_paid": "last paid {ago}",
   "card.share_link": "share link",
   "card.copy_link": "copy link",
   "card.kids_page": "kid's page",

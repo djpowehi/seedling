@@ -119,8 +119,6 @@ export const ptBR: Translations = {
   "card.unnamed": "sem nome",
   "card.rename.tooltip": "clique para renomear",
   "card.cadence.suffix": "frequência",
-  "card.created_ago": "criado {ago}",
-  "card.last_paid": "último pagamento {ago}",
   "card.share_link": "compartilhar",
   "card.copy_link": "copiar link",
   "card.kids_page": "página do filho",

@@ -756,16 +756,6 @@ export function FamilyCard({
               ? t("card.draft.badge")
               : t(`mode.${depositMode}.plan` as TranslationKey)}
           </span>
-          <span
-            className="dash-mono"
-            style={{
-              fontSize: 11,
-              color: "var(--ink-3)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {t("card.created_ago", { ago: fmtAgo(now - createdAtSec) })}
-          </span>
         </div>
       </div>
 
@@ -831,20 +821,6 @@ export function FamilyCard({
           flexWrap: "wrap",
         }}
       >
-        <span
-          className="dash-mono"
-          style={{ fontSize: 11, color: "var(--ink-3)" }}
-        >
-          {t("card.last_paid", { ago: fmtAgo(now - lastDistSec) })}
-        </span>
-        <span
-          style={{
-            width: 3,
-            height: 3,
-            borderRadius: "50%",
-            background: "var(--line)",
-          }}
-        />
         <button className="dash-btn-link" onClick={shareKidPageLink}>
           {t("card.share_link")}
         </button>
