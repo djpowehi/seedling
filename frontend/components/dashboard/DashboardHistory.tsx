@@ -32,7 +32,7 @@ const POLL_MS = 30_000;
 const VISIBLE_DEFAULT = 6;
 
 export function DashboardHistory({ families }: Props) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -105,7 +105,9 @@ export function DashboardHistory({ families }: Props) {
             display: "block",
           }}
         >
-          {t("history.subtitle", { n: entries.length })}
+          {entries.length === 1
+            ? t("history.subtitle.one")
+            : t("history.subtitle.other", { n: entries.length })}
         </span>
       </header>
 
@@ -141,7 +143,7 @@ export function DashboardHistory({ families }: Props) {
 }
 
 function HistoryRow({ entry }: { entry: HistoryEntry }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { icon, label, sign } = kindMeta(entry, t);
   const kidName = getKidName(entry.familyKey) ?? t("card.unnamed");
   const amountStr =
@@ -186,7 +188,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
           className="dash-mono"
           style={{ fontSize: 11, color: "var(--ink-3)" }}
         >
-          {timeAgo(entry.ts, t)}
+          {formatEventTime(entry.ts, locale, t)}
         </span>
       </div>
       {amountStr && (
@@ -233,8 +235,12 @@ function kindMeta(
   }
 }
 
-function timeAgo(
+// Recent events read better in relative time ("12m ago"); anything 24h+
+// switches to a date. Locale-aware: en → MM/DD, pt-BR → DD/MM via
+// Intl.DateTimeFormat — handles the ordering convention automatically.
+function formatEventTime(
   tsSec: number,
+  locale: "en" | "pt-BR",
   t: (k: TranslationKey, vars?: Record<string, string | number>) => string
 ): string {
   const elapsed = Math.floor(Date.now() / 1000 - tsSec);
@@ -243,5 +249,8 @@ function timeAgo(
     return t("card.activity.minutes_ago", { n: Math.floor(elapsed / 60) });
   if (elapsed < 86400)
     return t("card.activity.hours_ago", { n: Math.floor(elapsed / 3600) });
-  return t("card.activity.days_ago", { n: Math.floor(elapsed / 86400) });
+  return new Intl.DateTimeFormat(locale, {
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(tsSec * 1000));
 }
