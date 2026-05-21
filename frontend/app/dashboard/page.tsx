@@ -11,6 +11,7 @@ import { AddKidForm } from "@/components/dashboard/AddKidForm";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { FamilyCard } from "@/components/dashboard/FamilyCard";
 import { ParentAccountSection } from "@/components/dashboard/ParentAccountSection";
+import { DashboardHistory } from "@/components/dashboard/DashboardHistory";
 import { Plus } from "@/components/dashboard/icons";
 import { DASHBOARD_STYLES } from "@/components/dashboard/styles";
 import { LocaleToggle } from "@/components/LocaleToggle";
@@ -239,6 +240,8 @@ export default function Dashboard() {
                     </button>
                   </div>
                 )}
+
+                <DashboardHistory families={families} />
               </>
             )}
           </>

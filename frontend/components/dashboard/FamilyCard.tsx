@@ -55,7 +55,6 @@ import { ArrowUR, PixLogo, MoonPayLogo, Plus } from "./icons";
 import { GoalRow } from "./GoalRow";
 import { AddGoalInline } from "./AddGoalInline";
 import { GiftsSection } from "./GiftsSection";
-import { ActivityFeed } from "./ActivityFeed";
 
 const SYSVAR_INSTRUCTIONS = new PublicKey(
   "Sysvar1nstructions1111111111111111111111111"
@@ -1273,8 +1272,6 @@ export function FamilyCard({
           )}
         </div>
       </div>
-
-      <ActivityFeed familyPda={family.pubkey} />
 
       <GiftsSection
         familyPda={family.pubkey}
