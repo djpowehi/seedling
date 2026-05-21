@@ -92,6 +92,16 @@ function fmtYield(n: number): string {
   return fmtUSD(n);
 }
 
+/** Honest-money split: show full 6-decimal precision but visually demote
+ *  the trailing decimals so dollars scan first. Same brand cue as the
+ *  kid-view hero ticker — Seedling shows every base unit because hiding
+ *  yield is what every other fintech does. */
+function fmtSplitUSD(n: number): { whole: string; dec: string } {
+  const [whole, dec = "000000"] = n.toFixed(6).split(".");
+  const wholeFormatted = Number(whole).toLocaleString("en-US");
+  return { whole: "$" + wholeFormatted, dec: "." + dec };
+}
+
 // Locale-aware "ago" + "countdown" formatters. Need t() at call site so
 // they update when the user toggles language. Hooked into useLocale via
 // the makeFmt helpers below.
@@ -794,7 +804,17 @@ export function FamilyCard({
         />
         <StatCell
           label={t("card.stat.balance")}
-          value={fmtUSD(combinedBalanceUsd)}
+          value={(() => {
+            const { whole, dec } = fmtSplitUSD(combinedBalanceUsd);
+            return (
+              <>
+                {whole}
+                <span style={{ fontSize: "0.62em", color: "var(--ink-3)" }}>
+                  {dec}
+                </span>
+              </>
+            );
+          })()}
           sub={t("card.stat.balance_sub")}
         />
         <StatCell
@@ -804,7 +824,17 @@ export function FamilyCard({
         />
         <StatCell
           label={t("card.stat.yield")}
-          value={fmtYield(yieldUsd)}
+          value={(() => {
+            const { whole, dec } = fmtSplitUSD(yieldUsd);
+            return (
+              <>
+                {whole}
+                <span style={{ fontSize: "0.62em", color: "var(--ink-3)" }}>
+                  {dec}
+                </span>
+              </>
+            );
+          })()}
           sub={`+${yieldPct.toFixed(2)}%`}
         />
       </div>
@@ -1343,7 +1373,7 @@ function StatCell({
   sub,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   sub?: string;
 }) {
   return (

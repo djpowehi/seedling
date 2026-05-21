@@ -69,6 +69,15 @@ function fmtYield(n: number): string {
   return fmt2(n);
 }
 
+/** Honest-money split: show full 6-decimal precision but visually demote
+ *  the trailing decimals. Mirrors fmtTicker visually for the breakdown
+ *  stat tiles below the hero. */
+function fmtSplitUSD(n: number): { whole: string; dec: string } {
+  const [whole, dec = "000000"] = n.toFixed(6).split(".");
+  const wholeFormatted = Number(whole).toLocaleString("en-US");
+  return { whole: "$" + wholeFormatted, dec: "." + dec };
+}
+
 function fmtTicker(n: number): { whole: string; dec: string } {
   // 6 decimals = sub-microsecond resolution at 8% APY on $30 (~$0.0007/min).
   // The trailing two digits flicker constantly — drives the "money is
@@ -388,7 +397,19 @@ export function KidView({ family, initialClock, kidName }: Props) {
         <section className="kv-stats">
           <div className="kv-stat">
             <div className="kv-stat-label">{t("kid.stat.savings")}</div>
-            <div className="kv-stat-value">{fmt2(principalUsd)}</div>
+            <div className="kv-stat-value">
+              {(() => {
+                const { whole, dec } = fmtSplitUSD(principalUsd);
+                return (
+                  <>
+                    {whole}
+                    <span style={{ fontSize: "0.62em", opacity: 0.55 }}>
+                      {dec}
+                    </span>
+                  </>
+                );
+              })()}
+            </div>
             <div className="kv-stat-foot">{t("kid.stat.savings.foot")}</div>
           </div>
           <div className="kv-stat">
@@ -397,7 +418,17 @@ export function KidView({ family, initialClock, kidName }: Props) {
               {hideYield ? (
                 <span className="kv-stat-hidden">— · —</span>
               ) : (
-                fmtYield(yieldEarnedUsd)
+                (() => {
+                  const { whole, dec } = fmtSplitUSD(yieldEarnedUsd);
+                  return (
+                    <>
+                      {whole}
+                      <span style={{ fontSize: "0.62em", opacity: 0.55 }}>
+                        {dec}
+                      </span>
+                    </>
+                  );
+                })()
               )}
             </div>
             <div className="kv-stat-foot">

@@ -178,7 +178,20 @@ export function GoalRow({
               whiteSpace: "nowrap",
             }}
           >
-            ${combinedBalanceUsd.toFixed(2)}{" "}
+            {(() => {
+              // Honest-money split — same brand cue as the kid-view ticker
+              // and parent dashboard balance tile. Show every base unit but
+              // visually demote trailing decimals so dollars scan first.
+              const [whole, dec = "000000"] = combinedBalanceUsd
+                .toFixed(6)
+                .split(".");
+              return (
+                <>
+                  ${Number(whole).toLocaleString()}
+                  <span style={{ opacity: 0.55 }}>.{dec}</span>
+                </>
+              );
+            })()}{" "}
             <span style={{ opacity: 0.55 }}>/ </span>
             {editing ? (
               <input
