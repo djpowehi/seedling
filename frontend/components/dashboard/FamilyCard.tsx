@@ -825,6 +825,61 @@ export function FamilyCard({
         />
       </div>
 
+      {/* Year journey — thin progress line showing where this family sits
+          in the current annual period. Reads "Day 4 of 363 · 1.1% to bonus"
+          + a sub-cent-thin filled bar. Pure status, no action — the dashboard
+          equivalent of the kid view's growing tree. */}
+      {vaultClock &&
+        (() => {
+          const totalSec = vaultClock.periodEndTs - createdAtSec;
+          if (totalSec <= 0) return null;
+          const elapsedSec = Math.max(0, now - createdAtSec);
+          const pct = Math.min(100, (elapsedSec / totalSec) * 100);
+          const daysElapsed = Math.floor(elapsedSec / 86_400);
+          const daysTotal = Math.ceil(totalSec / 86_400);
+          return (
+            <div style={{ marginTop: 16 }}>
+              <div
+                className="dash-mono"
+                style={{
+                  fontSize: 11,
+                  color: "var(--ink-3)",
+                  marginBottom: 6,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  display: "flex",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span>
+                  {t("card.journey.day", {
+                    day: daysElapsed,
+                    total: daysTotal,
+                  })}
+                </span>
+                <span>{t("card.journey.pct", { pct: pct.toFixed(1) })}</span>
+              </div>
+              <div
+                style={{
+                  height: 4,
+                  borderRadius: 2,
+                  background: "var(--line-soft, #e9e3d5)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${pct}%`,
+                    height: "100%",
+                    background: "var(--forest, #2e5b3f)",
+                    transition: "width 200ms ease",
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })()}
+
       {/* Footer meta row */}
       <div
         className="dash-row"

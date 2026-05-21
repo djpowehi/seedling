@@ -121,6 +121,8 @@ export const ptBR: Translations = {
   "card.cadence.suffix": "frequência",
   "card.share_link": "compartilhar",
   "card.copy_link": "copiar link",
+  "card.journey.day": "Dia {day} de {total}",
+  "card.journey.pct": "{pct}% até o bônus",
   "card.kids_page": "página do filho",
   "card.stat.stream": "Mesada",
   "card.stat.stream_value": "${amount}/mês",

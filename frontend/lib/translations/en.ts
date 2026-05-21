@@ -108,6 +108,8 @@ export const en = {
   "card.share_link": "share link",
   "card.copy_link": "copy link",
   "card.kids_page": "kid's page",
+  "card.journey.day": "Day {day} of {total}",
+  "card.journey.pct": "{pct}% to bonus",
   "card.stat.stream": "Stream",
   "card.stat.stream_value": "${amount}/mo",
   "card.stat.stream_sub": "usdc",
