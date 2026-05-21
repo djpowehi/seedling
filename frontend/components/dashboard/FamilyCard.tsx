@@ -192,6 +192,16 @@ export function FamilyCard({
     return () => clearInterval(interval);
   }, []);
 
+  // Sub-second ticker that drives the live Balance + Yield flicker — same
+  // ambient "money is alive" feel as the kid view. 1Hz "now" is fine for
+  // countdowns ('25d 1h') but doesn't move microcents visibly; 10Hz lets
+  // the trailing decimals flicker so the parent feels the growth.
+  const [tickMs, setTickMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setTickMs(Date.now()), 100);
+    return () => clearInterval(id);
+  }, []);
+
   useEffect(() => {
     if (renaming) renameRef.current?.select();
   }, [renaming]);
@@ -204,10 +214,14 @@ export function FamilyCard({
   // Between events we project 8% APY against principal from family creation
   // so the dashboard tile matches the kid-view ticker instead of showing
   // $0 for 30 days until the first monthly distribute fires.
+  //
+  // Driven by `tickMs` (10Hz) so the microcents visibly flicker — same
+  // ambient growth feel as the kid view's hero ticker.
   const realizedYieldUsd =
     Number(family.totalYieldEarned.toString()) / 1_000_000;
-  const elapsedSec = Math.max(0, now - createdAtSec);
-  const projectedYieldUsd = (principalUsd * 0.08 * elapsedSec) / (365 * 86_400);
+  const elapsedSecLive = Math.max(0, tickMs / 1000 - createdAtSec);
+  const projectedYieldUsd =
+    (principalUsd * 0.08 * elapsedSecLive) / (365 * 86_400);
   const yieldUsd = Math.max(realizedYieldUsd, projectedYieldUsd);
   const streamUsd = Number(family.streamRate.toString()) / 1_000_000;
   const yieldPct = principalUsd > 0 ? (yieldUsd / principalUsd) * 100 : 0;
