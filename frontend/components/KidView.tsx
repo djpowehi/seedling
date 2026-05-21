@@ -62,6 +62,13 @@ function fmt2(n: number): string {
   );
 }
 
+// Sub-cent precision when value is small — same pattern as the family
+// card on the parent dashboard so the two surfaces agree.
+function fmtYield(n: number): string {
+  if (n > 0 && n < 0.01) return "$" + n.toFixed(4);
+  return fmt2(n);
+}
+
 function fmtTicker(n: number): { whole: string; dec: string } {
   // 6 decimals = sub-microsecond resolution at 8% APY on $30 (~$0.0007/min).
   // The trailing two digits flicker constantly — drives the "money is
@@ -390,7 +397,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
               {hideYield ? (
                 <span className="kv-stat-hidden">— · —</span>
               ) : (
-                fmt2(yieldEarnedUsd)
+                fmtYield(yieldEarnedUsd)
               )}
             </div>
             <div className="kv-stat-foot">

@@ -84,6 +84,14 @@ function fmtUSD(n: number): string {
   );
 }
 
+// Sub-cent precision when yield is small so the displayed dollar matches
+// the displayed percentage. $0.0054 (+0.11%) reads consistently; $0.01
+// (+0.11%) looks broken because $0.01 / $5 = 0.20% not 0.11%.
+function fmtYield(n: number): string {
+  if (n > 0 && n < 0.01) return "$" + n.toFixed(4);
+  return fmtUSD(n);
+}
+
 // Locale-aware "ago" + "countdown" formatters. Need t() at call site so
 // they update when the user toggles language. Hooked into useLocale via
 // the makeFmt helpers below.
@@ -785,9 +793,9 @@ export function FamilyCard({
           sub={t("card.stat.stream_sub")}
         />
         <StatCell
-          label={t("card.stat.principal")}
-          value={fmtUSD(principalUsd)}
-          sub={t("card.stat.principal_sub")}
+          label={t("card.stat.balance")}
+          value={fmtUSD(combinedBalanceUsd)}
+          sub={t("card.stat.balance_sub")}
         />
         <StatCell
           label={t("card.stat.shares")}
@@ -796,7 +804,7 @@ export function FamilyCard({
         />
         <StatCell
           label={t("card.stat.yield")}
-          value={fmtUSD(yieldUsd)}
+          value={fmtYield(yieldUsd)}
           sub={`+${yieldPct.toFixed(2)}%`}
         />
       </div>
