@@ -133,6 +133,22 @@ function makeFmtCountdown(
   };
 }
 
+// Locale-aware short date for the eligible-on labels. en → MM/DD,
+// pt-BR → DD/MM. Year shown only when the target falls outside the
+// current calendar year (e.g., year-end bonus 12 months out).
+function formatEligibleDate(
+  secondsLeft: number,
+  locale: "en" | "pt-BR"
+): string {
+  const target = new Date((Math.floor(Date.now() / 1000) + secondsLeft) * 1000);
+  const sameYear = target.getFullYear() === new Date().getFullYear();
+  return new Intl.DateTimeFormat(locale, {
+    month: "2-digit",
+    day: "2-digit",
+    ...(sameYear ? {} : { year: "2-digit" }),
+  }).format(target);
+}
+
 export function FamilyCard({
   family,
   connection,
@@ -1046,8 +1062,8 @@ export function FamilyCard({
               ? t("card.sending")
               : monthlyReady
               ? t("card.send_monthly")
-              : t("card.monthly_in", {
-                  countdown: fmtCountdown(monthlySecondsLeft),
+              : t("card.monthly_on", {
+                  date: formatEligibleDate(monthlySecondsLeft, locale),
                 })}
           </button>
           <button
@@ -1072,8 +1088,8 @@ export function FamilyCard({
               : bonusReady
               ? t("card.send_bonus")
               : vaultClock
-              ? t("card.bonus_in", {
-                  countdown: fmtCountdown(bonusSecondsLeft),
+              ? t("card.bonus_on", {
+                  date: formatEligibleDate(bonusSecondsLeft, locale),
                 })
               : t("card.bonus_loading")}
           </button>
