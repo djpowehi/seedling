@@ -692,6 +692,58 @@ export function FamilyCard({
         pointerEvents: closing ? "none" : "auto",
       }}
     >
+      {/* Ready-to-send alert — only renders when the monthly cooldown
+          (30d) or the bonus period has elapsed and the parent hasn't fired
+          the distribution yet. Banking-app pattern: most prominent thing
+          on the card when there's actually something to act on, invisible
+          otherwise. Warm gold accent distinguishes it from action buttons
+          below. */}
+      {!closing && !family.isDraft && (monthlyReady || bonusReady) && (
+        <div
+          style={{
+            marginBottom: 24,
+            padding: "16px 20px",
+            background: "rgba(212, 166, 71, 0.10)",
+            border: "1px solid rgba(212, 166, 71, 0.35)",
+            borderLeft: "3px solid #d4a647",
+            borderRadius: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+          }}
+        >
+          {monthlyReady && (
+            <ReadyRow
+              eyebrow={t("card.ready.eyebrow")}
+              title={t("card.ready.monthly", {
+                kid: name ?? t("card.unnamed"),
+                amount: streamUsd.toFixed(0),
+              })}
+              ctaLabel={
+                submitting === "monthly"
+                  ? t("card.sending")
+                  : t("card.ready.cta")
+              }
+              onClick={handleMonthly}
+              disabled={submitting !== null}
+            />
+          )}
+          {bonusReady && (
+            <ReadyRow
+              eyebrow={t("card.ready.eyebrow")}
+              title={t("card.ready.bonus", {
+                kid: name ?? t("card.unnamed"),
+              })}
+              ctaLabel={
+                submitting === "bonus" ? t("card.sending") : t("card.ready.cta")
+              }
+              onClick={handleBonus}
+              disabled={submitting !== null}
+            />
+          )}
+        </div>
+      )}
+
       {/* Top: name + age */}
       <div
         className="dash-row"
@@ -1426,6 +1478,69 @@ export function FamilyCard({
         </button>
       </div>
     </article>
+  );
+}
+
+function ReadyRow({
+  eyebrow,
+  title,
+  ctaLabel,
+  onClick,
+  disabled,
+}: {
+  eyebrow: string;
+  title: string;
+  ctaLabel: string;
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div
+      className="dash-row"
+      style={{
+        alignItems: "center",
+        gap: 16,
+        flexWrap: "wrap",
+      }}
+    >
+      <div className="dash-col" style={{ flex: "1 1 200px", gap: 4 }}>
+        <span
+          className="dash-mono"
+          style={{
+            fontSize: 11,
+            color: "#8a6a1f",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          {eyebrow}
+        </span>
+        <span
+          className="dash-serif"
+          style={{
+            fontSize: 18,
+            lineHeight: 1.2,
+            color: "var(--ink)",
+          }}
+        >
+          {title}
+        </span>
+      </div>
+      <button
+        className="dash-btn"
+        onClick={onClick}
+        disabled={disabled}
+        style={{
+          background: "#d4a647",
+          color: "#1f2920",
+          border: "1px solid #b88a30",
+          fontWeight: 600,
+          padding: "10px 18px",
+        }}
+      >
+        {ctaLabel}
+      </button>
+    </div>
   );
 }
 
