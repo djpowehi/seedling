@@ -136,17 +136,48 @@ function makeFmtCountdown(
 // Locale-aware short date for the eligible-on labels. en → MM/DD,
 // pt-BR → DD/MM. Year shown only when the target falls outside the
 // current calendar year (e.g., year-end bonus 12 months out).
-function formatEligibleDate(
-  secondsLeft: number,
-  locale: "en" | "pt-BR"
-): string {
-  const target = new Date((Math.floor(Date.now() / 1000) + secondsLeft) * 1000);
+function formatShortDate(target: Date, locale: "en" | "pt-BR"): string {
   const sameYear = target.getFullYear() === new Date().getFullYear();
   return new Intl.DateTimeFormat(locale, {
     month: "2-digit",
     day: "2-digit",
     ...(sameYear ? {} : { year: "2-digit" }),
   }).format(target);
+}
+
+// First-day-of-next-month in the user's LOCAL timezone. Monthly allowance
+// fires on the 1st of each calendar month — not 30 days after creation,
+// not 30 days after last distribution. The on-chain 30-day check stays as
+// a safety floor (can't fire faster than monthly); the keeper bot + this
+// display align to the calendar 1st.
+//
+// "Local timezone" comes from Intl — Brazilian parents see the 1st in BRT,
+// US parents see it in their ET/CT/PT. Honest to where the parent lives.
+function nextMonthFirstDay(eligibleAtSec: number): Date {
+  // Earliest possible distribution date = whichever is later: the on-chain
+  // 30-day cooldown end OR today (in case the cooldown is already past).
+  const anchor = new Date(Math.max(Date.now(), eligibleAtSec * 1000));
+  const y = anchor.getFullYear();
+  const m = anchor.getMonth(); // 0-based
+  const dayOfMonth = anchor.getDate();
+  // If the anchor is the 1st AND midnight has just rolled, today qualifies.
+  // Otherwise the next 1st is in the following month.
+  if (dayOfMonth === 1) {
+    return new Date(y, m, 1, 0, 0, 0, 0);
+  }
+  return new Date(y, m + 1, 1, 0, 0, 0, 0);
+}
+
+function daysUntil(target: Date): number {
+  const oneDay = 86_400_000;
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  const targetMidnight = new Date(target);
+  targetMidnight.setHours(0, 0, 0, 0);
+  return Math.max(
+    0,
+    Math.round((targetMidnight.getTime() - todayMidnight.getTime()) / oneDay)
+  );
 }
 
 export function FamilyCard({
@@ -245,6 +276,14 @@ export function FamilyCard({
 
   const monthlyEligibleAt = lastDistSec + MONTH_SECONDS;
   const monthlySecondsLeft = Math.max(0, monthlyEligibleAt - now);
+  // Display + keeper-bot semantics: "monthly fires on the 1st of each
+  // calendar month, in the parent's local timezone." On-chain 30d floor
+  // remains as the safety guard (can't fire faster than monthly).
+  const nextMonthlyDate = nextMonthFirstDay(monthlyEligibleAt);
+  const daysUntilMonthly = daysUntil(nextMonthlyDate);
+  // "Ready" still uses the on-chain cooldown — but the keeper bot will
+  // also enforce the 1st-of-month gate, so eligibility on the 14th of the
+  // month doesn't actually trigger a payout until the next 1st rolls over.
   const monthlyReady = monthlySecondsLeft <= 0;
 
   const bonusReady =
@@ -1062,8 +1101,13 @@ export function FamilyCard({
               ? t("card.sending")
               : monthlyReady
               ? t("card.send_monthly")
-              : t("card.monthly_on", {
-                  date: formatEligibleDate(monthlySecondsLeft, locale),
+              : daysUntilMonthly === 1
+              ? t("card.monthly_on.day", {
+                  date: formatShortDate(nextMonthlyDate, locale),
+                })
+              : t("card.monthly_on.days", {
+                  date: formatShortDate(nextMonthlyDate, locale),
+                  days: daysUntilMonthly,
                 })}
           </button>
           <button
@@ -1088,9 +1132,18 @@ export function FamilyCard({
               : bonusReady
               ? t("card.send_bonus")
               : vaultClock
-              ? t("card.bonus_on", {
-                  date: formatEligibleDate(bonusSecondsLeft, locale),
-                })
+              ? (() => {
+                  const target = new Date(vaultClock.periodEndTs * 1000);
+                  const days = daysUntil(target);
+                  return days === 1
+                    ? t("card.bonus_on.day", {
+                        date: formatShortDate(target, locale),
+                      })
+                    : t("card.bonus_on.days", {
+                        date: formatShortDate(target, locale),
+                        days,
+                      });
+                })()
               : t("card.bonus_loading")}
           </button>
         </div>
