@@ -950,10 +950,29 @@ export function FamilyCard({
                   }}
                 />
               </div>
-              {/* Bonus date line — same conceptual surface as the journey
-                  bar above (both describe "where you are in the bonus cycle").
-                  No separate button: the keeper bot fires bonus automatically,
-                  so this is pure status. */}
+              {/* Status lines — both monthly + bonus described here as
+                  pure-status surfaces. Keeper bot fires both automatically;
+                  no manual buttons needed. Monthly first (more frequent
+                  recurring event), bonus below (annual). */}
+              <div
+                className="dash-mono"
+                style={{
+                  fontSize: 11,
+                  color: "var(--ink-3)",
+                  marginTop: 10,
+                  letterSpacing: "0.04em",
+                }}
+              >
+                📅{" "}
+                {daysUntilMonthly === 1
+                  ? t("card.monthly_on.day", {
+                      date: formatShortDate(nextMonthlyDate, locale),
+                    })
+                  : t("card.monthly_on.days", {
+                      date: formatShortDate(nextMonthlyDate, locale),
+                      days: daysUntilMonthly,
+                    })}
+              </div>
               {(() => {
                 const target = new Date(vaultClock.periodEndTs * 1000);
                 const days = daysUntil(target);
@@ -972,7 +991,7 @@ export function FamilyCard({
                     style={{
                       fontSize: 11,
                       color: "var(--ink-3)",
-                      marginTop: 10,
+                      marginTop: 6,
                       letterSpacing: "0.04em",
                     }}
                   >
@@ -1111,40 +1130,9 @@ export function FamilyCard({
           aria-hidden="true"
         />
 
-        {/* Row 4 — next monthly. Bonus moved into the journey block above
-            (same conceptual surface — "where you are in the bonus cycle").
-            Monthly is the prominent recurring event; bonus is a once-a-year
-            status line. */}
-        <div className="dash-btn-row">
-          <button
-            className={`dash-btn ${
-              monthlyReady ? "dash-btn-ghost" : "dash-btn-disabled-state"
-            }`}
-            disabled={!monthlyReady || submitting !== null}
-            onClick={handleMonthly}
-            style={{ width: "100%", padding: "14px 18px", fontWeight: 500 }}
-            title={
-              monthlyReady
-                ? t("card.tip.send_monthly")
-                : t("card.tip.available_in", {
-                    countdown: fmtCountdown(monthlySecondsLeft),
-                  })
-            }
-          >
-            {submitting === "monthly"
-              ? t("card.sending")
-              : monthlyReady
-              ? t("card.send_monthly")
-              : daysUntilMonthly === 1
-              ? t("card.monthly_on.day", {
-                  date: formatShortDate(nextMonthlyDate, locale),
-                })
-              : t("card.monthly_on.days", {
-                  date: formatShortDate(nextMonthlyDate, locale),
-                  days: daysUntilMonthly,
-                })}
-          </button>
-        </div>
+        {/* Monthly + bonus moved into the journey block above as status
+            lines. No manual button — keeper bot fires distributions
+            automatically. */}
       </div>
 
       {error && (
