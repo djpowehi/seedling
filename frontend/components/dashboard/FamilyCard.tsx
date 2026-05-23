@@ -950,6 +950,36 @@ export function FamilyCard({
                   }}
                 />
               </div>
+              {/* Bonus date line — same conceptual surface as the journey
+                  bar above (both describe "where you are in the bonus cycle").
+                  No separate button: the keeper bot fires bonus automatically,
+                  so this is pure status. */}
+              {(() => {
+                const target = new Date(vaultClock.periodEndTs * 1000);
+                const days = daysUntil(target);
+                const copy =
+                  days === 1
+                    ? t("card.bonus_on.day", {
+                        date: formatShortDate(target, locale),
+                      })
+                    : t("card.bonus_on.days", {
+                        date: formatShortDate(target, locale),
+                        days,
+                      });
+                return (
+                  <div
+                    className="dash-mono"
+                    style={{
+                      fontSize: 11,
+                      color: "var(--ink-3)",
+                      marginTop: 10,
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    🎁 {copy}
+                  </div>
+                );
+              })()}
             </div>
           );
         })()}
@@ -1081,7 +1111,10 @@ export function FamilyCard({
           aria-hidden="true"
         />
 
-        {/* Row 4 — automated distributions */}
+        {/* Row 4 — next monthly. Bonus moved into the journey block above
+            (same conceptual surface — "where you are in the bonus cycle").
+            Monthly is the prominent recurring event; bonus is a once-a-year
+            status line. */}
         <div className="dash-btn-row">
           <button
             className={`dash-btn ${
@@ -1089,6 +1122,7 @@ export function FamilyCard({
             }`}
             disabled={!monthlyReady || submitting !== null}
             onClick={handleMonthly}
+            style={{ width: "100%", padding: "14px 18px", fontWeight: 500 }}
             title={
               monthlyReady
                 ? t("card.tip.send_monthly")
@@ -1109,42 +1143,6 @@ export function FamilyCard({
                   date: formatShortDate(nextMonthlyDate, locale),
                   days: daysUntilMonthly,
                 })}
-          </button>
-          <button
-            className={`dash-btn ${
-              bonusReady ? "dash-btn-ghost" : "dash-btn-disabled-state"
-            }`}
-            disabled={!bonusReady || submitting !== null}
-            onClick={handleBonus}
-            title={
-              bonusReady
-                ? t("card.tip.send_bonus")
-                : vaultClock
-                ? t("card.tip.available_in", {
-                    countdown: fmtCountdown(bonusSecondsLeft),
-                  })
-                : t("card.tip.loading")
-            }
-          >
-            <span aria-hidden="true">🎁</span>{" "}
-            {submitting === "bonus"
-              ? t("card.sending")
-              : bonusReady
-              ? t("card.send_bonus")
-              : vaultClock
-              ? (() => {
-                  const target = new Date(vaultClock.periodEndTs * 1000);
-                  const days = daysUntil(target);
-                  return days === 1
-                    ? t("card.bonus_on.day", {
-                        date: formatShortDate(target, locale),
-                      })
-                    : t("card.bonus_on.days", {
-                        date: formatShortDate(target, locale),
-                        days,
-                      });
-                })()
-              : t("card.bonus_loading")}
           </button>
         </div>
       </div>
