@@ -48,9 +48,17 @@ type DistributionKind = "monthly" | "bonus";
 type DispatchResult = {
   family: string;
   kind: DistributionKind;
-  status: "sent" | "already_processed" | "skipped" | "error";
+  status:
+    | "sent"
+    | "already_processed"
+    | "skipped"
+    | "error"
+    | "simulated"
+    | "simulation_failed";
   signature?: string;
   reason?: string;
+  unitsConsumed?: number;
+  logs?: string[];
 };
 
 function isAuthorized(req: Request): boolean {
@@ -109,7 +117,8 @@ function buildSharedAccounts(family: FamilyWithPubkey, keeper: PublicKey) {
 
 async function dispatch(
   family: FamilyWithPubkey,
-  kind: DistributionKind
+  kind: DistributionKind,
+  options: { dryRun: boolean }
 ): Promise<DispatchResult> {
   const keeper = getHotWalletKeypair();
   const connection = getConnection();
@@ -145,6 +154,26 @@ async function dispatch(
     tx.feePayer = keeper.publicKey;
     tx.sign(keeper);
 
+    if (options.dryRun) {
+      const sim = await connection.simulateTransaction(tx);
+      if (sim.value.err) {
+        return {
+          family: familyKey,
+          kind,
+          status: "simulation_failed",
+          reason: JSON.stringify(sim.value.err),
+          logs: sim.value.logs ?? undefined,
+        };
+      }
+      return {
+        family: familyKey,
+        kind,
+        status: "simulated",
+        unitsConsumed: sim.value.unitsConsumed,
+        logs: sim.value.logs ?? undefined,
+      };
+    }
+
     const signature = await connection.sendRawTransaction(tx.serialize(), {
       skipPreflight: false,
       maxRetries: 3,
@@ -163,13 +192,14 @@ async function dispatch(
   }
 }
 
-async function runKeeper(): Promise<{
+async function runKeeper(options: { dryRun: boolean }): Promise<{
   summary: {
     families: number;
     monthlyEligible: number;
     bonusEligible: number;
     sent: number;
     errors: number;
+    dryRun: boolean;
   };
   results: DispatchResult[];
   todayIsFirstUTC: boolean;
@@ -188,18 +218,31 @@ async function runKeeper(): Promise<{
   // Serial dispatch — each tx fetches its own blockhash, and a single
   // keeper Keypair can't sign two txs in parallel without nonce conflict.
   for (const family of families) {
-    if (isMonthlyEligible(family, nowSec, todayIsFirstUTC)) {
-      results.push(await dispatch(family, "monthly"));
-    }
-    if (isBonusEligible(family, vault, nowSec)) {
-      results.push(await dispatch(family, "bonus"));
+    if (options.dryRun) {
+      // Dry-run bypasses calendar + period gates so we can exercise the
+      // build/sign/simulate path before the first real eligibility window
+      // (July 1 for Pedro). On-chain checks still run inside simulate —
+      // expect DistributionTooSoon / BonusPeriodNotEnded in the logs.
+      if (family.streamRate !== BigInt(0)) {
+        results.push(await dispatch(family, "monthly", { dryRun: true }));
+        results.push(await dispatch(family, "bonus", { dryRun: true }));
+      }
+    } else {
+      if (isMonthlyEligible(family, nowSec, todayIsFirstUTC)) {
+        results.push(await dispatch(family, "monthly", { dryRun: false }));
+      }
+      if (isBonusEligible(family, vault, nowSec)) {
+        results.push(await dispatch(family, "bonus", { dryRun: false }));
+      }
     }
   }
 
   const monthlyEligible = results.filter((r) => r.kind === "monthly").length;
   const bonusEligible = results.filter((r) => r.kind === "bonus").length;
   const sent = results.filter((r) => r.status === "sent").length;
-  const errors = results.filter((r) => r.status === "error").length;
+  const errors = results.filter(
+    (r) => r.status === "error" || r.status === "simulation_failed"
+  ).length;
 
   return {
     summary: {
@@ -208,6 +251,7 @@ async function runKeeper(): Promise<{
       bonusEligible,
       sent,
       errors,
+      dryRun: options.dryRun,
     },
     results,
     todayIsFirstUTC,
@@ -219,7 +263,9 @@ async function handle(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   try {
-    const result = await runKeeper();
+    const dryRun =
+      new URL(req.url).searchParams.get("dryRun") === "true";
+    const result = await runKeeper({ dryRun });
     return NextResponse.json({ ok: true, ...result });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
