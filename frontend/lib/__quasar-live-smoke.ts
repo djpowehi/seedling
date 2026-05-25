@@ -14,7 +14,8 @@ import {
 } from "./quasar-client";
 import { familyPositionPda, kidViewPda } from "./quasarPdas";
 
-const RPC = "https://api.devnet.solana.com";
+const RPC =
+  process.env.QUASAR_SMOKE_RPC ?? "https://api.mainnet-beta.solana.com";
 
 async function main() {
   const connection = new Connection(RPC, "confirmed");
