@@ -20,7 +20,6 @@ import {
 import { GiftModal } from "@/components/GiftModal";
 import { PixGiftModal } from "@/components/PixGiftModal";
 import { LocaleToggle } from "@/components/LocaleToggle";
-import { PredictionCard } from "@/components/PredictionCard";
 import { KidPayoutLog } from "@/components/KidPayoutLog";
 import { nextKeeperFire } from "@/lib/keeperDates";
 import { YearRecap } from "@/components/YearRecap";
@@ -496,22 +495,6 @@ export function KidView({ family, initialClock, kidName }: Props) {
             </div>
           </div>
         </section>
-
-        <PredictionCard
-          familyKey={familyKey}
-          kidName={kidName}
-          principalUsd={principalUsd}
-          createdAtSec={createdAtSec}
-          goal={
-            goals[0]
-              ? {
-                  label: goals[0].label,
-                  progressUsd: combinedBalanceUsd,
-                  targetUsd: goals[0].amountUsd,
-                }
-              : undefined
-          }
-        />
 
         <KidPayoutLog
           familyPda={family.pubkey}
