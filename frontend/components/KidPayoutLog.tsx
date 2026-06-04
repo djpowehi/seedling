@@ -20,9 +20,38 @@ import { useLocale } from "@/lib/i18n";
 
 interface KidPayoutLogProps {
   familyPda: PublicKey;
-  /** Unix-seconds timestamp of the next allowance eligibility — used for the
-   *  empty-state copy when no payouts have fired yet. */
+  /** Unix-seconds timestamp at which the on-chain 30-day gate elapses. The
+   *  keeper bot enforces calendar-1st-of-month UTC on top of this, so the
+   *  ACTUAL first-fire date is the next 1st-of-month after this — see
+   *  firstOfMonthAfter() below. */
   nextAllowanceAt: number;
+}
+
+/** Given a unix-second timestamp at which a family becomes on-chain-eligible
+ *  for monthly distribution, return the unix-second timestamp at which the
+ *  keeper bot will actually fire — i.e. the next 1st-of-calendar-month at
+ *  00:00 UTC that is >= the eligibility moment. Pedro's case (created
+ *  May 16, gate elapses June 15) returns July 1, not June 15. */
+function firstOfMonthAfter(eligibleAtSec: number): number {
+  const eligible = new Date(eligibleAtSec * 1000);
+  // If eligibility lands exactly on a 1st-of-month at midnight UTC, use it.
+  if (
+    eligible.getUTCDate() === 1 &&
+    eligible.getUTCHours() === 0 &&
+    eligible.getUTCMinutes() === 0 &&
+    eligible.getUTCSeconds() === 0
+  ) {
+    return eligibleAtSec;
+  }
+  const nextFirstMs = Date.UTC(
+    eligible.getUTCFullYear(),
+    eligible.getUTCMonth() + 1,
+    1,
+    0,
+    0,
+    0
+  );
+  return Math.floor(nextFirstMs / 1000);
 }
 
 export function KidPayoutLog({
@@ -78,13 +107,14 @@ export function KidPayoutLog({
   }
 
   if (entries.length === 0) {
-    const future = nextAllowanceAt * 1000 > Date.now();
+    const firstFireSec = firstOfMonthAfter(nextAllowanceAt);
+    const future = firstFireSec * 1000 > Date.now();
     const emptyCopy = future
       ? t("kid.payouts.empty", {
           date: new Intl.DateTimeFormat(locale, {
             month: "short",
             day: "numeric",
-          }).format(new Date(nextAllowanceAt * 1000)),
+          }).format(new Date(firstFireSec * 1000)),
         })
       : t("kid.payouts.empty.unknown");
     return (
