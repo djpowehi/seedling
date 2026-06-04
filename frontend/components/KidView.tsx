@@ -244,6 +244,10 @@ export function KidView({ family, initialClock, kidName }: Props) {
 
   const [giftOpen, setGiftOpen] = useState(false);
   const [pixGiftOpen, setPixGiftOpen] = useState(false);
+  // Consolidated entry point: a single "send a gift" CTA opens this chooser,
+  // which routes to the Pix or crypto-wallet flow. Keeps the kid view to one
+  // gift button without dropping either payment rail.
+  const [giftChooserOpen, setGiftChooserOpen] = useState(false);
 
   // Predict-and-reveal: hide the "earned in yield" stat tile UNLESS the
   // CURRENT month's prediction is locked (or no prior month is awaiting
@@ -504,7 +508,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
         <button
           type="button"
           className="kv-gift-cta"
-          onClick={() => setGiftOpen(true)}
+          onClick={() => setGiftChooserOpen(true)}
         >
           <span className="kv-gift-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
@@ -523,24 +527,7 @@ export function KidView({ family, initialClock, kidName }: Props) {
           </span>
           <span className="kv-gift-text">
             <span className="kv-gift-line">{t("kid.gift_cta.line")}</span>
-            <span className="kv-gift-hint">{t("kid.gift_cta.hint")}</span>
-          </span>
-          <span className="kv-gift-arrow" aria-hidden="true">
-            →
-          </span>
-        </button>
-
-        <button
-          type="button"
-          className="kv-pix-cta"
-          onClick={() => setPixGiftOpen(true)}
-        >
-          <span className="kv-pix-flag" aria-hidden="true">
-            🇧🇷
-          </span>
-          <span className="kv-pix-text">
-            <span className="kv-pix-line">{t("kid.gift_pix.line")}</span>
-            <span className="kv-pix-hint">{t("kid.gift_pix.hint")}</span>
+            <span className="kv-gift-hint">{t("kid.gift_combined.hint")}</span>
           </span>
           <span className="kv-gift-arrow" aria-hidden="true">
             →
@@ -618,6 +605,74 @@ export function KidView({ family, initialClock, kidName }: Props) {
           open={pixGiftOpen}
           onClose={() => setPixGiftOpen(false)}
         />
+
+        {giftChooserOpen && (
+          <div
+            className="kv-chooser-backdrop"
+            onClick={() => setGiftChooserOpen(false)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="kv-chooser" onClick={(e) => e.stopPropagation()}>
+              <div className="kv-chooser-eyebrow">
+                {t("kid.gift_chooser.eyebrow")}
+              </div>
+              <button
+                type="button"
+                className="kv-chooser-card"
+                onClick={() => {
+                  setGiftChooserOpen(false);
+                  setPixGiftOpen(true);
+                }}
+              >
+                <span className="kv-chooser-flag" aria-hidden="true">
+                  🇧🇷
+                </span>
+                <span className="kv-chooser-text">
+                  <span className="kv-chooser-line">
+                    {t("kid.gift_pix.line")}
+                  </span>
+                  <span className="kv-chooser-hint">
+                    {t("kid.gift_pix.hint")}
+                  </span>
+                </span>
+                <span className="kv-chooser-arrow" aria-hidden="true">
+                  →
+                </span>
+              </button>
+              <button
+                type="button"
+                className="kv-chooser-card"
+                onClick={() => {
+                  setGiftChooserOpen(false);
+                  setGiftOpen(true);
+                }}
+              >
+                <span className="kv-chooser-flag" aria-hidden="true">
+                  🌐
+                </span>
+                <span className="kv-chooser-text">
+                  <span className="kv-chooser-line">
+                    {t("kid.gift_chooser.crypto.line")}
+                  </span>
+                  <span className="kv-chooser-hint">
+                    {t("kid.gift_chooser.crypto.hint")}
+                  </span>
+                </span>
+                <span className="kv-chooser-arrow" aria-hidden="true">
+                  →
+                </span>
+              </button>
+              <button
+                type="button"
+                className="kv-chooser-cancel"
+                onClick={() => setGiftChooserOpen(false)}
+              >
+                {t("kid.gift_chooser.cancel")}
+              </button>
+            </div>
+          </div>
+        )}
 
         <footer className="kv-footer">
           <div className="kv-foot-mark">
@@ -1076,6 +1131,65 @@ const KID_VIEW_STYLES = `
     font-family: var(--mono); font-size: 11px;
     color: var(--ink-muted); letter-spacing: 0.04em;
   }
+
+  .kv-chooser-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(20, 30, 22, 0.45);
+    backdrop-filter: blur(2px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50; padding: 20px;
+  }
+  .kv-chooser {
+    background: var(--stone-50);
+    border: 1px solid var(--stone-200);
+    border-radius: 16px;
+    padding: 20px;
+    max-width: 360px; width: 100%;
+    display: flex; flex-direction: column; gap: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+  }
+  .kv-chooser-eyebrow {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-muted); letter-spacing: 0.06em;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+  .kv-chooser-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 14px;
+    background: var(--stone-100);
+    border: 1px solid var(--stone-200);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left; width: 100%;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  .kv-chooser-card:hover {
+    background: var(--stone-200);
+    border-color: var(--stone-300);
+  }
+  .kv-chooser-flag { font-size: 22px; line-height: 1; }
+  .kv-chooser-text { display: flex; flex-direction: column; flex: 1; gap: 2px; }
+  .kv-chooser-line {
+    font-family: var(--serif); font-size: 17px;
+    color: var(--green-900); letter-spacing: -0.005em;
+  }
+  .kv-chooser-hint {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-muted); letter-spacing: 0.04em;
+  }
+  .kv-chooser-arrow {
+    font-family: var(--serif); font-size: 18px;
+    color: var(--green-700);
+  }
+  .kv-chooser-cancel {
+    margin-top: 4px;
+    background: transparent; border: none;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-muted); letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer; padding: 8px;
+  }
+  .kv-chooser-cancel:hover { color: var(--green-700); }
 
   .kv-payouts-empty {
     font-family: var(--serif); font-style: italic;
