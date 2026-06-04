@@ -1047,8 +1047,8 @@ const KID_VIEW_STYLES = `
   .kv-gift-cta {
     display: flex; align-items: center; gap: 14px;
     padding: 16px 18px;
-    background: var(--stone-50);
-    border: 1px solid var(--stone-200);
+    background: rgba(58, 112, 80, 0.06);
+    border: 1px solid var(--green-600);
     border-radius: 14px;
     color: var(--green-900);
     cursor: pointer; text-align: left;
@@ -1056,8 +1056,8 @@ const KID_VIEW_STYLES = `
     transition: all 180ms ease;
   }
   .kv-gift-cta:hover {
-    border-color: var(--green-600);
-    background: var(--stone-100);
+    border-color: var(--green-700);
+    background: rgba(58, 112, 80, 0.12);
   }
   .kv-gift-icon {
     display: inline-flex; align-items: center; justify-content: center;
