@@ -22,6 +22,7 @@ import { PixGiftModal } from "@/components/PixGiftModal";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { PredictionCard } from "@/components/PredictionCard";
 import { KidPayoutLog } from "@/components/KidPayoutLog";
+import { nextKeeperFire } from "@/lib/keeperDates";
 import { YearRecap } from "@/components/YearRecap";
 import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
 import { getGiftNames, shortPubkey, timeAgo } from "@/lib/giftNames";
@@ -191,7 +192,13 @@ export function KidView({ family, initialClock, kidName }: Props) {
     return () => clearInterval(id);
   }, []);
   const lastDist = Number(family.lastDistribution.toString());
-  const nextAllowanceAt = lastDist + MONTH_SECONDS;
+  // On-chain 30-day gate elapses here, but the keeper bot enforces
+  // calendar-1st-of-month UTC on top — so the actual fire date is the next
+  // 1st-of-month at or after the gate. Pedro's gate elapses Jun 15 but his
+  // first real fire is Jul 1. The countdown anchors on the keeper rule so
+  // it doesn't false-trigger "ready!" on a day no money lands.
+  const onChainGateAt = lastDist + MONTH_SECONDS;
+  const nextAllowanceAt = nextKeeperFire(onChainGateAt, now);
   const monthlyDelta = Math.max(0, nextAllowanceAt - now);
   const monthlyDays = Math.floor(monthlyDelta / 86_400);
   const monthlyHours = Math.floor((monthlyDelta % 86_400) / 3_600);

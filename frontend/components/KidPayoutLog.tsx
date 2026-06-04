@@ -17,41 +17,14 @@ import {
   type ActivityEntry,
 } from "@/lib/fetchFamilyActivity";
 import { useLocale } from "@/lib/i18n";
+import { nextKeeperFire } from "@/lib/keeperDates";
 
 interface KidPayoutLogProps {
   familyPda: PublicKey;
   /** Unix-seconds timestamp at which the on-chain 30-day gate elapses. The
-   *  keeper bot enforces calendar-1st-of-month UTC on top of this, so the
-   *  ACTUAL first-fire date is the next 1st-of-month after this — see
-   *  firstOfMonthAfter() below. */
+   *  empty-state copy resolves this to the actual keeper fire date via
+   *  nextKeeperFire() — the next 1st-of-calendar-month at or after the gate. */
   nextAllowanceAt: number;
-}
-
-/** Given a unix-second timestamp at which a family becomes on-chain-eligible
- *  for monthly distribution, return the unix-second timestamp at which the
- *  keeper bot will actually fire — i.e. the next 1st-of-calendar-month at
- *  00:00 UTC that is >= the eligibility moment. Pedro's case (created
- *  May 16, gate elapses June 15) returns July 1, not June 15. */
-function firstOfMonthAfter(eligibleAtSec: number): number {
-  const eligible = new Date(eligibleAtSec * 1000);
-  // If eligibility lands exactly on a 1st-of-month at midnight UTC, use it.
-  if (
-    eligible.getUTCDate() === 1 &&
-    eligible.getUTCHours() === 0 &&
-    eligible.getUTCMinutes() === 0 &&
-    eligible.getUTCSeconds() === 0
-  ) {
-    return eligibleAtSec;
-  }
-  const nextFirstMs = Date.UTC(
-    eligible.getUTCFullYear(),
-    eligible.getUTCMonth() + 1,
-    1,
-    0,
-    0,
-    0
-  );
-  return Math.floor(nextFirstMs / 1000);
 }
 
 export function KidPayoutLog({
@@ -107,8 +80,9 @@ export function KidPayoutLog({
   }
 
   if (entries.length === 0) {
-    const firstFireSec = firstOfMonthAfter(nextAllowanceAt);
-    const future = firstFireSec * 1000 > Date.now();
+    const nowSec = Math.floor(Date.now() / 1000);
+    const firstFireSec = nextKeeperFire(nextAllowanceAt, nowSec);
+    const future = firstFireSec > nowSec;
     // Format in UTC because the keeper fires at midnight UTC on the 1st.
     // Without timeZone: 'UTC', a Brazilian viewer sees "Jun 30" because
     // their local clock interprets "Jul 1 00:00 UTC" as the prior evening.
