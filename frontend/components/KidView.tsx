@@ -22,6 +22,7 @@ import { PixGiftModal } from "@/components/PixGiftModal";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { KidPayoutLog } from "@/components/KidPayoutLog";
 import { nextKeeperFire } from "@/lib/keeperDates";
+import { GOAL_ILLOS, type GoalIlloKey } from "@/components/dashboard/icons";
 import { YearRecap } from "@/components/YearRecap";
 import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
 import { getGiftNames, shortPubkey, timeAgo } from "@/lib/giftNames";
@@ -710,6 +711,12 @@ function GoalCard({
   const { t } = useLocale();
   const [imgOk, setImgOk] = useState(true);
   const pct = Math.min(100, (balanceUsd / goal.amountUsd) * 100);
+  // Three-tier fallback: parent-uploaded photo first; then the chosen
+  // built-in illustration (bike / switch / guitar / etc.) from the
+  // parent dashboard's icon set; then a generic 🎯 only if neither.
+  const illoKey: GoalIlloKey | null =
+    goal.illo && goal.illo in GOAL_ILLOS ? (goal.illo as GoalIlloKey) : null;
+  const Illo = illoKey ? GOAL_ILLOS[illoKey] : null;
   return (
     <section className="kv-card kv-goal">
       <div className="kv-card-eyebrow">{t("kid.goal.eyebrow")}</div>
@@ -724,6 +731,11 @@ function GoalCard({
               onError={() => setImgOk(false)}
               referrerPolicy="no-referrer"
             />
+          ) : Illo ? (
+            <>
+              <div className="kv-goal-stripes"></div>
+              <div className="kv-goal-illo">{Illo("#2E5C40")}</div>
+            </>
           ) : (
             <>
               <div className="kv-goal-stripes"></div>
@@ -996,6 +1008,11 @@ const KID_VIEW_STYLES = `
     );
   }
   .kv-goal-fallback { position: relative; font-size: 32px; }
+  .kv-goal-illo {
+    position: relative;
+    width: 64%; height: 64%;
+    display: flex; align-items: center; justify-content: center;
+  }
   .kv-goal-info { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .kv-goal-name {
     font-family: var(--serif); font-size: 24px; line-height: 1.1;
