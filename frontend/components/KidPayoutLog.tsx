@@ -109,11 +109,15 @@ export function KidPayoutLog({
   if (entries.length === 0) {
     const firstFireSec = firstOfMonthAfter(nextAllowanceAt);
     const future = firstFireSec * 1000 > Date.now();
+    // Format in UTC because the keeper fires at midnight UTC on the 1st.
+    // Without timeZone: 'UTC', a Brazilian viewer sees "Jun 30" because
+    // their local clock interprets "Jul 1 00:00 UTC" as the prior evening.
     const emptyCopy = future
       ? t("kid.payouts.empty", {
           date: new Intl.DateTimeFormat(locale, {
             month: "short",
             day: "numeric",
+            timeZone: "UTC",
           }).format(new Date(firstFireSec * 1000)),
         })
       : t("kid.payouts.empty.unknown");
@@ -130,10 +134,14 @@ export function KidPayoutLog({
       <div className="kv-card-eyebrow">{t("kid.payouts.eyebrow")}</div>
       <ul className="kv-wall-list">
         {entries.map((entry) => {
+          // UTC formatting (see empty-state note above) — keeps the displayed
+          // payout date matching the "1st of the month" brand promise instead
+          // of the local clock's interpretation of midnight UTC.
           const formatted = new Intl.DateTimeFormat(locale, {
             month: "short",
             day: "numeric",
             year: "numeric",
+            timeZone: "UTC",
           }).format(new Date(entry.ts * 1000));
           const label =
             entry.kind === "bonus"
