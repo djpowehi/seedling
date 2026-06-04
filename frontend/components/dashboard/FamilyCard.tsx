@@ -47,6 +47,7 @@ import {
   type SavingsGoal,
 } from "@/lib/savingsGoals";
 import type { FamilyView } from "@/lib/fetchFamilies";
+import { nextKeeperFire } from "@/lib/keeperDates";
 import { useToast } from "@/components/Toast";
 import { DepositForm } from "@/components/DepositForm";
 import { PixOfframpForm } from "@/components/PixOfframpForm";
@@ -137,47 +138,27 @@ function makeFmtCountdown(
 // pt-BR → DD/MM. Year shown only when the target falls outside the
 // current calendar year (e.g., year-end bonus 12 months out).
 function formatShortDate(target: Date, locale: "en" | "pt-BR"): string {
-  const sameYear = target.getFullYear() === new Date().getFullYear();
+  // UTC timezone — the keeper fires at midnight UTC on the 1st, so a date
+  // formatted in local time can drift by a day for non-UTC viewers (e.g.
+  // a Brazilian sees "Jun 30" for Jul 1 00:00 UTC). UTC keeps the displayed
+  // date matching the "1st of the month" brand promise.
+  const sameYear = target.getUTCFullYear() === new Date().getUTCFullYear();
   return new Intl.DateTimeFormat(locale, {
     month: "2-digit",
     day: "2-digit",
+    timeZone: "UTC",
     ...(sameYear ? {} : { year: "2-digit" }),
   }).format(target);
 }
 
-// First-day-of-next-month in the user's LOCAL timezone. Monthly allowance
-// fires on the 1st of each calendar month — not 30 days after creation,
-// not 30 days after last distribution. The on-chain 30-day check stays as
-// a safety floor (can't fire faster than monthly); the keeper bot + this
-// display align to the calendar 1st.
-//
-// "Local timezone" comes from Intl — Brazilian parents see the 1st in BRT,
-// US parents see it in their ET/CT/PT. Honest to where the parent lives.
-function nextMonthFirstDay(eligibleAtSec: number): Date {
-  // Earliest possible distribution date = whichever is later: the on-chain
-  // 30-day cooldown end OR today (in case the cooldown is already past).
-  const anchor = new Date(Math.max(Date.now(), eligibleAtSec * 1000));
-  const y = anchor.getFullYear();
-  const m = anchor.getMonth(); // 0-based
-  const dayOfMonth = anchor.getDate();
-  // If the anchor is the 1st AND midnight has just rolled, today qualifies.
-  // Otherwise the next 1st is in the following month.
-  if (dayOfMonth === 1) {
-    return new Date(y, m, 1, 0, 0, 0, 0);
-  }
-  return new Date(y, m + 1, 1, 0, 0, 0, 0);
-}
-
-function daysUntil(target: Date): number {
-  const oneDay = 86_400_000;
-  const todayMidnight = new Date();
-  todayMidnight.setHours(0, 0, 0, 0);
-  const targetMidnight = new Date(target);
-  targetMidnight.setHours(0, 0, 0, 0);
-  return Math.max(
-    0,
-    Math.round((targetMidnight.getTime() - todayMidnight.getTime()) / oneDay)
-  );
+// Calendar-day diff between today and target, both measured in UTC days.
+// Keeper fires at 00:00 UTC on the 1st — anchoring on UTC days here keeps
+// the countdown consistent with what the keeper will actually do, and with
+// the kid view's display (which uses the same UTC-based math).
+function calendarDaysUntilUTC(targetSec: number, nowSec: number): number {
+  const targetDay = Math.floor(targetSec / 86_400);
+  const nowDay = Math.floor(nowSec / 86_400);
+  return Math.max(0, targetDay - nowDay);
 }
 
 export function FamilyCard({
@@ -276,14 +257,16 @@ export function FamilyCard({
 
   const monthlyEligibleAt = lastDistSec + MONTH_SECONDS;
   const monthlySecondsLeft = Math.max(0, monthlyEligibleAt - now);
-  // Display + keeper-bot semantics: "monthly fires on the 1st of each
-  // calendar month, in the parent's local timezone." On-chain 30d floor
-  // remains as the safety guard (can't fire faster than monthly).
-  const nextMonthlyDate = nextMonthFirstDay(monthlyEligibleAt);
-  const daysUntilMonthly = daysUntil(nextMonthlyDate);
-  // "Ready" still uses the on-chain cooldown — but the keeper bot will
-  // also enforce the 1st-of-month gate, so eligibility on the 14th of the
-  // month doesn't actually trigger a payout until the next 1st rolls over.
+  // Display + keeper-bot semantics: keeper fires at 00:00 UTC on the 1st,
+  // with the on-chain 30-day gate as the safety floor. The displayed date
+  // and countdown anchor on the actual keeper fire time (shared util) so
+  // they match what the kid view shows and what the keeper will actually do.
+  const nextMonthlyFireSec = nextKeeperFire(monthlyEligibleAt, now);
+  const nextMonthlyDate = new Date(nextMonthlyFireSec * 1000);
+  const daysUntilMonthly = calendarDaysUntilUTC(nextMonthlyFireSec, now);
+  // "Ready" still uses the on-chain cooldown — the manual fallback button
+  // is gated by what the program will accept, not by the calendar rule
+  // (the keeper bot enforces calendar-1st separately).
   const monthlyReady = monthlySecondsLeft <= 0;
 
   const bonusReady =
@@ -975,7 +958,7 @@ export function FamilyCard({
               </div>
               {(() => {
                 const target = new Date(vaultClock.periodEndTs * 1000);
-                const days = daysUntil(target);
+                const days = calendarDaysUntilUTC(vaultClock.periodEndTs, now);
                 const copy =
                   days === 1
                     ? t("card.bonus_on.day", {

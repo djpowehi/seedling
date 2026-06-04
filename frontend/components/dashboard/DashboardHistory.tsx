@@ -237,7 +237,10 @@ function kindMeta(
 
 // Recent events read better in relative time ("12m ago"); anything 24h+
 // switches to a date. Locale-aware: en → MM/DD, pt-BR → DD/MM via
-// Intl.DateTimeFormat — handles the ordering convention automatically.
+// Intl.DateTimeFormat. UTC timezone matches the rest of the app's
+// keeper-aligned date display — keeps "monthly on Jul 1" consistent with
+// past monthly events also showing as Jul 1 instead of Jun 30 for
+// Brazilian viewers.
 function formatEventTime(
   tsSec: number,
   locale: "en" | "pt-BR",
@@ -252,5 +255,6 @@ function formatEventTime(
   return new Intl.DateTimeFormat(locale, {
     month: "2-digit",
     day: "2-digit",
+    timeZone: "UTC",
   }).format(new Date(tsSec * 1000));
 }
