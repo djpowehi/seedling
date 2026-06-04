@@ -21,6 +21,7 @@ import { GiftModal } from "@/components/GiftModal";
 import { PixGiftModal } from "@/components/PixGiftModal";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { PredictionCard } from "@/components/PredictionCard";
+import { KidPayoutLog } from "@/components/KidPayoutLog";
 import { YearRecap } from "@/components/YearRecap";
 import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
 import { getGiftNames, shortPubkey, timeAgo } from "@/lib/giftNames";
@@ -503,6 +504,11 @@ export function KidView({ family, initialClock, kidName }: Props) {
                 }
               : undefined
           }
+        />
+
+        <KidPayoutLog
+          familyPda={family.pubkey}
+          nextAllowanceAt={nextAllowanceAt}
         />
 
         <button
@@ -1079,6 +1085,21 @@ const KID_VIEW_STYLES = `
   .kv-wall-when {
     font-family: var(--mono); font-size: 11px;
     color: var(--ink-muted); letter-spacing: 0.04em;
+  }
+
+  .kv-payouts-empty {
+    font-family: var(--serif); font-style: italic;
+    font-size: 16px; color: var(--ink-muted);
+    padding: 12px 0 4px;
+  }
+  .kv-payout-bonus {
+    background: linear-gradient(90deg, rgba(212, 175, 55, 0.10) 0%, rgba(212, 175, 55, 0) 60%);
+    border-left: 2px solid rgba(212, 175, 55, 0.7);
+    padding-left: 8px; margin-left: -8px;
+    border-radius: 0 4px 4px 0;
+  }
+  .kv-payout-bonus .kv-wall-who {
+    color: #8a6b15;
   }
 
   .kv-wall-row-skeleton { animation: kv-skeleton-pulse 1.4s ease-in-out infinite; }
