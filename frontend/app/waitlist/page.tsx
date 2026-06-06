@@ -191,27 +191,72 @@ type FormState = {
   note: string;
 };
 
-const COUNTRIES = [
-  "United States",
-  "Brazil",
-  "Canada",
-  "United Kingdom",
-  "Germany",
-  "France",
-  "Spain",
-  "Portugal",
-  "Mexico",
-  "Argentina",
-  "Colombia",
-  "Chile",
-  "Japan",
-  "Singapore",
-  "Australia",
-  "Other",
+// ISO-style codes keyed off the EN/PT-BR translation maps below. We store
+// the code in the form value (stable, machine-readable) but display the
+// locale-appropriate label. Submitting "US" instead of "United States"
+// keeps the downstream webhook clean regardless of which locale the
+// parent used.
+const COUNTRY_CODES = [
+  "US",
+  "BR",
+  "CA",
+  "GB",
+  "DE",
+  "FR",
+  "ES",
+  "PT",
+  "MX",
+  "AR",
+  "CO",
+  "CL",
+  "JP",
+  "SG",
+  "AU",
+  "OTHER",
 ];
 
+const COUNTRY_LABELS: Record<"en" | "pt-BR", Record<string, string>> = {
+  en: {
+    US: "United States",
+    BR: "Brazil",
+    CA: "Canada",
+    GB: "United Kingdom",
+    DE: "Germany",
+    FR: "France",
+    ES: "Spain",
+    PT: "Portugal",
+    MX: "Mexico",
+    AR: "Argentina",
+    CO: "Colombia",
+    CL: "Chile",
+    JP: "Japan",
+    SG: "Singapore",
+    AU: "Australia",
+    OTHER: "Other",
+  },
+  "pt-BR": {
+    US: "Estados Unidos",
+    BR: "Brasil",
+    CA: "Canadá",
+    GB: "Reino Unido",
+    DE: "Alemanha",
+    FR: "França",
+    ES: "Espanha",
+    PT: "Portugal",
+    MX: "México",
+    AR: "Argentina",
+    CO: "Colômbia",
+    CL: "Chile",
+    JP: "Japão",
+    SG: "Singapura",
+    AU: "Austrália",
+    OTHER: "Outro",
+  },
+};
+
 export default function WaitlistPage() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const countryLabels = COUNTRY_LABELS[locale];
   const [form, setForm] = useState<FormState>({
     email: "",
     country: "",
@@ -327,9 +372,9 @@ export default function WaitlistPage() {
                 required
               >
                 <option value="">—</option>
-                {COUNTRIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                {COUNTRY_CODES.map((code) => (
+                  <option key={code} value={code}>
+                    {countryLabels[code] ?? code}
                   </option>
                 ))}
               </select>

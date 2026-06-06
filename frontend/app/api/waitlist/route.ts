@@ -88,7 +88,19 @@ export async function POST(req: NextRequest) {
     ),
   };
 
-  console.log("[waitlist] entry", entry);
+  // PII-redacted log shape — only non-identifying fields. The full entry
+  // (including email + note) is forwarded to the webhook, which owns
+  // persistence + auth. Logging raw email/note leaks to anyone with log
+  // access (Vercel team members, support consoles); the shape below is
+  // enough for ops debugging without exposing the parent.
+  console.log("[waitlist] entry shape", {
+    country: entry.country,
+    depositUsd: entry.depositUsd,
+    kidAge: entry.kidAge,
+    hasNote: entry.note !== null && entry.note.length > 0,
+    ipHash: entry.ipHash,
+    receivedAt: entry.receivedAt,
+  });
 
   const webhookUrl = process.env.WAITLIST_WEBHOOK_URL;
   if (webhookUrl) {

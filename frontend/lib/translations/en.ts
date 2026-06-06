@@ -100,6 +100,7 @@ export const en = {
   // ---- footer ----
   "footer.github": "github",
   "footer.x": "@seedling_sol",
+  "footer.waitlist": "waitlist",
 
   // ---- family card ----
   "card.unnamed": "unnamed",

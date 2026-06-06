@@ -951,6 +951,8 @@ export default function Home() {
             >
               {t("footer.x")}
             </a>
+            &nbsp;·&nbsp;
+            <Link href="/waitlist">{t("footer.waitlist")}</Link>
           </div>
           <div style={{ opacity: 0.55, marginTop: 8 }}>
             {t("landing.footer.copy")}

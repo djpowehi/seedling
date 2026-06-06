@@ -114,6 +114,7 @@ export const ptBR: Translations = {
   // ---- footer ----
   "footer.github": "github",
   "footer.x": "@seedling_sol",
+  "footer.waitlist": "lista de espera",
 
   // ---- family card ----
   "card.unnamed": "sem nome",
