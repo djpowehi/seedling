@@ -672,4 +672,30 @@ export const ptBR: Translations = {
   "generic.try_again": "tentar de novo",
   "generic.usdc": "USDC",
   "generic.brl": "BRL",
+
+  // ---- waitlist (demand test at /waitlist) ----
+  "waitlist.eyebrow": "LISTA DE ESPERA · SEM CARTEIRA",
+  "waitlist.title":
+    "Conta pra gente como o Seedling funcionaria pra sua família.",
+  "waitlist.sub":
+    "Estamos conversando com pais antes de abrir os depósitos pra todo mundo. Cinco perguntas rápidas — sem carteira, sem depósito, sem compromisso. A gente avisa quando estiver pronto pra cadastrar sua família.",
+  "waitlist.field.email": "Email",
+  "waitlist.field.country": "País",
+  "waitlist.field.deposit": "Quanto você depositaria por filho? (USD)",
+  "waitlist.hint.deposit":
+    "Ordem de grandeza — $1.200 cobre um ano com $100/mês, $3.840 dá pra um décimo terceiro de verdade, $6.000+ cobre vários anos com bônus real.",
+  "waitlist.field.kid_age": "Idade do seu filho",
+  "waitlist.field.note": "Mais alguma coisa? (opcional)",
+  "waitlist.placeholder.note":
+    "O que faria isso valer a pena pra sua família? O que te impediria de usar?",
+  "waitlist.submit": "Entrar na lista",
+  "waitlist.submitting": "Enviando…",
+  "waitlist.error.email": "Email inválido.",
+  "waitlist.error.deposit": "Digite um número positivo.",
+  "waitlist.error.kid_age": "Digite uma idade entre 0 e 25.",
+  "waitlist.fineprint":
+    "A gente manda um email só quando estiver pronto pra cadastrar. Não compartilhamos seus dados e não mandamos marketing. Os fundos que você depositaria são non-custodial — a Seedling nunca toma posse; ficam no contrato auditado da Kamino.",
+  "waitlist.success.title": "Você está na lista.",
+  "waitlist.success.body":
+    "A gente manda um email quando estiver pronto pra cadastrar sua família. Enquanto isso, o código aberto está em github.com/djpowehi/seedling se quiser dar uma olhada.",
 };

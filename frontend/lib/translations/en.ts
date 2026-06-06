@@ -682,6 +682,31 @@ export const en = {
   "generic.try_again": "try again",
   "generic.usdc": "USDC",
   "generic.brl": "BRL",
+
+  // ---- waitlist (demand test at /waitlist) ----
+  "waitlist.eyebrow": "WAITLIST · NO WALLET NEEDED",
+  "waitlist.title": "Tell us how Seedling would work for your family.",
+  "waitlist.sub":
+    "We're talking to parents before opening deposits to everyone. Five quick questions — no wallet, no deposit, no commitment. We'll reach out when we're ready to onboard your family.",
+  "waitlist.field.email": "Email",
+  "waitlist.field.country": "Country",
+  "waitlist.field.deposit": "How much would you deposit per kid? (USD)",
+  "waitlist.hint.deposit":
+    "Rough order of magnitude — $1,200 funds a year at $100/month, $3,840 funds a real 13th-month bonus, $6,000+ funds several years with a real bonus.",
+  "waitlist.field.kid_age": "Your kid's age",
+  "waitlist.field.note": "Anything else? (optional)",
+  "waitlist.placeholder.note":
+    "What would make this useful for your family? What would stop you from using it?",
+  "waitlist.submit": "Join the waitlist",
+  "waitlist.submitting": "Submitting…",
+  "waitlist.error.email": "Looks like an invalid email.",
+  "waitlist.error.deposit": "Enter a positive number.",
+  "waitlist.error.kid_age": "Enter an age between 0 and 25.",
+  "waitlist.fineprint":
+    "We'll email you once when we're ready to onboard. We don't share your data and we don't send marketing. The funds you'd eventually deposit are non-custodial — Seedling never takes ownership; they sit in Kamino's audited contract.",
+  "waitlist.success.title": "You're on the list.",
+  "waitlist.success.body":
+    "We'll reach out by email when we're ready to onboard your family. In the meantime, the open-source code is at github.com/djpowehi/seedling if you want to dig in.",
 } as const;
 
 // Type for satellite locale files (pt-BR, future) — keys are fixed
