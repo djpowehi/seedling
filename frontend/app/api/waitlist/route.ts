@@ -1,11 +1,21 @@
 // Waitlist submission endpoint. Validates the payload + forwards to whatever
-// WAITLIST_WEBHOOK_URL is set to (Zapier, Slack, n8n, custom — any POST sink
-// that accepts JSON). Without the env var, the entry is just console.logged
-// and the response is still 200 so the form UX doesn't fail before deploy.
+// WAITLIST_WEBHOOK_URL is set to. Auto-detects three common destinations
+// from the URL and formats payloads natively for each:
+//
+//   - Discord (https://discord.com/api/webhooks/…)  → embed with fields
+//   - Slack (https://hooks.slack.com/…)             → Block Kit message
+//   - Anything else (Zapier, n8n, custom)            → raw JSON entry
+//
+// Without the env var, the entry is just console.logged and the response
+// is still 200 so the form UX doesn't fail before deploy.
 //
 // Storage is deliberately decoupled: this endpoint doesn't write to a DB
 // directly. The downstream webhook owns persistence + analytics. Set the
 // env var when ready.
+//
+// Discord setup (recommended): in any channel, Edit Channel → Integrations
+// → Webhooks → New Webhook → Copy URL. Set WAITLIST_WEBHOOK_URL to that
+// URL in Vercel env vars. Done — submissions land as embedded messages.
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -105,10 +115,11 @@ export async function POST(req: NextRequest) {
   const webhookUrl = process.env.WAITLIST_WEBHOOK_URL;
   if (webhookUrl) {
     try {
+      const payload = formatForWebhook(webhookUrl, entry);
       const res = await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entry),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         // Don't fail the user's submission if the downstream sink hiccups —
@@ -128,6 +139,97 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+type Entry = WaitlistPayload & {
+  receivedAt: string;
+  userAgent: string | null;
+  referer: string | null;
+  ipHash: string;
+};
+
+/** Detect the webhook destination from the URL and format the payload
+ *  natively. Discord wants `embeds`, Slack wants `blocks`, anything else
+ *  gets the raw JSON entry (Zapier, n8n, custom — they parse arbitrary
+ *  JSON). Same one env var works regardless of where you point it. */
+function formatForWebhook(url: string, entry: Entry): unknown {
+  if (url.includes("discord.com/api/webhooks/")) {
+    return formatDiscord(entry);
+  }
+  if (url.includes("hooks.slack.com/")) {
+    return formatSlack(entry);
+  }
+  return entry;
+}
+
+function formatDiscord(entry: Entry) {
+  const fields = [
+    { name: "Email", value: entry.email, inline: false },
+    { name: "Country", value: entry.country, inline: true },
+    {
+      name: "Deposit intent",
+      value: `$${entry.depositUsd.toLocaleString("en-US")} USDC`,
+      inline: true,
+    },
+    { name: "Kid's age", value: String(entry.kidAge), inline: true },
+  ];
+  if (entry.note) {
+    fields.push({
+      name: "Note",
+      value: entry.note.slice(0, 1024),
+      inline: false,
+    });
+  }
+  return {
+    content: "🌱 new waitlist signup",
+    embeds: [
+      {
+        title: "Seedling waitlist",
+        color: 0x2e5c40, // green-700 from the brand palette
+        fields,
+        footer: { text: `received ${entry.receivedAt} · ip ${entry.ipHash}` },
+      },
+    ],
+  };
+}
+
+function formatSlack(entry: Entry) {
+  const blocks: Array<Record<string, unknown>> = [
+    {
+      type: "header",
+      text: { type: "plain_text", text: "🌱 New waitlist signup" },
+    },
+    {
+      type: "section",
+      fields: [
+        { type: "mrkdwn", text: `*Email*\n${entry.email}` },
+        { type: "mrkdwn", text: `*Country*\n${entry.country}` },
+        {
+          type: "mrkdwn",
+          text: `*Deposit intent*\n$${entry.depositUsd.toLocaleString(
+            "en-US"
+          )} USDC`,
+        },
+        { type: "mrkdwn", text: `*Kid's age*\n${entry.kidAge}` },
+      ],
+    },
+  ];
+  if (entry.note) {
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: `*Note*\n${entry.note.slice(0, 2000)}` },
+    });
+  }
+  blocks.push({
+    type: "context",
+    elements: [
+      {
+        type: "mrkdwn",
+        text: `received ${entry.receivedAt} · ip ${entry.ipHash}`,
+      },
+    ],
+  });
+  return { blocks };
 }
 
 // Lightweight non-cryptographic hash for IP correlation in the webhook
