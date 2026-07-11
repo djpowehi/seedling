@@ -192,7 +192,10 @@ async function dispatch(
   }
 }
 
-async function runKeeper(options: { dryRun: boolean }): Promise<{
+async function runKeeper(options: {
+  dryRun: boolean;
+  force?: boolean;
+}): Promise<{
   summary: {
     families: number;
     monthlyEligible: number;
@@ -206,7 +209,11 @@ async function runKeeper(options: { dryRun: boolean }): Promise<{
 }> {
   const connection = getConnection();
   const nowSec = Math.floor(Date.now() / 1000);
-  const todayIsFirstUTC = isTodayFirstOfMonthUTC();
+  // `force` (authorized manual trigger) bypasses the off-chain calendar-1st
+  // convenience gate. The on-chain 30-day cooldown still applies, so this
+  // can never over-pay — it just lets an operator fire an already-eligible
+  // distribution off the 1st.
+  const todayIsFirstUTC = isTodayFirstOfMonthUTC() || options.force === true;
 
   const [families, vault] = await Promise.all([
     fetchAllFamilies(connection),
@@ -263,9 +270,10 @@ async function handle(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   try {
-    const dryRun =
-      new URL(req.url).searchParams.get("dryRun") === "true";
-    const result = await runKeeper({ dryRun });
+    const params = new URL(req.url).searchParams;
+    const dryRun = params.get("dryRun") === "true";
+    const force = params.get("force") === "true";
+    const result = await runKeeper({ dryRun, force });
     return NextResponse.json({ ok: true, ...result });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
