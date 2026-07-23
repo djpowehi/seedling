@@ -26,11 +26,6 @@ import { GOAL_ILLOS, type GoalIlloKey } from "@/components/dashboard/icons";
 import { YearRecap } from "@/components/YearRecap";
 import { fetchGifts, type GiftEntry } from "@/lib/fetchGifts";
 import { getGiftNames, shortPubkey, timeAgo } from "@/lib/giftNames";
-import {
-  currentCycleKey,
-  getPrediction,
-  previousCycleKey,
-} from "@/lib/predictions";
 import { useToast } from "@/components/Toast";
 import { celebrateDeposit } from "@/lib/celebrate";
 import { useLocale } from "@/lib/i18n";
@@ -250,35 +245,12 @@ export function KidView({ family, initialClock, kidName }: Props) {
   // gift button without dropping either payment rail.
   const [giftChooserOpen, setGiftChooserOpen] = useState(false);
 
-  // Predict-and-reveal: hide the "earned in yield" stat tile UNLESS the
-  // CURRENT month's prediction is locked (or no prior month is awaiting
-  // reveal). New kids see "— · —" until they commit a guess for this
-  // calendar month. After locking, the tile stays hidden the rest of the
-  // month so the kid doesn't watch the answer accumulate live. After
-  // month rollover, the prior cycle resolves and the tile reappears.
-  const [hideYield, setHideYield] = useState(true);
-  useEffect(() => {
-    const check = () => {
-      const cycle = currentCycleKey();
-      const thisMonth = getPrediction(familyKey, cycle);
-      // Calendar guard: a brand-new family (created this month) has no
-      // closed prior cycle to guess about, so PredictionCard renders the
-      // "first round opens on the 1st" placeholder with no input. In that
-      // state we must NOT hide the yield tile — the kid has no way to
-      // satisfy the "make your guess first" prompt, and the tile stays
-      // permanently masked.
-      const targetCycle = previousCycleKey(cycle);
-      const familyDate = new Date(createdAtSec * 1000);
-      const familyCycle = `${familyDate.getFullYear()}-${String(
-        familyDate.getMonth() + 1
-      ).padStart(2, "0")}`;
-      const noRoundYet = targetCycle < familyCycle;
-      setHideYield(!thisMonth && !noRoundYet);
-    };
-    check();
-    const id = setInterval(check, 2_000);
-    return () => clearInterval(id);
-  }, [familyKey, createdAtSec]);
+  // Always show the real balance and yield. A previous "predict-and-reveal"
+  // game masked these until the kid guessed — but the guess UI (PredictionCard)
+  // is no longer rendered anywhere, so the mask could never be lifted and a
+  // family's real money stayed hidden indefinitely. Hiding a family's own
+  // balance also contradicts the product's transparency promise. Masking removed.
+  const hideYield = false;
 
   // ───── gift wall (every deposit shows — parent top-ups + outside gifts) ─────
   const [gifts, setGifts] = useState<GiftEntry[]>([]);
