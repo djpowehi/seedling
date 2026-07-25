@@ -31,7 +31,7 @@ export const en = {
   "landing.step.i.title": "Parents deposit once. That's it.",
   "landing.step.i.body":
     "A single transfer sets up the whole year. No subscriptions, no monthly transfers to remember.",
-  "landing.step.ii.title": "Earning ~8% a year on Kamino.",
+  "landing.step.ii.title": "Your money earns, on its own, on Kamino.",
   "landing.step.ii.body":
     "The deposit goes into Kamino — an audited Solana lending platform. Interest grows automatically in the background. Estimated · based on current rates.",
   "landing.step.iii.title":
@@ -61,7 +61,7 @@ export const en = {
     "Take out what you deposited plus what it earned — instantly, no fees, no waiting periods. Only you, the parent, can move the money. The kid never has direct access.",
   "landing.trust.yield.title": "Returns can go up or down.",
   "landing.trust.yield.body":
-    "Kamino currently pays around 8% per year, but rates move with demand — just like a savings account. The year-end bonus is exactly what the money earned. Returns aren't FDIC insured — Seedling isn't a bank. The funds sit in Kamino's audited contract, which anyone can inspect at any time.",
+    "Kamino's rate moves with demand (historically 2–10% a year) — just like a savings account. The year-end bonus is exactly what the money earned. Returns aren't FDIC insured — Seedling isn't a bank. The funds sit in Kamino's audited contract, which anyone can inspect at any time.",
   "landing.footer.built": "Built on Kamino · Solana",
   "landing.footer.copy": "© 2026 · seedlingsol.xyz",
 
@@ -501,7 +501,7 @@ export const en = {
   "kid.greeting.fallback": "friend",
   "kid.ticker.label": "your money, right now",
   "kid.ticker.sub.guess": "make your guess to see the cents",
-  "kid.ticker.sub.live": "estimated 8% APY · ticking on Solana",
+  "kid.ticker.sub.live": "ticking on Solana",
   "kid.stat.savings": "your savings",
   "kid.stat.savings.foot": "from your family",
   "kid.stat.yield": "earned in yield",

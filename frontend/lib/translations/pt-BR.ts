@@ -42,7 +42,7 @@ export const ptBR: Translations = {
   "landing.step.i.title": "Os pais depositam uma vez. Só isso.",
   "landing.step.i.body":
     "Um único depósito cobre o ano inteiro. Sem mensalidade, sem aquela transferência todo mês pra ficar lembrando.",
-  "landing.step.ii.title": "Rende ~8% ao ano em Kamino.",
+  "landing.step.ii.title": "Seu dinheiro rende, sozinho, em Kamino.",
   "landing.step.ii.body":
     "O depósito vai pra Kamino — uma plataforma de empréstimos auditada na Solana. O dinheiro rende sozinho, sem você precisar fazer nada. Estimado · com base nas taxas atuais.",
   "landing.step.iii.title":
@@ -75,7 +75,7 @@ export const ptBR: Translations = {
     "Tira o que depositou mais o que rendeu — na hora, sem taxas, sem prazo de carência. Só você pode mexer no dinheiro. A criança nunca tem acesso direto.",
   "landing.trust.yield.title": "O rendimento sobe e desce.",
   "landing.trust.yield.body":
-    "Hoje a Kamino paga em torno de 8% ao ano, mas a taxa varia conforme a demanda — igual a poupança, só que sem garantia do FGC (a Seedling não é banco). A gente nunca promete um número fixo: o décimo terceiro é exatamente o que o dinheiro rendeu.",
+    "A taxa da Kamino varia conforme a demanda (historicamente entre 2% e 10% ao ano) — igual a poupança, só que sem garantia do FGC (a Seedling não é banco). A gente nunca promete um número fixo: o décimo terceiro é exatamente o que o dinheiro rendeu.",
   "landing.footer.built": "Construído com Kamino · Solana",
   "landing.footer.copy": "© 2026 · seedlingsol.xyz",
 
@@ -506,7 +506,7 @@ export const ptBR: Translations = {
   "kid.greeting.fallback": "amigo",
   "kid.ticker.label": "seu dinheiro, agora",
   "kid.ticker.sub.guess": "faça seu palpite para ver os centavos",
-  "kid.ticker.sub.live": "estimativa 8% APY · rendendo na Solana",
+  "kid.ticker.sub.live": "rendendo na Solana",
   "kid.stat.savings": "suas economias",
   "kid.stat.savings.foot": "da sua família",
   "kid.stat.yield": "rendimento ganho",
